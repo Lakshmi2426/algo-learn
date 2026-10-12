@@ -9,13 +9,6 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 
 const getAppDir = (): string => {
-  if (typeof __dirname !== "undefined" && __dirname) {
-    return __dirname;
-  }
-  try {
-    const metaUrl = (new Function("return import.meta.url"))();
-    if (metaUrl) return path.dirname(fileURLToPath(metaUrl));
-  } catch {}
   return process.cwd();
 };
 
