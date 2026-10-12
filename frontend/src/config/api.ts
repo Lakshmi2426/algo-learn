@@ -4,7 +4,7 @@
  * Ensures production requests reach the actual Render backend without relying on dev proxies.
  */
 
-const DEFAULT_REMOTE_BACKEND = 'https://algolearn-backend-t9c6.onrender.com';
+const DEFAULT_REMOTE_BACKEND = 'https://algolearn-1yp9.onrender.com'
 
 export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_URL) {
