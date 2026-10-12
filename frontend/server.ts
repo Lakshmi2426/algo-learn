@@ -123,6 +123,12 @@ async function startServer() {
       return res.status(404).send("Module not found");
     }
 
+    const builtPublicHtml = path.join(projectRoot, "public", "dsa-modules", rawId, "index.html");
+    if (fs.existsSync(builtPublicHtml)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.sendFile(builtPublicHtml);
+    }
+
     let htmlPath = path.join(projectRoot, "DSA topics", folderName, "index.html");
 
     if (!fs.existsSync(htmlPath)) {
@@ -576,7 +582,14 @@ async function startServer() {
     res.send(rawHtml);
   };
 
-  app.get(["/dsa-modules/:moduleId", "/dsa-modules/:moduleId/"], handleModuleRequest);
+  app.get(["/dsa-modules/:moduleId", "/dsa-modules/:moduleId/"], (req, res, next) => {
+    const pathOnly = req.path || "";
+    if (!pathOnly.endsWith("/")) {
+      const q = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      return res.redirect(301, `${pathOnly}/${q}`);
+    }
+    return handleModuleRequest(req, res);
+  });
   app.get("/dsa-modules/:moduleId/*", (req, res, next) => {
     const rawId = (req.params.moduleId || "").toLowerCase();
     const folderName = resolveFolderName(rawId);
@@ -591,6 +604,12 @@ async function startServer() {
     // If requesting subpath that isn't a static file, serve index.html for SPA subrouting
     if (subpath.endsWith(".html") || !path.extname(subpath)) {
       return handleModuleRequest(req, res);
+    }
+
+    // Check pre-built public/dsa-modules/<rawId>/
+    let publicBuilt = path.join(projectRoot, "public", "dsa-modules", rawId, subpath);
+    if (fs.existsSync(publicBuilt) && fs.statSync(publicBuilt).isFile()) {
+      return res.sendFile(publicBuilt);
     }
 
     // Check primary folder public/
@@ -663,7 +682,7 @@ async function startServer() {
   // ============================================================
   // BACKEND API PROXY (Port 5000: Express + MongoDB Auth & Students)
   // ============================================================
-  const DEFAULT_REMOTE_BACKEND = "https://algolearn-backend-t9c6.onrender.com";
+  const DEFAULT_REMOTE_BACKEND = "https://algolearn-1yp9.onrender.com";
   const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
   const configuredBackend = process.env.BACKEND_URL?.trim();
 

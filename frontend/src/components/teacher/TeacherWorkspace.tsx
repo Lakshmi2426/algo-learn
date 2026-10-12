@@ -87,11 +87,9 @@ export const TeacherWorkspace: React.FC<TeacherWorkspaceProps> = ({
     }
   }, [teachers, selectedTeacher]);
 
-  // Filter student's existing conversations
+  // Filter student's existing conversations strictly by authenticated user.id
   const studentConversations = questions.filter(
-    (q) =>
-      isAuthenticated &&
-      (q.studentId === user.id || q.studentName === user.name)
+    (q) => isAuthenticated && user?.id && q.studentId === user.id
   );
 
   // Find active conversation

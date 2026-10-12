@@ -27,32 +27,16 @@ interface QuestionsContextType {
 const QuestionsContext = createContext<QuestionsContextType | undefined>(undefined);
 
 export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, role } = useUser();
+  const { user, role, isAuthenticated } = useUser();
   const [questions, setQuestions] = useState<StudentQuestion[]>(() => {
-    if (typeof window !== 'undefined') {
-      // One-time purge of seeded mock questions from localStorage
-      if (localStorage.getItem('algolearn_questions_purged_v2') !== 'true') {
-        localStorage.removeItem('algolearn_student_questions');
-        localStorage.setItem('algolearn_questions_purged_v2', 'true');
-        return [];
-      }
-
-      const saved = localStorage.getItem('algolearn_student_questions');
+    if (typeof window !== 'undefined' && user?.id) {
+      const studentStorageKey = `algolearn_student_questions_${user.id}`;
+      const saved = localStorage.getItem(studentStorageKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            const cleaned = parsed
-              .filter(
-                (q: StudentQuestion) =>
-                  !['q-101', 'q-102', 'q-103', 'q-104'].includes(q.id) &&
-                  !['Rahul Sharma', 'Ananya Patel', 'Marcus Vance'].includes(q.studentName)
-              )
-              .map((q: StudentQuestion) => ({
-                ...q,
-                studentAvatar: q.studentAvatar && q.studentAvatar.includes('unsplash.com') ? '' : q.studentAvatar,
-              }));
-            return cleaned;
+            return parsed;
           }
         } catch (e) {
           console.error(e);
@@ -62,38 +46,76 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return INITIAL_QUESTIONS;
   });
 
-  // Try to fetch questions from backend on mount
+  // Synchronize questions when authenticated student changes or logs out
   useEffect(() => {
-    fetch(apiUrl('/api/questions'))
-      .then((res) => res.json())
+    if (typeof window === 'undefined') return;
+
+    if (!isAuthenticated || !user?.id) {
+      // Clear questions from state when not authenticated or logged out
+      setQuestions([]);
+      return;
+    }
+
+    const studentStorageKey = `algolearn_student_questions_${user.id}`;
+    const token = localStorage.getItem('algolearn_token');
+
+    // 1. Load this student's cached conversations if present
+    const saved = localStorage.getItem(studentStorageKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setQuestions(parsed);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fetch authenticated student's private conversations from backend
+    fetch(apiUrl('/api/questions'), {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('API unavailable');
+        return res.json();
+      })
       .then((data) => {
         if (data?.questions && Array.isArray(data.questions)) {
-          const cleanServer = data.questions.filter(
-            (q: StudentQuestion) =>
-              !['q-101', 'q-102', 'q-103', 'q-104'].includes(q.id) &&
-              !['Rahul Sharma', 'Ananya Patel', 'Marcus Vance'].includes(q.studentName)
-          );
-          setQuestions((prev) => {
-            const ids = new Set(cleanServer.map((q: StudentQuestion) => q.id));
-            const localOnly = prev.filter((q) => !ids.has(q.id));
-            const merged = [...cleanServer, ...localOnly];
-            localStorage.setItem('algolearn_student_questions', JSON.stringify(merged));
-            return merged;
-          });
+          // Strictly ensure conversations belong to this student if not admin
+          const filtered = role === 'admin'
+            ? data.questions
+            : data.questions.filter((q: StudentQuestion) => q.studentId === user.id);
+
+          setQuestions(filtered);
+          localStorage.setItem(studentStorageKey, JSON.stringify(filtered));
         }
       })
       .catch((err) => {
-        // Backend fallback - gracefully use local state
         console.log('Using local questions storage fallback', err);
       });
+  }, [user?.id, isAuthenticated, role]);
+
+  // Listen for student logout event to immediately clear chat state
+  useEffect(() => {
+    const handleLogout = () => {
+      setQuestions([]);
+    };
+
+    window.addEventListener('algolearn_student_logged_out', handleLogout);
+    return () => {
+      window.removeEventListener('algolearn_student_logged_out', handleLogout);
+    };
   }, []);
 
-  // Save to localStorage whenever questions change
+  // Save to private student storage whenever questions change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('algolearn_student_questions', JSON.stringify(questions));
+    if (typeof window !== 'undefined' && user?.id && isAuthenticated) {
+      const studentStorageKey = `algolearn_student_questions_${user.id}`;
+      localStorage.setItem(studentStorageKey, JSON.stringify(questions));
     }
-  }, [questions]);
+  }, [questions, user?.id, isAuthenticated]);
 
   const sendQuestion = async (params: {
     teacherId: string;
@@ -104,6 +126,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     questionId?: string;
   }): Promise<StudentQuestion> => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const token = typeof window !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
 
     // If an existing conversation ID is provided and found, append the student's message
     if (params.questionId) {
@@ -131,7 +154,11 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         try {
           await fetch(apiUrl('/api/questions'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: 'include',
             body: JSON.stringify({
               questionId: existing.id,
               studentId: user.id,
@@ -185,7 +212,11 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       await fetch(apiUrl('/api/questions'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           studentId: user.id,
           studentName: user.name,
@@ -210,6 +241,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     teacherName?: string;
   }): Promise<void> => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const token = typeof window !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
 
     setQuestions((prev) =>
       prev.map((q) => {
@@ -238,7 +270,11 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       await fetch(apiUrl(`/api/questions/${params.questionId}/reply`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           answer: params.answer,
           teacherName: params.teacherName || (user.name && user.name !== 'System Administrator' ? user.name : undefined),
@@ -258,7 +294,6 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const isOwner =
       role === 'admin' ||
       targetQ.studentId === effectiveStudentId ||
-      targetQ.studentName === user.name ||
       targetQ.studentId === 'std-current';
 
     if (!isOwner) {
@@ -269,10 +304,17 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Immediately remove from visible questions
     setQuestions((prev) => prev.filter((q) => q.id !== questionId));
 
+    const token = typeof window !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
     try {
       await fetch(
-        apiUrl(`/api/questions/${questionId}?studentId=${encodeURIComponent(effectiveStudentId)}&studentName=${encodeURIComponent(user.name)}`),
-        { method: 'DELETE' }
+        apiUrl(`/api/questions/${questionId}`),
+        {
+          method: 'DELETE',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        }
       );
     } catch (e) {
       console.log('Cleared from local storage fallback');
@@ -280,8 +322,9 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const getStudentQuestions = () => {
-    // Return all questions for the current user, or questions created by student
-    return questions.filter((q) => q.studentId === user.id || q.studentName === user.name);
+    // Return conversations belonging strictly to current student
+    if (!user.id) return [];
+    return questions.filter((q) => q.studentId === user.id);
   };
 
   return (

@@ -11,40 +11,53 @@ dotenv.config();
 
 const app = express();
 
+// Enable reverse proxy support for Render hosting (for accurate client IP detection)
+app.set('trust proxy', 1);
+
 // Allowed Origins for Credentialed Cross-Origin Requests
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'https://algo-learn-tau.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 // CORS configuration supporting credentials (cookies & auth headers)
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.indexOf(origin) !== -1 ||
-        origin.endsWith('.onrender.com') ||
-        origin.endsWith('.vercel.app') ||
-        process.env.NODE_ENV !== 'production'
-      ) {
-        return callback(null, origin);
-      }
-      return callback(null, origin);
-    },
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.vercel.app') ||
+      process.env.NODE_ENV !== 'production'
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
 
-// Lightweight in-memory rate limiter for auth abuse protection
+// Lightweight in-memory rate limiter specifically for login and signup brute-force protection
 const authRateLimitMap = new Map();
 const authRateLimiter = (req, res, next) => {
+  // Never block OPTIONS preflight checks
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   const ip = req.ip || req.connection?.remoteAddress || 'unknown';
   const now = Date.now();
   const windowMs = 60 * 1000;
@@ -96,10 +109,20 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Mount Routes with Rate Limiting on Auth
-app.use('/api/auth', authRateLimiter, authRoutes);
+// Import additional routes
+const teachersRoutes = require('./routes/teachers');
+const questionsRoutes = require('./routes/questions');
+
+// Apply rate limiting specifically to login and signup endpoints (not /me or /logout)
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/signup', authRateLimiter);
+
+// Mount API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/teachers', teachersRoutes);
+app.use('/api/questions', questionsRoutes);
 
 // Global Error Handler (Sanitized for production)
 app.use((err, _req, res, _next) => {

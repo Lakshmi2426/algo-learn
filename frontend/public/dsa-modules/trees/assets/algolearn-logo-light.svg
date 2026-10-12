@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="540" height="160" fill="none">
+  <defs>
+    <linearGradient id="mortarboardGradLight" x1="20" y1="18" x2="118" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#040F28" />
+      <stop offset="28%" stop-color="#0A2254" />
+      <stop offset="65%" stop-color="#1446A0" />
+      <stop offset="100%" stop-color="#1E65FF" />
+    </linearGradient>
+    <linearGradient id="mortarboardRimGradLight" x1="12" y1="46" x2="124" y2="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E40AF" stop-opacity="0.4" />
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.5" />
+    </linearGradient>
+    <linearGradient id="extrusionLeftGradLight" x1="12" y1="46" x2="68" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#05122E" />
+      <stop offset="100%" stop-color="#0A255C" />
+    </linearGradient>
+    <linearGradient id="extrusionRightGradLight" x1="68" y1="82" x2="124" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0C2C6B" />
+      <stop offset="100%" stop-color="#1D58D8" />
+    </linearGradient>
+    <linearGradient id="skullCapGradLight" x1="22" y1="96" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="25%" stop-color="#6366F1" />
+      <stop offset="60%" stop-color="#2563EB" />
+      <stop offset="85%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#00D2FF" />
+    </linearGradient>
+    <linearGradient id="collarHighlightGradLight" x1="24" y1="68" x2="94" y2="68" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95" />
+      <stop offset="60%" stop-color="#E0F2FE" stop-opacity="0.98" />
+      <stop offset="100%" stop-color="#BAE6FD" stop-opacity="0.9" />
+    </linearGradient>
+    <linearGradient id="tasselGradLight" x1="86" y1="46" x2="96" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E40AF" />
+      <stop offset="40%" stop-color="#0284C7" />
+      <stop offset="80%" stop-color="#00A3FF" />
+      <stop offset="100%" stop-color="#00E5FF" />
+    </linearGradient>
+    <linearGradient id="learnGradLight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0066FF" />
+      <stop offset="25%" stop-color="#1E6BFF" />
+      <stop offset="55%" stop-color="#3B82F6" />
+      <stop offset="78%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+
+  <!-- Graduation Cap Icon (Left) -->
+  <g transform="translate(10, 10)">
+    <!-- Skull Cap Base -->
+    <path d="M 27 68 C 27 68 25 96 26 102 C 27 108 34 116 52 120 C 66 123 78 119 86 112 C 92 107 94 98 94 65 C 86 73 75 79 60 79 C 45 79 34 74 27 68 Z" fill="url(#skullCapGradLight)" />
+    <path d="M 26 102 C 27 108 34 116 52 120 C 66 123 78 119 86 112 C 92 107 94 98 94 92 C 93 100 89 105 84 109 C 76 115 64 118 51 116 C 34 112 28 105 26 102 Z" fill="#000000" fill-opacity="0.25" />
+    <path d="M 26 67 C 33 73 45 78 60 78 C 74 78 86 72 94 64 C 94 67 85 75 60 81 C 44 81 32 75 26 67 Z" fill="url(#collarHighlightGradLight)" />
+    <!-- Bevel Extrusion -->
+    <path d="M 10 47.5 L 10 52.5 C 10 55 13 58 17 60.5 L 64 83 C 66 84 70 84 72 83 L 72 77 C 70 78 66 78 64 77 L 17 54.5 C 13 52 10 49.5 10 47.5 Z" fill="url(#extrusionLeftGradLight)" />
+    <path d="M 64 83 C 66 84 70 84 72 83 L 119 59.5 C 123 57.5 126 54.5 126 52 L 126 47 C 126 49.5 123 52.5 119 54.5 L 72 77 C 70 78 66 78 64 77 L 64 83 Z" fill="url(#extrusionRightGradLight)" />
+    <!-- Mortarboard Top -->
+    <path d="M 16.5 44 C 11 46.5 11 49.5 16.5 52 L 63.5 75 C 66.5 76.5 70.5 76.5 73.5 75 L 119.5 52 C 125 49.5 125 46.5 119.5 44 L 73.5 21 C 70.5 19.5 66.5 19.5 63.5 21 L 16.5 44 Z" fill="url(#mortarboardGradLight)" stroke="url(#mortarboardRimGradLight)" stroke-width="1.2" stroke-linejoin="round" />
+    <!-- Tassel -->
+    <ellipse cx="68" cy="46" rx="3.8" ry="2.4" fill="#1E3A8A" stroke="#3B82F6" stroke-width="0.8" />
+    <path d="M 68 47 C 76 49 84 52 89 57 C 92 60 93 64 93 75 L 93 78" stroke="url(#tasselGradLight)" stroke-width="2.4" stroke-linecap="round" fill="none" />
+    <rect x="90.8" y="77" width="4.4" height="3" rx="1.4" fill="#38BDF8" stroke="#0284C7" stroke-width="0.6" />
+    <path d="M 91.5 80 C 90 84 87.5 91 87.5 95.5 C 87.5 99.5 90 102.5 93 102.5 C 96 102.5 98.5 99.5 98.5 95.5 C 98.5 91 96 84 94.5 80 Z" fill="url(#tasselGradLight)" />
+  </g>
+
+  <!-- Typography (Right) -->
+  <g transform="translate(165, 84)">
+    <text font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="900" font-size="64" letter-spacing="-1.5">
+      <tspan fill="#0B132A">Algo</tspan><tspan fill="url(#learnGradLight)">Learn</tspan>
+    </text>
+    <text y="36" x="4" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="700" font-size="18" fill="#4A5568" letter-spacing="5">
+      YOUR DSA JOURNEY
+    </text>
+  </g>
+</svg>

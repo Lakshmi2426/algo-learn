@@ -1,21 +1,16 @@
 {
   "version": 2,
+  "redirects": [
+    {
+      "source": "/dsa-modules/:moduleId",
+      "destination": "/dsa-modules/:moduleId/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
-      "source": "/api/auth/:match*",
-      "destination": "https://algolearn-backend-t9c6.onrender.com/api/auth/:match*"
-    },
-    {
-      "source": "/api/students/:match*",
-      "destination": "https://algolearn-backend-t9c6.onrender.com/api/students/:match*"
-    },
-    {
-      "source": "/api/leaderboard/:match*",
-      "destination": "https://algolearn-backend-t9c6.onrender.com/api/leaderboard/:match*"
-    },
-    {
-      "source": "/api/health",
-      "destination": "https://algolearn-backend-t9c6.onrender.com/api/health"
+      "source": "/api/:match*",
+      "destination": "https://algolearn-1yp9.onrender.com/api/:match*"
     },
     {
       "source": "/(.*)",

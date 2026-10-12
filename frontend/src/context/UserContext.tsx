@@ -911,22 +911,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('algolearn_token');
-      if (token) {
-        try {
-          await fetch(apiUrl('/api/auth/logout'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: 'include',
-          });
-        } catch (e) {
-          console.error('Logout error:', e);
-        }
+      const currentKey = getActiveStudentKey();
+      try {
+        await fetch(apiUrl('/api/auth/logout'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ regdNo: user?.regdNo || currentKey }),
+          credentials: 'include',
+        });
+      } catch (e) {
+        console.error('Logout error:', e);
       }
 
-      const currentKey = getActiveStudentKey();
       if (currentKey) {
         // Snapshot current student's progress before logout
         const snap = snapshotActiveModuleKeys();
@@ -945,7 +944,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('dsa_user_email');
       localStorage.removeItem('current_user');
 
+      // Clear Ask a Teacher chat history from local storage on logout for student privacy
+      localStorage.removeItem('algolearn_student_questions');
+      if (user?.id) {
+        localStorage.removeItem(`algolearn_student_questions_${user.id}`);
+      }
+
       window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
+      window.dispatchEvent(new CustomEvent('algolearn_student_logged_out'));
     }
 
     setIsAuthenticated(false);

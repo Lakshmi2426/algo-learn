@@ -32,7 +32,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       const topicIds = Object.keys(INTEGRATED_MODULES);
       topicIds.forEach((id) => {
         try {
-          fetch(`/dsa-modules/${id}`, { method: 'HEAD' }).catch(() => {});
+          fetch(`/dsa-modules/${id}/`, { method: 'HEAD' }).catch(() => {});
         } catch {}
       });
     }, 2000);
@@ -182,6 +182,13 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
   const currentModId = moduleConfig?.moduleId || '';
   const isCurrentLoaded = currentModId ? loadedMap[currentModId] : true;
 
+  const effectiveModules = Array.from(
+    new Set([
+      ...mountedModules,
+      ...(currentModId ? [currentModId] : []),
+    ])
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 w-screen h-screen overflow-hidden transition-colors duration-200"
@@ -192,7 +199,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
         <div className="absolute top-0 left-0 right-0 z-50 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-600 animate-pulse" />
       )}
 
-      {mountedModules.map((modId) => {
+      {effectiveModules.map((modId) => {
         const isActive = modId === currentModId;
         const config = INTEGRATED_MODULES[modId] || { moduleId: modId, title: modId };
 
@@ -202,7 +209,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
             ref={(el) => {
               iframeRefs.current[modId] = el;
             }}
-            src={`/dsa-modules/${modId}`}
+            src={`/dsa-modules/${modId}/`}
             title={`AlgoLearn - ${config.title}`}
             onLoad={() => handleIframeLoad(modId)}
             className="w-full h-full border-none block m-0 p-0"

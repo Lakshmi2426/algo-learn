@@ -1,0 +1,17 @@
+{
+  "name": "algolearn-bfs",
+  "version": "1.0.0",
+  "description": "Interactive Breadth First Search (BFS) Traversal Engine",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "lint": "echo 'No lint errors'",
+    "build": "echo 'No build step required'",
+    "start": "node server.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0"
+  }
+}

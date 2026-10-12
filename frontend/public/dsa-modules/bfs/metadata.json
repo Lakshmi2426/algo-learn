@@ -1,0 +1,8 @@
+{
+  "name": "AlgoLearn - BFS Traversal Engine",
+  "description": "Interactive Breadth First Search (BFS) Traversal Engine and DSA learning platform with visualizations, games, and quizzes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

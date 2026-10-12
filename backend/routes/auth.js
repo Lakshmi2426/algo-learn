@@ -235,10 +235,16 @@ router.post('/login', async (req, res) => {
     // CRITICAL REQUIREMENT 1:
     // If student already has an active session, REJECT new login without modifying existing session!
     if (student.activeSessionId && student.activeSessionId.trim() !== '') {
-      return res.status(409).json({
-        error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
-        alreadyLoggedIn: true,
-      });
+      // Check if session has timed out (e.g. stale for > 7 days)
+      const lastActive = student.sessionLastActive ? new Date(student.sessionLastActive).getTime() : 0;
+      const isStale = lastActive > 0 && (Date.now() - lastActive > 7 * 24 * 60 * 60 * 1000);
+
+      if (!isStale) {
+        return res.status(409).json({
+          error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
+          alreadyLoggedIn: true,
+        });
+      }
     }
 
     // Generate cryptographically unpredictable session ID
@@ -252,6 +258,8 @@ router.post('/login', async (req, res) => {
           { activeSessionId: null },
           { activeSessionId: { $exists: false } },
           { activeSessionId: '' },
+          // If session was stale, allow claiming
+          ...(student.activeSessionId ? [{ activeSessionId: student.activeSessionId }] : []),
         ],
       },
       {
@@ -307,11 +315,13 @@ router.post('/login', async (req, res) => {
 
 // -------------------------------------------------------------
 // POST /api/auth/logout (Sign Out — Releases Active Session)
-// Clears server-side active-session record ONLY if it matches the calling session.
+// Clears server-side active-session record safely and reliably.
 // -------------------------------------------------------------
 router.post('/logout', async (req, res) => {
   try {
     const token = extractToken(req);
+    const bodyRegdNo = req.body?.regdNo ? String(req.body.regdNo).trim().toUpperCase() : null;
+    let cleared = false;
 
     if (token) {
       try {
@@ -320,16 +330,39 @@ router.post('/logout', async (req, res) => {
           process.env.JWT_SECRET || 'algolearn_jwt_secret_2026'
         );
 
-        if (decoded && decoded.id && decoded.sessionId) {
-          // Atomically clear active session ONLY IF it matches the session being signed out
-          await Student.updateOne(
-            { _id: decoded.id, activeSessionId: decoded.sessionId },
-            { $set: { activeSessionId: null, sessionLastActive: null } }
-          );
+        if (decoded && decoded.id) {
+          // Atomically clear active session
+          const query = { _id: decoded.id };
+          if (decoded.sessionId) {
+            query.activeSessionId = decoded.sessionId;
+          }
+          await Student.updateOne(query, {
+            $set: { activeSessionId: null, sessionLastActive: null },
+          });
+          cleared = true;
         }
       } catch (tokenErr) {
-        // Token was invalid or expired; still clear client cookies
+        // Token was expired; decode payload without verification to release active session
+        try {
+          const unverified = jwt.decode(token);
+          if (unverified && unverified.id) {
+            await Student.updateOne(
+              { _id: unverified.id },
+              { $set: { activeSessionId: null, sessionLastActive: null } }
+            );
+            cleared = true;
+          }
+        } catch (e) {}
       }
+    }
+
+    // Fallback: if token wasn't verifiable, clear session via verified student's regdNo
+    if (!cleared && bodyRegdNo) {
+      await Student.updateOne(
+        { regdNo: bodyRegdNo },
+        { $set: { activeSessionId: null, sessionLastActive: null } }
+      );
+      cleared = true;
     }
 
     clearSessionCookie(res);

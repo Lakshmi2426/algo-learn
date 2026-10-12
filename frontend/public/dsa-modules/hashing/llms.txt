@@ -1,0 +1,23 @@
+# AlgoLearn — Interactive Data Structures & Hashing Mastery
+
+AlgoLearn is an interactive educational platform designed for computer science students and software engineers to master Hash Tables, Hash Functions, and Collision Resolution algorithms through step-by-step interactive visualizations, guided solve modules, video masterclasses, and rigorous assessments.
+
+## Key Educational Topics Covered
+
+1. **Hash Functions & Direct Addressing**:
+   - Division method: `h(k) = k mod m`
+   - Modulo arithmetic and index distribution
+   - Load factor calculation: `alpha = n / m`
+
+2. **Collision Resolution Techniques**:
+   - **Separate Chaining**: Linked-list collision resolution per bucket slot
+   - **Linear Probing**: Open addressing with linear scanning `h(k, i) = (h'(k) + i) mod m`
+   - **Quadratic Probing**: Open addressing with quadratic step jumps `h(k, i) = (h'(k) + i^2) mod m`
+   - **Double Hashing**: Open addressing with secondary hash function `h(k, i) = (h1(k) + i * h2(k)) mod m`
+
+3. **Interactive Modules**:
+   - **Game Levels 1–5**: Step-by-step game levels with visual collision tracing and Guided Solve teacher mode.
+   - **Interactive Sandbox Lab**: Customizable table size, collision strategies, custom key insertions, and load factor threshold experimentation.
+   - **Theory & Principles**: Theoretical deep-dives, visual enhancers, and complexity trade-offs.
+   - **Video Masterclasses**: Comprehensive visual lessons on hashing fundamentals and collision mechanics.
+   - **Knowledge Assessment**: 10-question evaluation covering hashing mechanics, worst-case complexities, and probing sequence mathematics.

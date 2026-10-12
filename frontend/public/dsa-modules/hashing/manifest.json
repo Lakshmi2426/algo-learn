@@ -1,0 +1,17 @@
+{
+  "name": "AlgoLearn — Interactive Data Structures & Hashing Mastery",
+  "short_name": "AlgoLearn",
+  "description": "Master hash functions, collision resolution strategies, and algorithmic data structures with interactive visual tools.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1120",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "/algolearn-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
