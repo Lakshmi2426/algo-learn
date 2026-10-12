@@ -34,6 +34,7 @@ import { AdminTeacherManagementView } from './AdminTeacherManagementView';
 import { StudentProgressRecord, NavigationTab, LeaderboardUser } from '../../types';
 import { DSA_TOPICS } from '../../data/dsaTopics';
 import { buildAuthoritativeLeaderboard } from '../../utils/leaderboardHelper';
+import { apiUrl } from '../../config/api';
 
 const getStudentInitial = (name: string): string => {
   if (!name || typeof name !== 'string') return 'S';
@@ -73,7 +74,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
 
   React.useEffect(() => {
-    fetch('/api/leaderboard')
+    fetch(apiUrl('/api/leaderboard'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
         return res.json();

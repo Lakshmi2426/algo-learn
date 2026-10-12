@@ -23,10 +23,19 @@ import { AuthModal } from './components/auth/AuthModal';
 import { DSAModuleViewer } from './components/topics/DSAModuleViewer';
 import { getModuleFromHash, ModuleRouteConfig, INTEGRATED_MODULES } from './utils/moduleRoutes';
 import { NavigationTab } from './types';
+import {
+  parseInitialRoute,
+  syncAddressBar,
+  navigateAlgoLearn,
+  NavigationState,
+} from './utils/navigation';
 
 const MainAppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
-  const [activeModule, setActiveModule] = useState<ModuleRouteConfig | null>(null);
+  const initialNav = parseInitialRoute();
+  const [activeTab, setActiveTab] = useState<NavigationTab>(initialNav.tab);
+  const [activeModule, setActiveModule] = useState<ModuleRouteConfig | null>(
+    initialNav.moduleId ? INTEGRATED_MODULES[initialNav.moduleId] || null : null
+  );
   const [teacherInitialTopic, setTeacherInitialTopic] = useState<string>('');
   const {
     showAuthModal,
@@ -36,11 +45,20 @@ const MainAppContent: React.FC = () => {
     isAuthenticated,
   } = useUser();
 
+  const navigateTo = (tab: NavigationTab, moduleId?: string | null, replace = false) => {
+    setActiveTab(tab);
+    if (moduleId && INTEGRATED_MODULES[moduleId]) {
+      setActiveModule(INTEGRATED_MODULES[moduleId]);
+    } else {
+      setActiveModule(null);
+    }
+    syncAddressBar({ tab, moduleId: moduleId || null }, replace);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const handleQuickAsk = (prompt: string) => {
     setTeacherInitialTopic(prompt);
-    setActiveTab('ask-teacher');
-    window.location.hash = '#ask-teacher';
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    navigateTo('ask-teacher');
   };
 
   const handleOpenAuth = (mode: 'login' | 'signup' | 'admin' = 'login') => {
@@ -48,71 +66,58 @@ const MainAppContent: React.FC = () => {
     setShowAuthModal(true);
   };
 
-  // Sync state with URL hash
+  // Synchronize URL and history: keeps visible address bar at origin ('/')
   useEffect(() => {
-    const handleHashSync = () => {
-      const hash = window.location.hash;
-      const mod = getModuleFromHash(hash);
-      if (mod) {
-        if (!isAuthenticated) {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('algolearn_pending_module_hash', hash);
-          }
-          window.location.hash = '#topics';
-          setAuthModalMode('login');
-          setShowAuthModal(true);
-          return;
-        }
-        setActiveModule(mod);
-        return;
+    const initial = parseInitialRoute();
+    if (initial.moduleId && !isAuthenticated) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('algolearn_pending_module', initial.moduleId);
       }
+      navigateTo('topics', null, true);
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+    } else {
+      navigateTo(initial.tab, initial.moduleId, true);
+    }
 
-      setActiveModule(null);
-
-      const clean = hash.replace(/^[\/#]+/, '').trim().toLowerCase();
-      if (clean === 'topics' || clean === 'visualize') {
+    const handlePopState = (event: PopStateEvent) => {
+      const state: NavigationState = event.state || parseInitialRoute();
+      if (state.moduleId && INTEGRATED_MODULES[state.moduleId]) {
         setActiveTab('topics');
-      } else if (clean === 'ask-teacher' || clean === 'teachers' || clean === 'ai-tutor') {
-        setActiveTab('ask-teacher');
-      } else if (clean === 'leaderboard') {
-        setActiveTab('leaderboard');
-      } else if (clean === 'profile') {
-        setActiveTab('home');
-      } else if (clean === 'about') {
-        setActiveTab('about');
-      } else if (clean === 'admin') {
-        setActiveTab('admin');
-      } else if (clean === 'home' || clean === '') {
-        setActiveTab('home');
+        setActiveModule(INTEGRATED_MODULES[state.moduleId]);
+      } else {
+        setActiveTab(state.tab || 'home');
+        setActiveModule(null);
       }
+      syncAddressBar({ tab: state.tab || 'home', moduleId: state.moduleId || null }, true);
+      window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    handleHashSync();
-    window.addEventListener('hashchange', handleHashSync);
-    window.addEventListener('popstate', handleHashSync);
+    const handleInternalNav = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.tab) {
+        navigateTo(detail.tab, detail.moduleId);
+      }
+    };
 
     const handleGlobalNavMessage = (event: MessageEvent) => {
       if (!event.data || typeof event.data !== 'object') return;
       if (event.data.type === 'ALGOLEARN_NAVIGATE') {
         if (event.data.tab === 'home') {
-          setActiveModule(null);
-          setActiveTab('home');
-          window.location.hash = '';
-          window.scrollTo({ top: 0, behavior: 'instant' });
+          navigateTo('home');
         } else if (event.data.tab === 'ask-teacher') {
-          setActiveModule(null);
-          setActiveTab('ask-teacher');
-          window.location.hash = '#ask-teacher';
-          window.scrollTo({ top: 0, behavior: 'instant' });
+          navigateTo('ask-teacher');
         }
       }
     };
 
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('algolearn_navigate_internal', handleInternalNav);
     window.addEventListener('message', handleGlobalNavMessage);
 
     return () => {
-      window.removeEventListener('hashchange', handleHashSync);
-      window.removeEventListener('popstate', handleHashSync);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('algolearn_navigate_internal', handleInternalNav);
       window.removeEventListener('message', handleGlobalNavMessage);
     };
   }, [isAuthenticated, setAuthModalMode, setShowAuthModal]);
@@ -135,18 +140,8 @@ const MainAppContent: React.FC = () => {
       >
         <DSAModuleViewer
           moduleConfig={activeModule}
-          onNavigateHome={() => {
-            setActiveModule(null);
-            setActiveTab('home');
-            window.location.hash = '';
-            window.scrollTo({ top: 0, behavior: 'instant' });
-          }}
-          onNavigateAskTeacher={() => {
-            setActiveModule(null);
-            setActiveTab('ask-teacher');
-            window.location.hash = '#ask-teacher';
-            window.scrollTo({ top: 0, behavior: 'instant' });
-          }}
+          onNavigateHome={() => navigateTo('home')}
+          onNavigateAskTeacher={() => navigateTo('ask-teacher')}
         />
       </div>
 
@@ -158,11 +153,7 @@ const MainAppContent: React.FC = () => {
           {/* Main Sticky Navbar */}
           <Navbar
             activeTab={activeTab}
-            setActiveTab={(tab) => {
-              setActiveTab(tab);
-              if (tab === 'home') window.location.hash = '';
-              else window.location.hash = `#${tab}`;
-            }}
+            setActiveTab={(tab) => navigateTo(tab)}
             onOpenAuth={handleOpenAuth}
           />
 

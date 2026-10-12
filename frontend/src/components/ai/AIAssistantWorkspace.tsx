@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { AlgoAIIcon } from '../common/AlgoAIIcon';
+import { apiUrl } from '../../config/api';
 
 interface Message {
   id: string;
@@ -385,7 +386,7 @@ export const AIAssistantWorkspace: React.FC<AIAssistantWorkspaceProps> = ({
         parts: [{ text: m.content }],
       }));
 
-      const res = await fetch('/api/ai', {
+      const res = await fetch(apiUrl('/api/ai'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

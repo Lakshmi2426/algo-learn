@@ -33,6 +33,7 @@ import {
 import { DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
 import { getTopicScore, normalizeToModuleId } from '../../utils/topicProgress';
+import { navigateAlgoLearn } from '../../utils/navigation';
 
 import { useUser } from '../../context/UserContext';
 
@@ -190,13 +191,13 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
     if (integratedModule) {
       if (!isAuthenticated) {
         if (typeof window !== 'undefined') {
-          sessionStorage.setItem('algolearn_pending_module_hash', integratedModule.routeHash);
+          sessionStorage.setItem('algolearn_pending_module', integratedModule.moduleId);
         }
         setAuthModalMode('login');
         setShowAuthModal(true);
         return;
       }
-      window.location.hash = integratedModule.routeHash;
+      navigateAlgoLearn('topics', integratedModule.moduleId);
       return;
     }
     if (!isAuthenticated) {

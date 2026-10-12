@@ -7,6 +7,7 @@ import { UserAvatar } from '../common/UserAvatar';
 import { useUser, isRealStudent } from '../../context/UserContext';
 import { getAllTopicsProgress } from '../../utils/topicProgress';
 import { buildAuthoritativeLeaderboard } from '../../utils/leaderboardHelper';
+import { apiUrl } from '../../config/api';
 
 interface LeaderboardPreviewSectionProps {
   setActiveTab: (tab: NavigationTab) => void;
@@ -20,7 +21,7 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
   const [topicSummary, setTopicSummary] = React.useState(() => getAllTopicsProgress());
 
   const fetchLeaderboard = React.useCallback(() => {
-    fetch('/api/leaderboard')
+    fetch(apiUrl('/api/leaderboard'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
         return res.json();
@@ -228,7 +229,7 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
           </div>
         ) : (
           <div className="p-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs bg-white dark:bg-slate-900 rounded-3xl border border-blue-200/80 dark:border-slate-800 mb-10">
-            No students on the leaderboard yet.
+            No students on the leaderboard yet. Sign in and start learning to appear here.
           </div>
         )}
 

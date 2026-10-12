@@ -33,7 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   onNavigateTab,
 }) => {
-  const { login, registerStudent, isRegdNoTaken, loginAsAdmin } = useUser();
+  const { login, registerStudent, isRegdNoTaken, loginAsAdmin, recoverSession } = useUser();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'admin'>(initialMode);
 
   // Student Sign Up Fields (Strictly: Name, Branch, Registration Number, Password)
@@ -370,6 +370,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Switch to Sign Up</span>
+                  </button>
+                )}
+                {/* Safe Recovery Option for Stranded / Lost Session */}
+                {errorMessage.includes('already logged in') && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!signInRegdNo || !signInPassword) {
+                        alert('Please enter your 10-character Registration Number and Password to release the stranded session.');
+                        return;
+                      }
+                      setIsSubmitting(true);
+                      const res = await recoverSession(signInRegdNo, signInPassword);
+                      setIsSubmitting(false);
+                      if (res.success) {
+                        alert(res.message);
+                        setErrorMessage(null);
+                      } else {
+                        setErrorMessage(res.message || 'Failed to release active session.');
+                      }
+                    }}
+                    className="self-start ml-6 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    id="release-active-session-btn"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Stranded session on other device? Release session</span>
                   </button>
                 )}
               </div>

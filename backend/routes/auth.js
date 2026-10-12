@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 
 const REGEX_REGD_NO = /^[A-Z0-9]{10}$/;
 
-// Helper to generate JWT token
+// Helper to generate JWT token with unique session ID
 const generateToken = (payload) => {
   return jwt.sign(
     payload,
@@ -15,9 +16,45 @@ const generateToken = (payload) => {
   );
 };
 
+// Helper to set HTTP-only persistent session cookie
+const setSessionCookie = (res, token) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie('algolearn_session', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+};
+
+// Helper to clear HTTP-only session cookie
+const clearSessionCookie = (res) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('algolearn_session', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  });
+};
+
+// Helper to extract token from Authorization header or Cookie
+const extractToken = (req) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+  if (req.cookies && req.cookies.algolearn_session) {
+    return req.cookies.algolearn_session;
+  }
+  return null;
+};
+
 // -------------------------------------------------------------
 // POST /api/auth/signup (Student Sign-Up)
 // Required fields: Name, Branch, Registration Number, Password
+// Atomically claims the first active session for the student.
 // -------------------------------------------------------------
 router.post('/signup', async (req, res) => {
   try {
@@ -52,7 +89,7 @@ router.post('/signup', async (req, res) => {
     }
 
     // 4. Validate Password
-    // For this requested version, the initial password equals the 10-character registration number
+    // For this version, the initial password equals the 10-character registration number
     const submittedPassword = password ? String(password).trim().toUpperCase() : cleanRegdNo;
     if (submittedPassword !== cleanRegdNo) {
       return res.status(400).json({
@@ -72,7 +109,10 @@ router.post('/signup', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(cleanRegdNo, salt);
 
-    // 7. Store new student record in MongoDB with 0 initial progress & 0 points
+    // 7. Create unique session identifier
+    const sessionId = crypto.randomUUID();
+
+    // 8. Store new student record in MongoDB with active session claimed
     const newStudent = new Student({
       name: cleanName,
       branch: cleanBranch,
@@ -84,17 +124,22 @@ router.post('/signup', async (req, res) => {
       topicsCompleted: 0,
       overallProgress: 0,
       progress: {},
+      activeSessionId: sessionId,
+      sessionLastActive: new Date(),
     });
 
     await newStudent.save();
 
-    // 8. Generate authentication session token
+    // 9. Generate authentication session token
     const token = generateToken({
       id: newStudent._id.toString(),
       regdNo: newStudent.regdNo,
       name: newStudent.name,
       role: 'student',
+      sessionId,
     });
+
+    setSessionCookie(res, token);
 
     return res.status(201).json({
       success: true,
@@ -135,7 +180,9 @@ router.post('/register', async (req, res, next) => {
 // -------------------------------------------------------------
 // POST /api/auth/login (Student Sign-In)
 // Required fields: Registration Number, Password
-// CRITICAL REQUIREMENT — NO ACCOUNT, NO LOGIN
+// RULE: ONE ACTIVE LOGIN SESSION PER REGISTRATION NUMBER.
+// If an active session exists, the new login is REJECTED without overwriting the existing session.
+// Concurrent logins are protected via atomic MongoDB findOneAndUpdate.
 // -------------------------------------------------------------
 router.post('/login', async (req, res) => {
   try {
@@ -166,7 +213,7 @@ router.post('/login', async (req, res) => {
     // Query MongoDB for student account
     const student = await Student.findOne({ regdNo: cleanRegdNo });
 
-    // CRITICAL: If student does not have an account, reject login
+    // If student does not have an account, reject login
     if (!student) {
       return res.status(404).json({
         error: 'Account not found. Please sign up first.',
@@ -177,7 +224,6 @@ router.post('/login', async (req, res) => {
     // Verify password against stored bcrypt hash
     const isMatch = await bcrypt.compare(password.trim(), student.password);
     if (!isMatch) {
-      // Also check case-insensitive match for initial regdNo password convenience
       const isMatchUpper = await bcrypt.compare(password.trim().toUpperCase(), student.password);
       if (!isMatchUpper) {
         return res.status(401).json({
@@ -186,28 +232,69 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    // CRITICAL REQUIREMENT 1:
+    // If student already has an active session, REJECT new login without modifying existing session!
+    if (student.activeSessionId && student.activeSessionId.trim() !== '') {
+      return res.status(409).json({
+        error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
+        alreadyLoggedIn: true,
+      });
+    }
+
+    // Generate cryptographically unpredictable session ID
+    const newSessionId = crypto.randomUUID();
+
+    // Atomically claim the session. If another concurrent request claimed it first, this update will not match.
+    const claimedStudent = await Student.findOneAndUpdate(
+      {
+        _id: student._id,
+        $or: [
+          { activeSessionId: null },
+          { activeSessionId: { $exists: false } },
+          { activeSessionId: '' },
+        ],
+      },
+      {
+        $set: {
+          activeSessionId: newSessionId,
+          sessionLastActive: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!claimedStudent) {
+      return res.status(409).json({
+        error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
+        alreadyLoggedIn: true,
+      });
+    }
+
     // Generate authenticated session token
     const token = generateToken({
-      id: student._id.toString(),
-      regdNo: student.regdNo,
-      name: student.name,
-      role: student.role || 'student',
+      id: claimedStudent._id.toString(),
+      regdNo: claimedStudent.regdNo,
+      name: claimedStudent.name,
+      role: claimedStudent.role || 'student',
+      sessionId: newSessionId,
     });
+
+    setSessionCookie(res, token);
 
     return res.json({
       success: true,
       token,
       student: {
-        id: student._id.toString(),
-        name: student.name,
-        branch: student.branch,
-        regdNo: student.regdNo,
-        role: student.role || 'student',
-        xp: student.xp || 0,
-        topicsStarted: student.topicsStarted || 0,
-        topicsCompleted: student.topicsCompleted || 0,
-        overallProgress: student.overallProgress || 0,
-        progress: student.progress || {},
+        id: claimedStudent._id.toString(),
+        name: claimedStudent.name,
+        branch: claimedStudent.branch,
+        regdNo: claimedStudent.regdNo,
+        role: claimedStudent.role || 'student',
+        xp: claimedStudent.xp || 0,
+        topicsStarted: claimedStudent.topicsStarted || 0,
+        topicsCompleted: claimedStudent.topicsCompleted || 0,
+        overallProgress: claimedStudent.overallProgress || 0,
+        progress: claimedStudent.progress || {},
       },
     });
   } catch (error) {
@@ -215,6 +302,96 @@ router.post('/login', async (req, res) => {
     return res.status(500).json({
       error: 'An unexpected database error occurred during sign in. Please try again.',
     });
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/auth/logout (Sign Out — Releases Active Session)
+// Clears server-side active-session record ONLY if it matches the calling session.
+// -------------------------------------------------------------
+router.post('/logout', async (req, res) => {
+  try {
+    const token = extractToken(req);
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET || 'algolearn_jwt_secret_2026'
+        );
+
+        if (decoded && decoded.id && decoded.sessionId) {
+          // Atomically clear active session ONLY IF it matches the session being signed out
+          await Student.updateOne(
+            { _id: decoded.id, activeSessionId: decoded.sessionId },
+            { $set: { activeSessionId: null, sessionLastActive: null } }
+          );
+        }
+      } catch (tokenErr) {
+        // Token was invalid or expired; still clear client cookies
+      }
+    }
+
+    clearSessionCookie(res);
+
+    return res.json({
+      success: true,
+      message: 'Logged out successfully. Active session released.',
+    });
+  } catch (error) {
+    console.error('Sign-out error:', error);
+    clearSessionCookie(res);
+    return res.json({
+      success: true,
+      message: 'Logged out.',
+    });
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/auth/recover-session (Authorized Session Recovery)
+// Safe recovery path for a genuinely lost device or stranded session.
+// Requires valid registration number and password verification.
+// -------------------------------------------------------------
+router.post('/recover-session', async (req, res) => {
+  try {
+    const { regdNo, password } = req.body;
+
+    if (!regdNo || !password) {
+      return res.status(400).json({
+        error: 'Registration Number and Password are required to release a stranded session.',
+      });
+    }
+
+    const cleanRegdNo = regdNo.trim().toUpperCase();
+    const student = await Student.findOne({ regdNo: cleanRegdNo });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+
+    const isMatch = await bcrypt.compare(password.trim(), student.password);
+    const isMatchUpper = !isMatch && (await bcrypt.compare(password.trim().toUpperCase(), student.password));
+
+    if (!isMatch && !isMatchUpper) {
+      return res.status(401).json({ error: 'Invalid credentials. Session recovery denied.' });
+    }
+
+    // Verified credentials! Safely clear the active session so the student can log in.
+    await Student.updateOne(
+      { _id: student._id },
+      { $set: { activeSessionId: null, sessionLastActive: null } }
+    );
+
+    clearSessionCookie(res);
+
+    return res.json({
+      success: true,
+      message: 'Previous active session cleared successfully. You may now log in.',
+    });
+  } catch (error) {
+    console.error('Recover session error:', error);
+    return res.status(500).json({ error: 'Error resetting session.' });
   }
 });
 
@@ -253,6 +430,8 @@ router.post('/admin-login', async (req, res) => {
       role: 'admin',
     });
 
+    setSessionCookie(res, token);
+
     return res.json({
       success: true,
       token,
@@ -273,15 +452,15 @@ router.post('/admin-login', async (req, res) => {
 
 // -------------------------------------------------------------
 // GET /api/auth/me (Current Session Verification)
+// Validates token AND checks that token sessionId matches student's activeSessionId in MongoDB.
 // -------------------------------------------------------------
 router.get('/me', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractToken(req);
+    if (!token) {
       return res.status(401).json({ error: 'No authentication token provided.' });
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
 
     if (decoded.role === 'admin') {
@@ -300,9 +479,34 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: 'Student account not found.' });
     }
 
+    // Validate that token's session ID matches the currently active session in DB
+    if (!student.activeSessionId || student.activeSessionId !== decoded.sessionId) {
+      return res.status(401).json({
+        error: 'Session expired, revoked, or replaced. Please log in again.',
+        sessionRevoked: true,
+      });
+    }
+
+    // Touch sessionLastActive
+    Student.updateOne(
+      { _id: student._id },
+      { $set: { sessionLastActive: new Date() } }
+    ).catch(() => {});
+
     return res.json({
       authenticated: true,
-      student,
+      student: {
+        id: student._id.toString(),
+        name: student.name,
+        branch: student.branch,
+        regdNo: student.regdNo,
+        role: student.role || 'student',
+        xp: student.xp || 0,
+        topicsStarted: student.topicsStarted || 0,
+        topicsCompleted: student.topicsCompleted || 0,
+        overallProgress: student.overallProgress || 0,
+        progress: student.progress || {},
+      },
     });
   } catch (error) {
     return res.status(401).json({ error: 'Session expired or invalid.' });

@@ -120,33 +120,10 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const quizPts = Math.min(40, Math.max(0, quizSum));
         const totalPoints = Math.min(100, Math.max(0, vizPts + gamePts + quizPts));
 
-        const theoryCount = Math.min(12, p.completedTheoryChapters?.length || 0);
-        const gameCount = Math.min(2, completedGames.filter((id) => id === 1 || id === 2).length);
-        const quizCount = Math.min(10, Object.keys(quizScores).length);
-        const quizBonus = p.quizCompleted ? 1 : 0;
-        const completedModules = Math.min(27, theoryCount + vizCount + gameCount + quizCount + quizBonus);
-        const completionPct = Math.min(100, Math.round((completedModules / 27) * 100));
-
-        return Math.max(totalPoints, completionPct);
+        return totalPoints;
       }
 
       case 'hashing': {
-        // Find user specific progress or generic
-        let progressData: any = null;
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('hash_user_progress_') || k === 'hash_quest_field_notes_progress_v2')) {
-            const parsed = safeJsonParse<any>(localStorage.getItem(k));
-            if (parsed && (parsed.completedTheoryChapters?.length || parsed.completedVideos?.length || parsed.levelsCompleted?.length || parsed.quizSubmitted)) {
-              progressData = parsed;
-              break;
-            }
-          }
-        }
-        if (!progressData) {
-          progressData = safeJsonParse(localStorage.getItem('hash_quest_field_notes_progress_v2'));
-        }
-
         let points = 0;
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
@@ -157,39 +134,17 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
             }
           }
         }
-
-        if (progressData) {
-          const theory = Math.min(12, progressData.completedTheoryChapters?.length || 0);
-          const video = Math.min(2, progressData.completedVideos?.length || 0);
-          const game = Math.min(5, progressData.levelsCompleted?.length || 0);
-          const quiz = progressData.quizSubmitted ? 1 : 0;
-          const completed = theory + video + game + quiz;
-          const pct = Math.min(100, Math.round((completed / 20) * 100));
-          return Math.max(points, pct);
-        }
-        return points;
+        return Math.min(100, Math.max(0, points));
       }
 
       case 'linear-search': {
-        const rawProg = localStorage.getItem('linear_search_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2');
-        const p: any = safeJsonParse(rawProg);
+        let points = 0;
         const rawPts = localStorage.getItem('algo_quest_points_system_v3');
         const pts: any = safeJsonParse(rawPts);
-
-        let points = 0;
         if (pts && typeof pts.totalPoints === 'number') {
           points = pts.totalPoints;
         }
-
-        let pct = 0;
-        if (p) {
-          const theory = Math.min(12, p.completedTheoryChapters?.length || 0);
-          const video = Math.min(2, p.completedVideos?.length || 0);
-          const game = Math.min(5, p.levelsCompleted?.length || 0);
-          const quiz = p.quizSubmitted ? 1 : 0;
-          pct = Math.min(100, Math.round(((theory + video + game + quiz) / 20) * 100));
-        }
-        return Math.max(points, pct);
+        return Math.min(100, Math.max(0, points));
       }
 
       case 'binary-search': {
@@ -198,13 +153,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         if (!p) return 0;
 
         const totalEarned = p.topicPoints?.totalEarned || 0;
-        const theory = Math.min(12, p.completedTheoryChapters?.length || 0);
-        const labs = Math.min(2, p.completedLabs?.length || 0);
-        const games = Math.min(6, p.completedGameLevels?.length || 0);
-        const quiz = p.quizCompleted ? 1 : 0;
-        const pct = Math.min(100, Math.round(((theory + labs + games + quiz) / 21) * 100));
-
-        return Math.max(totalEarned, pct);
+        return Math.min(100, Math.max(0, totalEarned));
       }
 
       case 'sorting': {
@@ -260,9 +209,9 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const vizPts = vizCount * 10;
         const gamePts = gameCount * 10;
         const quizPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : 0;
-        const totalPts = Math.min(100, vizPts + gamePts + quizPts);
+        const totalPts = Math.min(100, Math.max(0, vizPts + gamePts + quizPts));
 
-        return Math.max(totalPts, pct);
+        return totalPts;
       }
 
       case 'sll': {
@@ -271,15 +220,10 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         if (!p) return 0;
 
         const totalPoints = Math.min(100, Math.max(0, p.totalPoints || 0));
-        const activitiesCount = Object.keys(p.completedActivities || {}).length;
-        const pct = Math.min(100, Math.round((activitiesCount / 27) * 100));
-
-        return Math.max(totalPoints, pct);
+        return totalPoints;
       }
 
       case 'dll': {
-        const rawProg = localStorage.getItem('dll_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2');
-        const p: any = safeJsonParse(rawProg);
         const rawEv = localStorage.getItem('algolearn_scoring_events_v2');
         const events: any[] = safeJsonParse(rawEv) || [];
 
@@ -299,12 +243,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
           earnedScore = Math.min(100, Math.round(vScore + gScore + qScore));
         }
 
-        let pct = 0;
-        if (p) {
-          pct = p.totalScore ? Math.min(100, p.totalScore) : 0;
-        }
-
-        return Math.max(earnedScore, pct);
+        return earnedScore;
       }
 
       case 'cll': {
@@ -315,24 +254,12 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
           totalPoints = pts.totalPoints;
         }
 
-        const rawProg = localStorage.getItem('cll_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2');
-        const p: any = safeJsonParse(rawProg);
-        let pct = 0;
-        if (p) {
-          const theory = Math.min(12, p.completedTheoryChapters?.length || 0);
-          const video = Math.min(2, p.completedVideos?.length || 0);
-          const game = Math.min(5, p.levelsCompleted?.length || 0);
-          const quiz = p.quizSubmitted ? 1 : 0;
-          pct = Math.min(100, Math.round(((theory + video + game + quiz) / 20) * 100));
-        }
-
-        return Math.max(totalPoints, pct);
+        return Math.min(100, Math.max(0, totalPoints));
       }
 
       case 'bfs': {
-        const completedLevels: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_levels')) || [];
         const completedVideos: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_videos')) || [];
-        const completedChapters: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_chapters')) || [];
+        const completedLevels: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_levels')) || [];
         const quizAnswers: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_quiz_answers')) || {};
         const assistance: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_game_assistance')) || {};
 
@@ -357,9 +284,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const quizScore = Math.max(0, Math.min(20, quizCorrect * 2 - quizIncorrect * 1));
 
         const finalScore = Math.min(100, videoScore + gameScore + quizScore);
-        const pct = Math.min(100, Math.round(((completedChapters.length + completedVideos.length + completedLevels.length + (quizCorrect > 0 ? 1 : 0)) / 23) * 100));
-
-        return Math.max(finalScore, pct);
+        return finalScore;
       }
 
       case 'trees': {
@@ -392,10 +317,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         if (!p) return 0;
 
         const totalPoints = typeof p.totalTopicPoints === 'number' ? p.totalTopicPoints : 0;
-        const completionPct = typeof p.overallCompletionPercentage === 'number' ? p.overallCompletionPercentage : 0;
-        const xpScore = p.xp ? Math.min(100, Math.round(p.xp / 10)) : 0;
-
-        return Math.max(totalPoints, completionPct, xpScore);
+        return Math.min(100, Math.max(0, totalPoints));
       }
 
       case 'dsa-types': {
@@ -404,8 +326,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         if (!p || !p.topicData) return 0;
 
         const topicScore = p.topicData.overallTopicScore || 0;
-        const completionPct = p.topicData.completionPercentage || 0;
-        return Math.max(topicScore, completionPct);
+        return Math.min(100, Math.max(0, topicScore));
       }
 
       default:
@@ -632,12 +553,12 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
   // Snapshot active module keys for this student
   studentData.moduleKeys = snapshotActiveModuleKeys();
 
-  // Compute updated XP
+  // Compute updated XP (Leaderboard XP = exact sum of topic points)
   let sumScores = 0;
   CANONICAL_MODULE_IDS.forEach((id) => {
     sumScores += (studentData.topicScores?.[id] || (id === moduleId ? cleanScore : 0));
   });
-  studentData.xp = sumScores * 10;
+  studentData.xp = sumScores;
 
   localStorage.setItem(`algolearn_student_progress_${studentKey}`, JSON.stringify(studentData));
 
@@ -697,7 +618,8 @@ export function getAllTopicsProgress(explicitUserKey?: string): TopicProgressSum
     Math.round((totalEarned / totalPossible) * 100)
   );
 
-  const totalXP = totalEarned * 10;
+  // CRITICAL REQUIREMENT 6: Leaderboard XP = sum of earned points across all topics
+  const totalXP = totalEarned;
 
   return {
     topicScores,

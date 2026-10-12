@@ -163,7 +163,6 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
             e.preventDefault();
             e.stopPropagation();
             onNavigateHome();
-            window.location.hash = '';
             return;
           }
 
@@ -171,7 +170,6 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
             e.preventDefault();
             e.stopPropagation();
             onNavigateAskTeacher();
-            window.location.hash = '#ask-teacher';
             return;
           }
         },

@@ -127,9 +127,14 @@ export function buildAuthoritativeLeaderboard({
     });
   }
 
-  // 4. Sort strictly descending by XP, with completed count as tie breaker, then alphabetical by name
+  // 4. Sort strictly descending by XP, with completed count as tie breaker, then creation date, then regdNo
   const sorted = Array.from(map.values()).sort(
-    (a, b) => (b.xp || 0) - (a.xp || 0) || (b.solvedCount || 0) - (a.solvedCount || 0) || a.name.localeCompare(b.name)
+    (a, b) =>
+      (b.xp || 0) - (a.xp || 0) ||
+      (b.solvedCount || 0) - (a.solvedCount || 0) ||
+      (a.createdAt ? new Date(a.createdAt).getTime() - new Date(b.createdAt || 0).getTime() : 0) ||
+      (a.regdNo || '').localeCompare(b.regdNo || '') ||
+      a.name.localeCompare(b.name)
   );
 
   // 5. Assign definitive ranks

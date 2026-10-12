@@ -5,6 +5,7 @@ import { DSATopicCard } from './DSATopicCard';
 import { TopicDetailModal } from './TopicDetailModal';
 import { DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
+import { navigateAlgoLearn } from '../../utils/navigation';
 
 interface TopicsCatalogProps {
   onAskTeacher?: (topicTitle: string) => void;
@@ -106,7 +107,7 @@ export const TopicsCatalog: React.FC<TopicsCatalogProps> = ({ onAskTeacher }) =>
               onSelect={(t) => {
                 const mod = getIntegratedModuleForTopic(t.id) || getIntegratedModuleForTopic(t.title);
                 if (mod) {
-                  window.location.hash = mod.routeHash;
+                  navigateAlgoLearn('topics', mod.moduleId);
                   return;
                 }
                 setSelectedTopic(t);

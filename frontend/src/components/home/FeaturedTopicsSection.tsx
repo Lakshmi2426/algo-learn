@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { DSA_TOPICS } from '../../data/dsaTopics';
 import { NavigationTab, DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
+import { navigateAlgoLearn } from '../../utils/navigation';
 import { DSATopicCard } from '../topics/DSATopicCard';
 import { TopicDetailModal } from '../topics/TopicDetailModal';
 
@@ -61,7 +62,7 @@ export const FeaturedTopicsSection: React.FC<FeaturedTopicsSectionProps> = ({
               onSelect={(t) => {
                 const mod = getIntegratedModuleForTopic(t.id) || getIntegratedModuleForTopic(t.title);
                 if (mod) {
-                  window.location.hash = mod.routeHash;
+                  navigateAlgoLearn('topics', mod.moduleId);
                   return;
                 }
                 setSelectedTopic(t);

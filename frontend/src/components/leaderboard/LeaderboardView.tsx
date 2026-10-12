@@ -17,6 +17,7 @@ import { UserAvatar } from '../common/UserAvatar';
 import { useUser, isRealStudent } from '../../context/UserContext';
 import { getAllTopicsProgress } from '../../utils/topicProgress';
 import { buildAuthoritativeLeaderboard, getTierFromXP } from '../../utils/leaderboardHelper';
+import { apiUrl } from '../../config/api';
 
 export const LeaderboardView: React.FC = () => {
   const { studentsList, user: currentUser, isAuthenticated, role } = useUser();
@@ -27,7 +28,7 @@ export const LeaderboardView: React.FC = () => {
   const [topicSummary, setTopicSummary] = useState(() => getAllTopicsProgress());
 
   const fetchLeaderboard = React.useCallback(() => {
-    fetch('/api/leaderboard')
+    fetch(apiUrl('/api/leaderboard'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
         return res.json();
@@ -266,7 +267,7 @@ export const LeaderboardView: React.FC = () => {
                   {filteredUsers.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
-                        No students on the leaderboard yet.
+                        No students on the leaderboard yet. Sign in and start learning to appear here.
                       </td>
                     </tr>
                   )}

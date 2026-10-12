@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Teacher } from '../types';
 import { TEACHERS as DEFAULT_TEACHERS } from '../data/teachersData';
+import { apiUrl } from '../config/api';
 
 interface TeachersContextType {
   teachers: Teacher[];
@@ -60,7 +61,7 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Sync from server API on mount
   useEffect(() => {
-    fetch('/api/teachers')
+    fetch(apiUrl('/api/teachers'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
         return res.json();
@@ -121,7 +122,7 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Send to backend
     try {
-      await fetch('/api/teachers', {
+      await fetch(apiUrl('/api/teachers'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTeacher),
@@ -162,7 +163,7 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Send to backend
     try {
-      await fetch(`/api/teachers/${id}`, {
+      await fetch(apiUrl(`/api/teachers/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -179,7 +180,7 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTeachers((prev) => prev.filter((t) => t.id !== id));
 
     try {
-      await fetch(`/api/teachers/${id}`, {
+      await fetch(apiUrl(`/api/teachers/${id}`), {
         method: 'DELETE',
       });
     } catch (e) {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StudentQuestion, TeacherMessage } from '../types';
 import { useUser } from './UserContext';
+import { apiUrl } from '../config/api';
 
 const INITIAL_QUESTIONS: StudentQuestion[] = [];
 
@@ -63,7 +64,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Try to fetch questions from backend on mount
   useEffect(() => {
-    fetch('/api/questions')
+    fetch(apiUrl('/api/questions'))
       .then((res) => res.json())
       .then((data) => {
         if (data?.questions && Array.isArray(data.questions)) {
@@ -128,7 +129,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setQuestions((prev) => prev.map((q) => (q.id === existing.id ? updatedQ : q)));
 
         try {
-          await fetch('/api/questions', {
+          await fetch(apiUrl('/api/questions'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -182,7 +183,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Send to server backend
     try {
-      await fetch('/api/questions', {
+      await fetch(apiUrl('/api/questions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +236,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Call server backend
     try {
-      await fetch(`/api/questions/${params.questionId}/reply`, {
+      await fetch(apiUrl(`/api/questions/${params.questionId}/reply`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,7 +271,7 @@ export const QuestionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     try {
       await fetch(
-        `/api/questions/${questionId}?studentId=${encodeURIComponent(effectiveStudentId)}&studentName=${encodeURIComponent(user.name)}`,
+        apiUrl(`/api/questions/${questionId}?studentId=${encodeURIComponent(effectiveStudentId)}&studentName=${encodeURIComponent(user.name)}`),
         { method: 'DELETE' }
       );
     } catch (e) {

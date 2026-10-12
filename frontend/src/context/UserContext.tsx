@@ -11,6 +11,8 @@ import {
   snapshotActiveModuleKeys,
   getActiveStudentKey,
 } from '../utils/topicProgress';
+import { apiUrl } from '../config/api';
+import { navigateAlgoLearn } from '../utils/navigation';
 
 export const INITIAL_STUDENTS: StudentProgressRecord[] = [];
 
@@ -31,7 +33,8 @@ interface UserContextType {
   }) => Promise<{ success: boolean; message?: string }>;
   isRegdNoTaken: (regdNo: string) => boolean;
   loginAsAdmin: (name: string, adminCode: string) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: () => Promise<void> | void;
+  recoverSession: (regdNo: string, password: string) => Promise<{ success: boolean; message?: string }>;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
   authModalMode: 'login' | 'signup' | 'admin';
@@ -226,19 +229,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            const clean = parsed
-              .filter(isRealStudent)
-              .filter((s) => {
-                const r = (s.regdNo || '').toLowerCase();
-                return (
-                  !r.includes('test') &&
-                  !s.name?.startsWith('Student Valid') &&
-                  r !== '123sdfgd6t' &&
-                  r !== '123sdfgbhj' &&
-                  r !== '23sd56e678' &&
-                  r !== '24b91a6239'
-                );
-              });
+            const clean = parsed.filter(isRealStudent);
             localStorage.setItem('algolearn_registered_students', JSON.stringify(clean));
             return clean;
           }
@@ -252,7 +243,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sync registered students from server API on mount
   useEffect(() => {
-    fetch('/api/students')
+    fetch(apiUrl('/api/students'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
         return res.json();
@@ -302,8 +293,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('algolearn_token');
     const isAuth = localStorage.getItem('algolearn_auth') === 'true';
     if (isAuth && token) {
-      fetch('/api/auth/me', {
+      fetch(apiUrl('/api/auth/me'), {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       })
         .then((res) => {
           if (!res.ok) {
@@ -317,6 +309,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((data) => {
           if (data?.student) {
             const student = data.student;
+            const studentKey = student.regdNo.toLowerCase();
+            restoreStudentModuleKeys(studentKey);
             setUser((prev) => ({
               ...prev,
               id: student._id || student.id,
@@ -359,21 +353,32 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               studentName: synced.name,
               regdNo: synced.regdNo,
               xp: allProg.totalXP,
+              progress: allProg.topicScores,
               topicsCompleted: allProg.topicsMasteredCount,
               topicsStarted: allProg.topicsStartedCount,
               overallProgress: allProg.overallPercentage,
             };
 
-            fetch('/api/leaderboard/sync', {
+            const token = localStorage.getItem('algolearn_token');
+            const authHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+            };
+            if (token) {
+              authHeaders['Authorization'] = `Bearer ${token}`;
+            }
+
+            fetch(apiUrl('/api/leaderboard/sync'), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: authHeaders,
+              credentials: 'include',
               body: JSON.stringify(payload),
             }).catch(() => {});
 
             if (synced.regdNo) {
-              fetch(`/api/students/${encodeURIComponent(synced.regdNo)}/progress`, {
+              fetch(apiUrl(`/api/students/${encodeURIComponent(synced.regdNo)}/progress`), {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders,
+                credentials: 'include',
                 body: JSON.stringify(payload),
               }).catch(() => {});
             }
@@ -508,7 +513,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       if (updatedUser.regdNo || (updatedUser.name && updatedUser.name !== 'Guest Learner')) {
-        fetch('/api/leaderboard/sync', {
+        fetch(apiUrl('/api/leaderboard/sync'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -587,9 +592,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           regdNo: cleanRegdNo,
           password: passwordInput.trim(),
@@ -602,7 +608,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return {
           success: false,
           notFound: data?.notFound || res.status === 404,
-          message: data?.error || 'Account not found. Please sign up first.',
+          message:
+            data?.error ||
+            (res.status === 409
+              ? 'This account is already logged in on another session. Please sign out from the active session before logging in again.'
+              : 'Invalid credentials. Please check your password.'),
         };
       }
 
@@ -641,7 +651,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Sync leaderboard if needed
         if (student.regdNo) {
           const allProg = getAllTopicsProgress(studentKey);
-          fetch('/api/leaderboard/sync', {
+          fetch(apiUrl('/api/leaderboard/sync'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -656,11 +666,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
-          const pendingHash = sessionStorage.getItem('algolearn_pending_module_hash');
-          if (pendingHash) {
+          const pendingMod =
+            sessionStorage.getItem('algolearn_pending_module') ||
+            sessionStorage.getItem('algolearn_pending_module_hash');
+          if (pendingMod) {
+            sessionStorage.removeItem('algolearn_pending_module');
             sessionStorage.removeItem('algolearn_pending_module_hash');
+            const modId = pendingMod.replace(/^.*topics[\/#]+/i, '').trim().toLowerCase();
             setTimeout(() => {
-              window.location.hash = pendingHash;
+              navigateAlgoLearn('topics', modId || pendingMod);
             }, 50);
           }
         }
@@ -709,9 +723,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initialPassword = cleanRegdNo;
 
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await fetch(apiUrl('/api/auth/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: cleanName,
           branch: cleanBranch,
@@ -801,11 +816,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
-          const pendingHash = sessionStorage.getItem('algolearn_pending_module_hash');
-          if (pendingHash) {
+          const pendingMod =
+            sessionStorage.getItem('algolearn_pending_module') ||
+            sessionStorage.getItem('algolearn_pending_module_hash');
+          if (pendingMod) {
+            sessionStorage.removeItem('algolearn_pending_module');
             sessionStorage.removeItem('algolearn_pending_module_hash');
+            const modId = pendingMod.replace(/^.*topics[\/#]+/i, '').trim().toLowerCase();
             setTimeout(() => {
-              window.location.hash = pendingHash;
+              navigateAlgoLearn('topics', modId || pendingMod);
             }, 50);
           }
         }
@@ -835,7 +854,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('/api/auth/admin-login', {
+      const res = await fetch(apiUrl('/api/auth/admin-login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -889,8 +908,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('algolearn_token');
+      if (token) {
+        try {
+          await fetch(apiUrl('/api/auth/logout'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: 'include',
+          });
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
+      }
+
       const currentKey = getActiveStudentKey();
       if (currentKey) {
         // Snapshot current student's progress before logout
@@ -918,6 +953,35 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(defaultUser);
   };
 
+  const recoverSession = async (
+    regdNoInput: string,
+    passwordInput: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const cleanRegdNo = (regdNoInput || '').trim().toUpperCase();
+    if (!cleanRegdNo || !passwordInput) {
+      return { success: false, message: 'Registration Number and Password are required.' };
+    }
+
+    try {
+      const res = await fetch(apiUrl('/api/auth/recover-session'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ regdNo: cleanRegdNo, password: passwordInput.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return { success: false, message: data?.error || 'Failed to release active session.' };
+      }
+      return {
+        success: true,
+        message: data?.message || 'Previous active session released successfully. You may now log in.',
+      };
+    } catch {
+      return { success: false, message: 'Network error connecting to authentication server.' };
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -933,6 +997,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isRegdNoTaken,
         loginAsAdmin,
         logout,
+        recoverSession,
         showAuthModal,
         setShowAuthModal,
         authModalMode,

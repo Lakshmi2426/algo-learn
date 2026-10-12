@@ -9,6 +9,9 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 
 const getAppDir = (): string => {
+  if (typeof __dirname !== "undefined" && __dirname) {
+    return __dirname;
+  }
   return process.cwd();
 };
 
@@ -261,21 +264,9 @@ async function startServer() {
                   Object.keys(qScores).forEach(function(k) { qSum += Number(qScores[k]) || 0; });
                   var qPts = Math.min(40, Math.max(0, qSum));
                   var totalPoints = Math.min(100, Math.max(0, vPts + gPts + qPts));
-                  var thCount = Math.min(12, (p.completedTheoryChapters || []).length);
-                  var gCount = Math.min(2, cGames.filter(function(id) { return id === 1 || id === 2; }).length);
-                  var qCount = Math.min(10, Object.keys(qScores).length);
-                  var qBonus = p.quizCompleted ? 1 : 0;
-                  var compPct = Math.min(100, Math.round(((thCount + vCount + gCount + qCount + qBonus) / 27) * 100));
-                  score = Math.max(totalPoints, compPct);
+                  score = totalPoints;
                 }
               } else if (mid === 'hashing') {
-                var p = null;
-                for (var i = 0; i < localStorage.length; i++) {
-                  var k = localStorage.key(i);
-                  if (k && (k.indexOf('hash_user_progress_') === 0 || k === 'hash_quest_field_notes_progress_v2')) {
-                    try { p = JSON.parse(localStorage.getItem(k)); if (p) break; } catch(e) {}
-                  }
-                }
                 var pts = 0;
                 for (var i = 0; i < localStorage.length; i++) {
                   var k = localStorage.key(i);
@@ -283,40 +274,17 @@ async function startServer() {
                     try { var pObj = JSON.parse(localStorage.getItem(k)); if (pObj && pObj.totalPoints) pts = Math.max(pts, pObj.totalPoints); } catch(e) {}
                   }
                 }
-                var compPct = 0;
-                if (p) {
-                  var th = Math.min(12, (p.completedTheoryChapters || []).length);
-                  var vi = Math.min(2, (p.completedVideos || []).length);
-                  var ga = Math.min(5, (p.levelsCompleted || []).length);
-                  var qu = p.quizSubmitted ? 1 : 0;
-                  compPct = Math.min(100, Math.round(((th + vi + ga + qu) / 20) * 100));
-                }
-                score = Math.max(pts, compPct);
+                score = Math.min(100, Math.max(0, pts));
               } else if (mid === 'linear-search') {
-                var p = null;
-                try { p = JSON.parse(localStorage.getItem('linear_search_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2')); } catch(e) {}
                 var pts = 0;
                 try { var ptsObj = JSON.parse(localStorage.getItem('algo_quest_points_system_v3')); if (ptsObj && ptsObj.totalPoints) pts = ptsObj.totalPoints; } catch(e) {}
-                var compPct = 0;
-                if (p) {
-                  var th = Math.min(12, (p.completedTheoryChapters || []).length);
-                  var vi = Math.min(2, (p.completedVideos || []).length);
-                  var ga = Math.min(5, (p.levelsCompleted || []).length);
-                  var qu = p.quizSubmitted ? 1 : 0;
-                  compPct = Math.min(100, Math.round(((th + vi + ga + qu) / 20) * 100));
-                }
-                score = Math.max(pts, compPct);
+                score = Math.min(100, Math.max(0, pts));
               } else if (mid === 'binary-search') {
                 try {
                   var p = JSON.parse(localStorage.getItem('binary_search_user_progress_v4'));
                   if (p) {
                     var tEarned = (p.topicPoints && p.topicPoints.totalEarned) || 0;
-                    var th = Math.min(12, (p.completedTheoryChapters || []).length);
-                    var lb = Math.min(2, (p.completedLabs || []).length);
-                    var gm = Math.min(6, (p.completedGameLevels || []).length);
-                    var qz = p.quizCompleted ? 1 : 0;
-                    var compPct = Math.min(100, Math.round(((th + lb + gm + qz) / 21) * 100));
-                    score = Math.max(tEarned, compPct);
+                    score = Math.min(100, Math.max(0, tEarned));
                   }
                 } catch(e) {}
               } else if (mid === 'sorting') {
@@ -368,7 +336,7 @@ async function startServer() {
                     var compPct = Math.min(100, Math.round(((vz + gm + th + qz) / 19) * 100));
                     var qPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : 0;
                     var tPts = Math.min(100, vz * 10 + gm * 10 + qPts);
-                    score = Math.max(tPts, compPct);
+                    score = tPts;
                   }
                 } catch(e) {}
               } else if (mid === 'sll') {
@@ -376,8 +344,7 @@ async function startServer() {
                   var p = JSON.parse(localStorage.getItem('algolearn_sll_100_points_progress_v4'));
                   if (p) {
                     var tPts = Math.min(100, Math.max(0, p.totalPoints || 0));
-                    var compPct = Math.min(100, Math.round((Object.keys(p.completedActivities || {}).length / 27) * 100));
-                    score = Math.max(tPts, compPct);
+                    score = tPts;
                   }
                 } catch(e) {}
               } else if (mid === 'dll') {
@@ -398,27 +365,18 @@ async function startServer() {
                   var gScore = Math.max(0, Object.keys(gTasks).length * 6 - (hints * 1 + guides * 2));
                   var qScore = Math.max(0, qCorrect * 3 - qWrong * 1);
                   var earned = Math.min(100, Math.round(vScore + gScore + qScore));
-                  var p = JSON.parse(localStorage.getItem('dll_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2') || '{}');
-                  var pct = p.totalScore ? Math.min(100, p.totalScore) : 0;
-                  score = Math.max(earned, pct);
+                  score = earned;
                 } catch(e) {}
               } else if (mid === 'cll') {
                 try {
                   var pts = JSON.parse(localStorage.getItem('cll-learning-points-v5') || '{}');
                   var tPts = pts.totalPoints || 0;
-                  var p = JSON.parse(localStorage.getItem('cll_field_notes_progress_v2') || localStorage.getItem('hash_quest_field_notes_progress_v2') || '{}');
-                  var th = Math.min(12, (p.completedTheoryChapters || []).length);
-                  var vi = Math.min(2, (p.completedVideos || []).length);
-                  var gm = Math.min(5, (p.levelsCompleted || []).length);
-                  var qz = p.quizSubmitted ? 1 : 0;
-                  var pct = Math.min(100, Math.round(((th + vi + gm + qz) / 20) * 100));
-                  score = Math.max(tPts, pct);
+                  score = Math.min(100, Math.max(0, tPts));
                 } catch(e) {}
               } else if (mid === 'bfs') {
                 try {
                   var lvls = JSON.parse(localStorage.getItem('algolearn_completed_levels') || '[]');
                   var vids = JSON.parse(localStorage.getItem('algolearn_completed_videos') || '[]');
-                  var chaps = JSON.parse(localStorage.getItem('algolearn_completed_chapters') || '[]');
                   var qAns = JSON.parse(localStorage.getItem('algolearn_quiz_answers') || '{}');
                   var ast = JSON.parse(localStorage.getItem('algolearn_game_assistance') || '{}');
                   var vScore = Math.min(16, vids.length * 8);
@@ -436,8 +394,7 @@ async function startServer() {
                   });
                   var qScore = Math.max(0, Math.min(20, qCorr * 2 - qWr * 1));
                   var finalS = Math.min(100, vScore + gScore + qScore);
-                  var pct = Math.min(100, Math.round(((chaps.length + vids.length + lvls.length + (qCorr > 0 ? 1 : 0)) / 23) * 100));
-                  score = Math.max(finalS, pct);
+                  score = finalS;
                 } catch(e) {}
               } else if (mid === 'trees') {
                 try {
@@ -458,16 +415,14 @@ async function startServer() {
                   var p = JSON.parse(localStorage.getItem('bst_explorer_user_stats_main'));
                   if (p) {
                     var tPts = p.totalTopicPoints || 0;
-                    var pct = p.overallCompletionPercentage || 0;
-                    var xpS = p.xp ? Math.min(100, Math.round(p.xp / 10)) : 0;
-                    score = Math.max(tPts, pct, xpS);
+                    score = Math.min(100, Math.max(0, tPts));
                   }
                 } catch(e) {}
               } else if (mid === 'dsa-types') {
                 try {
                   var p = JSON.parse(localStorage.getItem('algo_ds_types_progress_v1'));
                   if (p && p.topicData) {
-                    score = Math.max(p.topicData.overallTopicScore || 0, p.topicData.completionPercentage || 0);
+                    score = Math.min(100, Math.max(0, p.topicData.overallTopicScore || 0));
                   }
                 } catch(e) {}
               }
@@ -1499,43 +1454,46 @@ ${String(code)}
   // ============================================================
   // STATIC ASSETS & VITE DEVELOPMENT SERVER
   // ============================================================
+  // ============================================================
+  // VITE DEVELOPMENT MIDDLEWARE
+  // ============================================================
 
-  // Initialize Vite server middleware (transforms module .tsx & styles on the fly)
-  const vite = await createViteServer({
-    root: projectRoot,
-    plugins: [
-      {
-        name: 'decode-ampersand-paths',
-        configureServer(server) {
-          server.middlewares.use((req, _res, next) => {
-            if (req.url && req.url.includes('%26')) {
-              req.url = req.url.replace(/%26/g, '&');
-            }
-            next();
-          });
+  if (!isProduction) {
+    const vite = await createViteServer({
+      root: projectRoot,
+      plugins: [
+        {
+          name: "decode-ampersand-paths",
+          configureServer(server) {
+            server.middlewares.use((req, _res, next) => {
+              if (req.url && req.url.includes("%26")) {
+                req.url = req.url.replace(/%26/g, "&");
+              }
+              next();
+            });
+          },
         },
+      ],
+      server: {
+        middlewareMode: true,
       },
-    ],
-    server: {
-      middlewareMode: true,
-    },
-    appType: "custom",
-  });
+      appType: "custom",
+    });
 
-  viteInstance = vite;
+    viteInstance = vite;
 
-  // Normalize percent-encoded ampersands (%26) in module paths so Vite resolves folder names on disk
-  app.use((req, _res, next) => {
-    if (req.url && req.url.includes('%26')) {
-      req.url = req.url.replace(/%26/g, '&');
-    }
-    if (req.originalUrl && req.originalUrl.includes('%26')) {
-      req.originalUrl = req.originalUrl.replace(/%26/g, '&');
-    }
-    next();
-  });
+    app.use((req, _res, next) => {
+      if (req.url && req.url.includes("%26")) {
+        req.url = req.url.replace(/%26/g, "&");
+      }
+      if (req.originalUrl && req.originalUrl.includes("%26")) {
+        req.originalUrl = req.originalUrl.replace(/%26/g, "&");
+      }
+      next();
+    });
 
-  app.use(vite.middlewares);
+    app.use(vite.middlewares);
+  }
 
   // Serve public static assets (videos, icons, images)
   app.use(express.static(path.join(projectRoot, "public")));
@@ -1593,18 +1551,41 @@ ${String(code)}
     console.log(`  ➜ Local:   http://localhost:${PORT}/`);
     console.log(`  ➜ Network: http://0.0.0.0:${PORT}/\n`);
 
-    // Warm-up cache for instant <50ms first module loads
-    setTimeout(async () => {
-      const ids = ['stack', 'sorting', 'binary-search', 'linear-search', 'hashing', 'queue', 'bfs', 'trees', 'bst', 'sll', 'dll', 'cll', 'dsa-types'];
-      for (const id of ids) {
+    // Warm up modules only during local development.
+    // Skip production warm-up to reduce startup memory usage.
+    if (!isProduction) {
+      setTimeout(async () => {
+        const ids = [
+          "stack",
+          "sorting",
+          "binary-search",
+          "linear-search",
+          "hashing",
+          "queue",
+          "bfs",
+          "trees",
+          "bst",
+          "sll",
+          "dll",
+          "cll",
+          "dsa-types",
+        ];
+
+        for (const id of ids) {
+          try {
+            await fetch(`http://127.0.0.1:${PORT}/dsa-modules/${id}`);
+          } catch (error) {
+            console.error(`Warm-up failed for ${id}:`, error);
+          }
+        }
+
         try {
-          await fetch(`http://127.0.0.1:${PORT}/dsa-modules/${id}`);
-        } catch { }
-      }
-      try {
-        await fetch(`http://127.0.0.1:${PORT}/`);
-      } catch { }
-    }, 500);
+          await fetch(`http://127.0.0.1:${PORT}/`);
+        } catch (error) {
+          console.error("Homepage warm-up failed:", error);
+        }
+      }, 500);
+    }
   });
 
   server.on("error", (err: any) => {

@@ -54,6 +54,18 @@ const StudentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    activeSessionId: {
+      type: String,
+      default: null,
+    },
+    sessionLastActive: {
+      type: Date,
+      default: null,
+    },
+    sessionDevice: {
+      type: String,
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -63,5 +75,10 @@ const StudentSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// High-Performance Indexes for 500+ Students Scalability
+StudentSchema.index({ xp: -1, topicsCompleted: -1, createdAt: 1, regdNo: 1 });
+StudentSchema.index({ activeSessionId: 1 });
+StudentSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Student', StudentSchema);

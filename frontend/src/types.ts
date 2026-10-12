@@ -120,6 +120,8 @@ export interface LeaderboardUser {
   topicsStarted?: number;
   overallProgress?: number;
   email?: string;
+  branch?: string;
+  createdAt?: string | Date;
 }
 
 export interface AchievementBadge {
