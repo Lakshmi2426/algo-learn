@@ -24,10 +24,13 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/api/health', (_req, res) => {
+  const mongoose = require('mongoose');
+  const isConnected = mongoose.connection.readyState === 1;
   res.json({
-    status: 'ok',
+    status: isConnected ? 'ok' : 'degraded',
     service: 'AlgoLearn Backend API',
-    database: 'MongoDB Connected',
+    database: isConnected ? 'MongoDB Connected' : 'MongoDB Disconnected',
+    readyState: mongoose.connection.readyState,
   });
 });
 

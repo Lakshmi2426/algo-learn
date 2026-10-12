@@ -8,8 +8,35 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const getAppDir = (): string => {
+  if (typeof __dirname !== "undefined" && __dirname) {
+    return __dirname;
+  }
+  try {
+    const metaUrl = (new Function("return import.meta.url"))();
+    if (metaUrl) return path.dirname(fileURLToPath(metaUrl));
+  } catch {}
+  return process.cwd();
+};
+
+const appDir = getAppDir();
+
+const getProjectRootDir = (): string => {
+  const candidates = [
+    appDir,
+    path.resolve(appDir, ".."),
+    process.cwd(),
+    path.resolve(process.cwd(), "frontend"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "DSA topics"))) {
+      return candidate;
+    }
+  }
+  return appDir;
+};
+
+const projectRoot = getProjectRootDir();
 
 dotenv.config();
 
@@ -71,7 +98,7 @@ async function startServer() {
     let folderName = MODULE_FOLDER_MAP[rawId] || MODULE_FOLDER_MAP[rawId.replace(/_/g, "-")];
     if (!folderName) {
       try {
-        const topicsDir = path.join(__dirname, "DSA topics");
+        const topicsDir = path.join(projectRoot, "DSA topics");
         if (fs.existsSync(topicsDir)) {
           const folders = fs.readdirSync(topicsDir);
           const cleanRaw = rawId.replace(/[^a-z0-9]/gi, "").toLowerCase();
@@ -100,7 +127,7 @@ async function startServer() {
       return res.status(404).send("Module not found");
     }
 
-    let htmlPath = path.join(__dirname, "DSA topics", folderName, "index.html");
+    let htmlPath = path.join(projectRoot, "DSA topics", folderName, "index.html");
 
     if (!fs.existsSync(htmlPath)) {
       return res.status(404).send("Module index.html not found");
@@ -573,7 +600,7 @@ async function startServer() {
     rawHtml = rawHtml.replace("<head>", `<head>\n  ${themeBgStyle}\n  ${baseTag}`);
     rawHtml = rawHtml.replace("</head>", `${bridgeScript}</head>`);
 
-    const hasViteMain = fs.existsSync(path.join(__dirname, "DSA topics", folderName, "src", "main.tsx"));
+    const hasViteMain = fs.existsSync(path.join(projectRoot, "DSA topics", folderName, "src", "main.tsx"));
     if (hasViteMain) {
       const moduleSrcPath = `/DSA topics/${folderName}/src/main.tsx`;
       rawHtml = rawHtml.replace(
@@ -601,13 +628,13 @@ async function startServer() {
     res.send(rawHtml);
   };
 
-  app.get("/dsa-modules/:moduleId", handleModuleRequest);
+  app.get(["/dsa-modules/:moduleId", "/dsa-modules/:moduleId/"], handleModuleRequest);
   app.get("/dsa-modules/:moduleId/*", (req, res, next) => {
     const rawId = (req.params.moduleId || "").toLowerCase();
     const folderName = resolveFolderName(rawId);
 
     if (!folderName) {
-      return next();
+      return res.status(404).send("Module not found");
     }
 
     const rawSubpath = req.params[0] || "";
@@ -619,13 +646,13 @@ async function startServer() {
     }
 
     // Check primary folder public/
-    let p = path.join(process.cwd(), "DSA topics", folderName, "public", subpath);
+    let p = path.join(projectRoot, "DSA topics", folderName, "public", subpath);
     if (fs.existsSync(p) && fs.statSync(p).isFile()) {
       return res.sendFile(p);
     }
 
     // Check primary folder directly
-    p = path.join(process.cwd(), "DSA topics", folderName, subpath);
+    p = path.join(projectRoot, "DSA topics", folderName, subpath);
     if (fs.existsSync(p) && fs.statSync(p).isFile()) {
       return res.sendFile(p);
     }
@@ -633,17 +660,17 @@ async function startServer() {
     // Fallback for BFS if folder is "Breadth  first search" or "BFS"
     if (rawId === "bfs" || rawId.includes("breadth")) {
       const altFolder = folderName === "BFS" ? "Breadth  first search" : "BFS";
-      p = path.join(process.cwd(), "DSA topics", altFolder, "public", subpath);
+      p = path.join(projectRoot, "DSA topics", altFolder, "public", subpath);
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
         return res.sendFile(p);
       }
-      p = path.join(process.cwd(), "DSA topics", altFolder, subpath);
+      p = path.join(projectRoot, "DSA topics", altFolder, subpath);
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
         return res.sendFile(p);
       }
     }
 
-    next();
+    res.status(404).send("Module asset not found");
   });
 
   // Global fallback route for video files requested at /videos/*
@@ -652,19 +679,19 @@ async function startServer() {
     const subpath = decodeURIComponent(rawSubpath);
 
     // 1. Check root public/videos/
-    let p = path.join(process.cwd(), "public", "videos", subpath);
+    let p = path.join(projectRoot, "public", "videos", subpath);
     if (fs.existsSync(p) && fs.statSync(p).isFile()) {
       return res.sendFile(p);
     }
 
     // 2. Check across all DSA topic folders (public/videos and videos)
     for (const folder of Object.values(MODULE_FOLDER_MAP)) {
-      p = path.join(process.cwd(), "DSA topics", folder, "public", "videos", subpath);
+      p = path.join(projectRoot, "DSA topics", folder, "public", "videos", subpath);
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
         return res.sendFile(p);
       }
 
-      p = path.join(process.cwd(), "DSA topics", folder, "videos", subpath);
+      p = path.join(projectRoot, "DSA topics", folder, "videos", subpath);
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
         return res.sendFile(p);
       }
@@ -688,15 +715,26 @@ async function startServer() {
   // ============================================================
   // BACKEND API PROXY (Port 5000: Express + MongoDB Auth & Students)
   // ============================================================
-  const BACKEND_URL =
-    process.env.BACKEND_URL?.trim().replace(/\/+$/, "") ||
-    "http://127.0.0.1:5000";
+  const DEFAULT_REMOTE_BACKEND = "https://algolearn-backend-t9c6.onrender.com";
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+  const configuredBackend = process.env.BACKEND_URL?.trim();
+
+  const BACKEND_URL = (
+    configuredBackend ||
+    (isProduction ? DEFAULT_REMOTE_BACKEND : "http://127.0.0.1:5000")
+  ).replace(/\/+$/, "");
+
+  const isLocalBackend = BACKEND_URL.includes("127.0.0.1") || BACKEND_URL.includes("localhost");
+
   const ensureBackend = () => {
+    if (isProduction || !isLocalBackend) {
+      return;
+    }
     try {
       const testReq = http.get(`${BACKEND_URL}/api/health`, (_res) => { });
       testReq.on("error", () => {
         try {
-          const backendDir = path.resolve(__dirname, "..", "backend");
+          const backendDir = path.resolve(projectRoot, "..", "backend");
           if (fs.existsSync(backendDir)) {
             console.log("⚡ Auto-starting AlgoLearn Backend service on port 5000...");
             const proc = spawn("node", ["server.js"], {
@@ -711,14 +749,28 @@ async function startServer() {
       });
     } catch (e) { }
   };
-  if (!process.env.BACKEND_URL) {
+
+  if (!isProduction && isLocalBackend) {
     ensureBackend();
   }
+
   const proxyToBackend = async (req: express.Request, res: express.Response) => {
     try {
       const targetUrl = `${BACKEND_URL}${req.originalUrl}`;
+
+      // Prevent infinite loops if BACKEND_URL accidentally targets this server
+      if (
+        (BACKEND_URL.includes(`:${PORT}`) && (BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1"))) ||
+        (process.env.RENDER_EXTERNAL_URL && BACKEND_URL === process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, ""))
+      ) {
+        return res.status(508).json({
+          error: "Infinite proxy loop detected. BACKEND_URL matches frontend URL.",
+        });
+      }
+
       const headers: Record<string, string> = {
         "Content-Type": (req.headers["content-type"] as string) || "application/json",
+        Accept: (req.headers["accept"] as string) || "application/json",
       };
       if (req.headers.authorization) {
         headers["Authorization"] = req.headers.authorization as string;
@@ -727,16 +779,29 @@ async function startServer() {
         method: req.method,
         headers,
       };
-      if (req.method !== "GET" && req.method !== "HEAD" && req.body && Object.keys(req.body).length > 0) {
+      if (
+        req.method !== "GET" &&
+        req.method !== "HEAD" &&
+        req.body &&
+        Object.keys(req.body).length > 0
+      ) {
         options.body = JSON.stringify(req.body);
       }
       const backendRes = await fetch(targetUrl, options);
-      const data = await backendRes.json().catch(() => null);
-      return res.status(backendRes.status).json(data || {});
+      const contentType = backendRes.headers.get("content-type") || "";
+
+      if (contentType.includes("application/json")) {
+        const data = await backendRes.json().catch(() => ({}));
+        return res.status(backendRes.status).json(data);
+      } else {
+        const text = await backendRes.text().catch(() => "");
+        return res.status(backendRes.status).send(text);
+      }
     } catch (err: any) {
       console.error("[Backend Proxy Error]", err.message);
       return res.status(503).json({
         error: "Backend service is temporarily unavailable. Please verify backend server.",
+        details: err.message,
       });
     }
   };
@@ -1442,79 +1507,89 @@ ${String(code)}
   // STATIC ASSETS & VITE DEVELOPMENT SERVER
   // ============================================================
 
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      root: __dirname,
-      plugins: [
-        {
-          name: 'decode-ampersand-paths',
-          configureServer(server) {
-            server.middlewares.use((req, _res, next) => {
-              if (req.url && req.url.includes('%26')) {
-                req.url = req.url.replace(/%26/g, '&');
-              }
-              next();
-            });
-          },
+  // Initialize Vite server middleware (transforms module .tsx & styles on the fly)
+  const vite = await createViteServer({
+    root: projectRoot,
+    plugins: [
+      {
+        name: 'decode-ampersand-paths',
+        configureServer(server) {
+          server.middlewares.use((req, _res, next) => {
+            if (req.url && req.url.includes('%26')) {
+              req.url = req.url.replace(/%26/g, '&');
+            }
+            next();
+          });
         },
-      ],
-      server: {
-        middlewareMode: true,
       },
-      appType: "custom",
-    });
+    ],
+    server: {
+      middlewareMode: true,
+    },
+    appType: "custom",
+  });
 
-    viteInstance = vite;
+  viteInstance = vite;
 
-    // Normalize percent-encoded ampersands (%26) in module paths so Vite resolves folder names on disk
-    app.use((req, _res, next) => {
-      if (req.url && req.url.includes('%26')) {
-        req.url = req.url.replace(/%26/g, '&');
-      }
-      if (req.originalUrl && req.originalUrl.includes('%26')) {
-        req.originalUrl = req.originalUrl.replace(/%26/g, '&');
-      }
-      next();
-    });
+  // Normalize percent-encoded ampersands (%26) in module paths so Vite resolves folder names on disk
+  app.use((req, _res, next) => {
+    if (req.url && req.url.includes('%26')) {
+      req.url = req.url.replace(/%26/g, '&');
+    }
+    if (req.originalUrl && req.originalUrl.includes('%26')) {
+      req.originalUrl = req.originalUrl.replace(/%26/g, '&');
+    }
+    next();
+  });
 
-    app.use(vite.middlewares);
-  }
+  app.use(vite.middlewares);
 
   // Serve public static assets (videos, icons, images)
-  app.use(express.static(path.join(__dirname, "public")));
-  app.use("/DSA topics", express.static(path.join(__dirname, "DSA topics")));
+  app.use(express.static(path.join(projectRoot, "public")));
+  app.use("/DSA topics", express.static(path.join(projectRoot, "DSA topics")));
+
+  const distPath = path.join(projectRoot, "dist");
+  const hasDist = fs.existsSync(distPath) && fs.existsSync(path.join(distPath, "index.html"));
+
+  if (isProduction && hasDist) {
+    // Serve production pre-compiled bundle assets for root application
+    app.use(express.static(distPath));
+  }
 
   const indexHtmlCache = new Map<string, string>();
 
-  if (process.env.NODE_ENV !== "production" && viteInstance) {
-    app.get("*", async (req, res, next) => {
-      const url = req.originalUrl;
-      if (url.startsWith("/api/") || url.startsWith("/dsa-modules/") || url.startsWith("/DSA%20topics/")) {
-        return next();
-      }
-      try {
-        let template = indexHtmlCache.get(url);
-        if (!template) {
-          const raw = fs.readFileSync(path.join(__dirname, "index.html"), "utf-8");
-          template = await viteInstance.transformIndexHtml(url, raw);
-          indexHtmlCache.set(url, template);
-        }
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.send(template);
-      } catch (e) {
-        viteInstance.ssrFixStacktrace(e as Error);
-        next(e);
-      }
-    });
-  } else {
-    const distPath = path.join(__dirname, "dist");
+  // SPA Fallback: handle client-side routing while never intercepting API or module routes
+  app.get("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    if (
+      url.startsWith("/api/") ||
+      url.startsWith("/dsa-modules/") ||
+      url.startsWith("/DSA topics/") ||
+      url.startsWith("/DSA%20topics/") ||
+      url.startsWith("/@") ||
+      url.startsWith("/node_modules/")
+    ) {
+      return next();
+    }
 
-    app.use(express.static(distPath));
+    if (isProduction && hasDist) {
+      return res.sendFile(path.join(distPath, "index.html"));
+    }
 
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+    try {
+      let template = indexHtmlCache.get(url);
+      if (!template) {
+        const raw = fs.readFileSync(path.join(projectRoot, "index.html"), "utf-8");
+        template = await viteInstance.transformIndexHtml(url, raw);
+        indexHtmlCache.set(url, template);
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(template);
+    } catch (e) {
+      if (viteInstance) viteInstance.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
 
   // ============================================================
   // START SERVER
@@ -1530,11 +1605,11 @@ ${String(code)}
       const ids = ['stack', 'sorting', 'binary-search', 'linear-search', 'hashing', 'queue', 'bfs', 'trees', 'bst', 'sll', 'dll', 'cll', 'dsa-types'];
       for (const id of ids) {
         try {
-          await fetch(`http://localhost:${PORT}/dsa-modules/${id}`);
+          await fetch(`http://127.0.0.1:${PORT}/dsa-modules/${id}`);
         } catch { }
       }
       try {
-        await fetch(`http://localhost:${PORT}/`);
+        await fetch(`http://127.0.0.1:${PORT}/`);
       } catch { }
     }, 500);
   });
