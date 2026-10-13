@@ -297,56 +297,46 @@ router.post('/login', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const token = extractToken(req);
-    const bodyRegdNo = req.body?.regdNo ? String(req.body.regdNo).trim().toUpperCase() : null;
-    let cleared = false;
 
     if (token) {
+      let decodedSessionId = null;
+      let studentId = null;
+
       try {
         const decoded = jwt.verify(
           token,
           process.env.JWT_SECRET || 'algolearn_jwt_secret_2026'
         );
-
         if (decoded && decoded.id) {
-          // Atomically clear active session
-          const query = { _id: decoded.id };
-          if (decoded.sessionId) {
-            query.activeSessionId = decoded.sessionId;
-          }
-          await Student.updateOne(query, {
-            $set: { activeSessionId: null, sessionLastActive: null },
-          });
-          cleared = true;
+          studentId = decoded.id;
+          decodedSessionId = decoded.sessionId;
         }
       } catch (tokenErr) {
-        // Token was expired; decode payload without verification to release active session
         try {
           const unverified = jwt.decode(token);
           if (unverified && unverified.id) {
-            await Student.updateOne(
-              { _id: unverified.id },
-              { $set: { activeSessionId: null, sessionLastActive: null } }
-            );
-            cleared = true;
+            studentId = unverified.id;
+            decodedSessionId = unverified.sessionId;
           }
         } catch (e) { }
       }
-    }
 
-    // Fallback: if token wasn't verifiable, clear session via verified student's regdNo
-    if (!cleared && bodyRegdNo) {
-      await Student.updateOne(
-        { regdNo: bodyRegdNo },
-        { $set: { activeSessionId: null, sessionLastActive: null } }
-      );
-      cleared = true;
+      // ONLY clear activeSessionId in MongoDB if the session being logged out
+      // is STILL the student's active session! If another device has already logged in
+      // (activeSessionId replaced), NEVER clear the new session.
+      if (studentId && decodedSessionId) {
+        await Student.updateOne(
+          { _id: studentId, activeSessionId: decodedSessionId },
+          { $set: { activeSessionId: null, sessionLastActive: null } }
+        );
+      }
     }
 
     clearSessionCookie(res);
 
     return res.json({
       success: true,
-      message: 'Logged out successfully. Active session released.',
+      message: 'Logged out successfully.',
     });
   } catch (error) {
     console.error('Sign-out error:', error);

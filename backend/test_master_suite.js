@@ -72,8 +72,8 @@ async function runTests() {
   assert.strictEqual(me1.data.student.regdNo, '24B91A0501');
   console.log('✅ Session verified on /api/auth/me.\n');
 
-  // Test 6: Second independent login attempt REJECTED while session is active
-  console.log('--- Test 6: Second Concurrent Login Rejected ---');
+  // Test 6: Sign in on Device 2 immediately succeeds (new session takes over)
+  console.log('--- Test 6: Second Device Login Immediately Takes Over ---');
   const login2 = await request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({
@@ -81,21 +81,43 @@ async function runTests() {
       password: '24B91A0501',
     }),
   });
-  assert.strictEqual(login2.status, 409, 'Must return 409 Conflict');
-  assert(
-    login2.data.error.includes('already logged in on another session'),
-    'Must display already logged in error message'
-  );
-  console.log('✅ Second login rejected with 409 and clear message:', login2.data.error);
+  assert.strictEqual(login2.status, 200, 'Must return 200 OK without blocking');
+  assert.strictEqual(login2.data.success, true);
+  assert(login2.data.token, 'Must return new active token for Device 2');
+  const token2 = login2.data.token;
+  console.log('✅ Second login immediately succeeded and took over active session.\n');
 
-  // Test 7: Verify original session still works after second login attempt
-  console.log('\n--- Test 7: First Session Preserved After Denied Login ---');
-  const me1StillActive = await request('/api/auth/me', {
+  // Test 7: Verify original session (Device 1) is now invalidated
+  console.log('--- Test 7: Device 1 Session Invalidation ---');
+  const me1Revoked = await request('/api/auth/me', {
     headers: { Authorization: `Bearer ${token1}` },
   });
-  assert.strictEqual(me1StillActive.status, 200);
-  assert.strictEqual(me1StillActive.data.authenticated, true);
-  console.log('✅ Original session remained active and was not invalidated.\n');
+  assert.strictEqual(me1Revoked.status, 401, 'Must return 401 for invalidated Device 1 session');
+  assert.strictEqual(me1Revoked.data.sessionRevoked, true, 'Must indicate sessionRevoked: true');
+  console.log('✅ Device 1 session was automatically invalidated.\n');
+
+  // Test 7b: Verify Device 2 session is active
+  console.log('--- Test 7b: Device 2 Session Remains Active ---');
+  const me2Active = await request('/api/auth/me', {
+    headers: { Authorization: `Bearer ${token2}` },
+  });
+  assert.strictEqual(me2Active.status, 200);
+  assert.strictEqual(me2Active.data.authenticated, true);
+  console.log('✅ Device 2 session is confirmed active.\n');
+
+  // Test 7c: Device 1 logging out does NOT invalidate Device 2
+  console.log('--- Test 7c: Device 1 Logout Does Not Invalidate Device 2 ---');
+  const logout1 = await request('/api/auth/logout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token1}` },
+  });
+  assert.strictEqual(logout1.status, 200);
+  const me2StillActive = await request('/api/auth/me', {
+    headers: { Authorization: `Bearer ${token2}` },
+  });
+  assert.strictEqual(me2StillActive.status, 200);
+  assert.strictEqual(me2StillActive.data.authenticated, true);
+  console.log('✅ Device 2 session remained active after Device 1 logout.\n');
 
   // Test 8: Progress points saving and Leaderboard XP calculation
   console.log('--- Test 8: Topic Points Summing (Leaderboard XP = sum of all topic points) ---');
@@ -110,7 +132,7 @@ async function runTests() {
 
   const progressRes = await request('/api/students/24B91A0501/progress', {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token1}` },
+    headers: { Authorization: `Bearer ${token2}` },
     body: JSON.stringify({
       progress: topicPoints,
       topicsStarted: 4,
@@ -132,7 +154,7 @@ async function runTests() {
   console.log('--- Test 10: Sign Out Releases Active Session ---');
   const logoutRes = await request('/api/auth/logout', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token1}` },
+    headers: { Authorization: `Bearer ${token2}` },
   });
   assert.strictEqual(logoutRes.status, 200);
   assert.strictEqual(logoutRes.data.success, true);
@@ -141,7 +163,7 @@ async function runTests() {
   // Test 11: Signed-out token can no longer access protected endpoints
   console.log('--- Test 11: Signed-Out Session Cannot Access Protected API ---');
   const meRevoked = await request('/api/auth/me', {
-    headers: { Authorization: `Bearer ${token1}` },
+    headers: { Authorization: `Bearer ${token2}` },
   });
   assert.strictEqual(meRevoked.status, 401);
   console.log('✅ Revoked token rejected with 401.\n');
@@ -157,8 +179,8 @@ async function runTests() {
   });
   assert.strictEqual(relogin.status, 200);
   assert.strictEqual(relogin.data.success, true);
-  const token2 = relogin.data.token;
-  assert(token2 && token2 !== token1, 'New session must issue new token');
+  const tokenRelogin = relogin.data.token;
+  assert(tokenRelogin && tokenRelogin !== token2, 'New session must issue new token');
   console.log('✅ Re-login succeeded with new active session.\n');
 
   // Test 13: Add second student to verify ranking and tie breaking

@@ -111,14 +111,26 @@ const MainAppContent: React.FC = () => {
       }
     };
 
+    const handleLoggedOut = (e: Event) => {
+      setActiveModule(null);
+      navigateTo('home', null, true);
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.redirectToSignIn !== false) {
+        setAuthModalMode('login');
+        setShowAuthModal(true);
+      }
+    };
+
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('algolearn_navigate_internal', handleInternalNav);
     window.addEventListener('message', handleGlobalNavMessage);
+    window.addEventListener('algolearn_student_logged_out', handleLoggedOut);
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('algolearn_navigate_internal', handleInternalNav);
       window.removeEventListener('message', handleGlobalNavMessage);
+      window.removeEventListener('algolearn_student_logged_out', handleLoggedOut);
     };
   }, [isAuthenticated, setAuthModalMode, setShowAuthModal]);
 

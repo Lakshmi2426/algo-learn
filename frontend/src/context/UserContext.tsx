@@ -33,7 +33,7 @@ interface UserContextType {
   }) => Promise<{ success: boolean; message?: string }>;
   isRegdNoTaken: (regdNo: string) => boolean;
   loginAsAdmin: (name: string, adminCode: string) => Promise<{ success: boolean; message?: string; role?: string }>;
-  logout: () => Promise<void> | void;
+  logout: (options?: { skipServerCall?: boolean; redirectToSignIn?: boolean }) => Promise<void> | void;
   recoverSession: (regdNo: string, password: string) => Promise<{ success: boolean; message?: string }>;
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
@@ -317,7 +317,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Issue 13: Verify active session against backend (every 10s & on focus)
   // If student logs in on another device (Device B), Device A's session is invalidated on server.
-  // When Device A verifies its session, it receives 401 with sessionRevoked and logs out automatically.
+  // When another device logs in, this session receives 401 (sessionRevoked) and logs out automatically.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -335,7 +335,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((res) => {
           if (!res.ok) {
             if (res.status === 401 || res.status === 404) {
-              logout();
+              logout({ skipServerCall: true, redirectToSignIn: true });
             }
             return null;
           }
@@ -388,15 +388,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial check on mount
     verifySession();
 
-    // Check periodically every 10 seconds
-    const intervalId = setInterval(verifySession, 10000);
+    // Check periodically every 3 seconds for responsive multi-device detection
+    const intervalId = setInterval(verifySession, 3000);
 
-    // Check immediately when window regains focus
+    // Check immediately when window regains focus or becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        verifySession();
+      }
+    };
     window.addEventListener('focus', verifySession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(intervalId);
       window.removeEventListener('focus', verifySession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -460,7 +467,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 headers: authHeaders,
                 credentials: 'include',
                 body: JSON.stringify(payload),
-              }).catch(() => {});
+              })
+                .then((res) => {
+                  if (res.status === 401 || res.status === 404) {
+                    logout({ skipServerCall: true, redirectToSignIn: true });
+                  }
+                })
+                .catch(() => {});
             }
           }, 300);
         }
@@ -694,9 +707,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           notFound: data?.notFound || res.status === 404,
           message:
             data?.error ||
-            (res.status === 409
-              ? 'This account is already logged in on another session. Please sign out from the active session before logging in again.'
-              : 'Invalid credentials. Please check your password.'),
+            'Invalid credentials. Please check your password.',
         };
       }
 
@@ -1002,22 +1013,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = async () => {
+  const logout = async (options?: { skipServerCall?: boolean; redirectToSignIn?: boolean }) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('algolearn_token');
       const currentKey = getActiveStudentKey();
-      try {
-        await fetch(apiUrl('/api/auth/logout'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ regdNo: user?.regdNo || currentKey }),
-          credentials: 'include',
-        });
-      } catch (e) {
-        console.error('Logout error:', e);
+      if (!options?.skipServerCall) {
+        try {
+          await fetch(apiUrl('/api/auth/logout'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ regdNo: user?.regdNo || currentKey }),
+            credentials: 'include',
+          });
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
       }
 
       if (currentKey) {
@@ -1045,13 +1058,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
-      window.dispatchEvent(new CustomEvent('algolearn_student_logged_out'));
+      window.dispatchEvent(
+        new CustomEvent('algolearn_student_logged_out', {
+          detail: { redirectToSignIn: options?.redirectToSignIn !== false },
+        })
+      );
     }
 
     setIsAuthenticated(false);
     setRole('student');
     setUser(defaultUser);
     setAuthModalMode('login');
+
+    if (options?.redirectToSignIn) {
+      setShowAuthModal(true);
+    }
   };
 
   const recoverSession = async (

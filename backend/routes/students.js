@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 
 // -------------------------------------------------------------
@@ -80,6 +81,20 @@ const handleProgressUpdate = async (req, res) => {
     const student = await Student.findOne({ regdNo: cleanRegdNo });
     if (!student) {
       return res.status(404).json({ error: 'Student not found.' });
+    }
+
+    // Verify session if authorization header is provided
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
+        if (decoded.sessionId && student.activeSessionId && decoded.sessionId !== student.activeSessionId) {
+          return res.status(401).json({ error: 'Session expired or replaced on another device.', sessionRevoked: true });
+        }
+      } catch (err) {
+        return res.status(401).json({ error: 'Session expired or invalid.', sessionRevoked: true });
+      }
     }
 
     if (progress !== undefined && typeof progress === 'object') {
