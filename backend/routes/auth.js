@@ -89,13 +89,13 @@ router.post('/signup', async (req, res) => {
     }
 
     // 4. Validate Password
-    // For this version, the initial password equals the 10-character registration number
-    const submittedPassword = password ? String(password).trim().toUpperCase() : cleanRegdNo;
-    if (submittedPassword !== cleanRegdNo) {
+    if (!password || typeof password !== 'string' || password.trim().length < 6) {
       return res.status(400).json({
-        error: 'For new registration, the initial password must match your 10-character Registration Number.',
+        error: 'Password is required and must be at least 6 characters long.',
       });
     }
+
+    const cleanPassword = password.trim();
 
     // 5. Check if Registration Number already exists
     const existingStudent = await Student.findOne({ regdNo: cleanRegdNo });
@@ -107,7 +107,7 @@ router.post('/signup', async (req, res) => {
 
     // 6. Securely hash password with bcrypt (salt rounds = 10)
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(cleanRegdNo, salt);
+    const hashedPassword = await bcrypt.hash(cleanPassword, salt);
 
     // 7. Create unique session identifier
     const sessionId = crypto.randomUUID();
@@ -232,36 +232,14 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // CRITICAL REQUIREMENT 1:
-    // If student already has an active session, REJECT new login without modifying existing session!
-    if (student.activeSessionId && student.activeSessionId.trim() !== '') {
-      // Check if session has timed out (e.g. stale for > 7 days)
-      const lastActive = student.sessionLastActive ? new Date(student.sessionLastActive).getTime() : 0;
-      const isStale = lastActive > 0 && (Date.now() - lastActive > 7 * 24 * 60 * 60 * 1000);
-
-      if (!isStale) {
-        return res.status(409).json({
-          error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
-          alreadyLoggedIn: true,
-        });
-      }
-    }
-
-    // Generate cryptographically unpredictable session ID
+    // Issue 13: Single Active Student Session — New Login Takes Over
+    // When a valid login occurs, generate a new unpredictable session ID.
+    // This atomically replaces the student's activeSessionId in MongoDB,
+    // thereby invalidating the previous session (e.g. laptop) on its next check.
     const newSessionId = crypto.randomUUID();
 
-    // Atomically claim the session. If another concurrent request claimed it first, this update will not match.
-    const claimedStudent = await Student.findOneAndUpdate(
-      {
-        _id: student._id,
-        $or: [
-          { activeSessionId: null },
-          { activeSessionId: { $exists: false } },
-          { activeSessionId: '' },
-          // If session was stale, allow claiming
-          ...(student.activeSessionId ? [{ activeSessionId: student.activeSessionId }] : []),
-        ],
-      },
+    const claimedStudent = await Student.findByIdAndUpdate(
+      student._id,
       {
         $set: {
           activeSessionId: newSessionId,
@@ -272,9 +250,8 @@ router.post('/login', async (req, res) => {
     );
 
     if (!claimedStudent) {
-      return res.status(409).json({
-        error: 'This account is already logged in on another session. Please sign out from the active session before logging in again.',
-        alreadyLoggedIn: true,
+      return res.status(500).json({
+        error: 'Failed to update student session.',
       });
     }
 
@@ -352,7 +329,7 @@ router.post('/logout', async (req, res) => {
             );
             cleared = true;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -429,56 +406,93 @@ router.post('/recover-session', async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// POST /api/auth/admin-login (Admin Verification)
-// Required fields: Name, Admin Code
+// POST /api/auth/admin-login (Admin & Teacher Verification)
+// Required fields: Name, Admin Code or Teacher ID
 // -------------------------------------------------------------
 router.post('/admin-login', async (req, res) => {
   try {
     const { name, adminCode } = req.body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ error: 'Administrator Name is required.' });
+      return res.status(400).json({ error: 'Name is required.' });
     }
 
     if (!adminCode || typeof adminCode !== 'string' || !adminCode.trim()) {
-      return res.status(400).json({ error: 'Admin Access Code is required.' });
+      return res.status(400).json({ error: 'Admin Access Code or Teacher ID is required.' });
     }
 
     const cleanName = name.trim();
     const cleanCode = adminCode.trim();
 
-    // Verify against server-side secret configuration
+    // Verify against server-side secret configuration for Administrator
     const configuredCode = (process.env.ADMIN_CODE || 'ADMIN2026').trim();
 
-    if (cleanCode !== configuredCode) {
-      return res.status(401).json({
-        error: 'Invalid administrator access code. Access denied.',
+    if (cleanCode === configuredCode) {
+      // Admin verified! Generate admin session token
+      const token = generateToken({
+        id: 'admin-' + Date.now(),
+        name: cleanName,
+        role: 'admin',
+      });
+
+      setSessionCookie(res, token);
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          id: 'admin-' + Date.now(),
+          name: cleanName,
+          email: `${cleanName.toLowerCase().replace(/\s+/g, '.')}@algolearn.edu`,
+          role: 'admin',
+        },
       });
     }
 
-    // Admin verified! Generate admin session token
-    const token = generateToken({
-      id: 'admin-' + Date.now(),
-      name: cleanName,
-      role: 'admin',
+    // Check if Teacher ID matches a registered teacher in MongoDB
+    const Teacher = require('../models/Teacher');
+    const teacher = await Teacher.findOne({
+      $or: [
+        { id: cleanCode },
+        { id: cleanCode.toUpperCase() },
+        { id: cleanCode.toLowerCase() },
+        { teacherId: cleanCode },
+        { teacherId: cleanCode.toUpperCase() },
+      ],
     });
 
-    setSessionCookie(res, token);
+    if (teacher) {
+      // Authenticate strictly as a teacher, NOT an administrator
+      const token = generateToken({
+        id: teacher.id,
+        teacherId: teacher.teacherId || teacher.id,
+        name: teacher.name,
+        role: 'teacher',
+      });
 
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: 'admin-' + Date.now(),
-        name: cleanName,
-        email: `${cleanName.toLowerCase().replace(/\s+/g, '.')}@algolearn.edu`,
-        role: 'admin',
-      },
+      setSessionCookie(res, token);
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          id: teacher.id,
+          teacherId: teacher.teacherId || teacher.id,
+          name: teacher.name,
+          subject: teacher.subject,
+          email: teacher.email || `${teacher.name.toLowerCase().replace(/\s+/g, '.')}@algolearn.edu`,
+          role: 'teacher',
+        },
+      });
+    }
+
+    return res.status(401).json({
+      error: 'Invalid administrator access code or Teacher ID. Access denied.',
     });
   } catch (error) {
-    console.error('Admin login error:', error);
+    console.error('Admin/Teacher login error:', error);
     return res.status(500).json({
-      error: 'An unexpected server error occurred during admin authentication.',
+      error: 'An unexpected server error occurred during authentication.',
     });
   }
 });
@@ -507,6 +521,18 @@ router.get('/me', async (req, res) => {
       });
     }
 
+    if (decoded.role === 'teacher') {
+      return res.json({
+        authenticated: true,
+        user: {
+          id: decoded.id,
+          teacherId: decoded.teacherId || decoded.id,
+          name: decoded.name,
+          role: 'teacher',
+        },
+      });
+    }
+
     const student = await Student.findById(decoded.id).select('-password');
     if (!student) {
       return res.status(404).json({ error: 'Student account not found.' });
@@ -524,7 +550,7 @@ router.get('/me', async (req, res) => {
     Student.updateOne(
       { _id: student._id },
       { $set: { sessionLastActive: new Date() } }
-    ).catch(() => {});
+    ).catch(() => { });
 
     return res.json({
       authenticated: true,

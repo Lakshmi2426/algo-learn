@@ -26,8 +26,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'ALGOLEARN_THEME_CHANGE') {
+        const next = e.data.theme === 'dark' ? 'dark' : 'light';
+        setThemeState(next);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
-    // Add temporary transition class
     root.classList.add('theme-transition');
 
     if (theme === 'dark') {
@@ -38,6 +48,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       localStorage.setItem(STORAGE_KEY_THEME, theme);
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { type: 'ALGOLEARN_MODULE_THEME_CHANGED', theme },
+          '*'
+        );
+      }
     } catch {}
 
     const timer = setTimeout(() => {

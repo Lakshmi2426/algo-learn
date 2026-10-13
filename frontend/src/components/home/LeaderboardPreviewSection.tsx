@@ -19,20 +19,29 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
   const { studentsList, user: authUser, isAuthenticated, role } = useUser();
   const [leaderboardUsers, setLeaderboardUsers] = React.useState<LeaderboardUser[]>([]);
   const [topicSummary, setTopicSummary] = React.useState(() => getAllTopicsProgress());
+  const isFetchingRef = React.useRef(false);
 
-  const fetchLeaderboard = React.useCallback(() => {
-    fetch(apiUrl('/api/leaderboard'))
-      .then((res) => {
-        if (!res.ok) throw new Error('API not available');
-        return res.json();
-      })
-      .then((data) => {
-        if (data?.leaderboard && Array.isArray(data.leaderboard)) {
-          const clean = data.leaderboard.filter(isRealStudent);
-          setLeaderboardUsers(clean);
-        }
-      })
-      .catch(() => {});
+  const fetchLeaderboard = React.useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch(apiUrl('/api/leaderboard'));
+      if (!res.ok) throw new Error('API not available');
+      const data = await res.json();
+      if (data?.leaderboard && Array.isArray(data.leaderboard)) {
+        const clean = data.leaderboard.filter((u: any) => isRealStudent(u) && u.role !== 'admin');
+        setLeaderboardUsers((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(clean)) {
+            return prev;
+          }
+          return clean;
+        });
+      }
+    } catch {
+      // keep current
+    } finally {
+      isFetchingRef.current = false;
+    }
   }, []);
 
   React.useEffect(() => {
@@ -51,9 +60,17 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
     };
   }, [fetchLeaderboard]);
 
+  // Auto-refresh every 5 seconds without duplicate requests or memory leaks
   React.useEffect(() => {
     fetchLeaderboard();
-  }, [fetchLeaderboard, isAuthenticated, role, authUser?.regdNo, authUser?.id]);
+    const intervalId = setInterval(() => {
+      fetchLeaderboard();
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [fetchLeaderboard]);
 
   const effectiveLeaderboard = React.useMemo(() => {
     return buildAuthoritativeLeaderboard({
@@ -184,19 +201,18 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-center justify-center gap-2 flex-wrap mb-0.5">
                     <span className="text-base font-bold text-slate-900 dark:text-white">
                       {user.name}
                     </span>
-                    <span>{user.countryCode}</span>
+                    {user.branch && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/50">
+                        {user.branch}
+                      </span>
+                    )}
                   </div>
-                  {user.regdNo && (
-                    <span className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400 mb-1">
-                      Regd No: {user.regdNo}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                    @{user.username}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">
+                    {user.regdNo || (user.username ? `@${user.username}` : '')}
                   </span>
 
                   <div className="mt-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 dark:bg-blue-950/70 border border-blue-200/90 dark:border-blue-900/60 text-xs font-mono font-semibold text-blue-700 dark:text-blue-300 shadow-2xs">
@@ -247,18 +263,20 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
                   size="sm"
                 />
                 <div>
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 dark:text-white text-sm">
                       {currentUser.name}
                     </span>
-                    <span className="text-xs text-blue-600 dark:text-blue-300 font-mono ml-2">
-                      {currentUser.badgeTitle}
-                    </span>
+                    {currentUser.branch && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/50">
+                        {currentUser.branch}
+                      </span>
+                    )}
                   </div>
                   {currentUser.regdNo && (
-                    <div className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                      Regd No: {currentUser.regdNo}
-                    </div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider block mt-0.5">
+                      {currentUser.regdNo}
+                    </span>
                   )}
                 </div>
               </div>

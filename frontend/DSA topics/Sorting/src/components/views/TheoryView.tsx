@@ -58,6 +58,10 @@ export const TheoryView: React.FC<TheoryViewProps> = ({
   // Scroll smoothly to top on chapter change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [activeChapterIndex]);
 
   const handleSelectChapter = (index: number) => {
@@ -309,7 +313,7 @@ export const TheoryView: React.FC<TheoryViewProps> = ({
         {/* =====================================================================
             LEFT SIDEBAR: TABLE OF CONTENTS (EXACTLY 6 CONCEPTS)
             ===================================================================== */}
-        <aside className="hidden lg:block lg:col-span-4 sticky top-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs max-h-[calc(100vh-6rem)] overflow-y-auto space-y-3">
+        <aside className="hidden lg:block lg:col-span-4 sticky top-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs max-h-[calc(100vh-2rem)] overflow-y-auto space-y-3">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <ListOrdered className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />

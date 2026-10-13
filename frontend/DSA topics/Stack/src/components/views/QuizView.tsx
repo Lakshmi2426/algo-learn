@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
   Sparkles,
   Trophy,
   Star,
@@ -42,15 +43,37 @@ interface QuestionAnswerState {
   isTimedOut?: boolean;
 }
 
-const QUESTION_TIME_LIMIT = 30; // 30 seconds time limit per question
+const QUESTION_TIME_LIMIT = 20; // Exactly 20 seconds time limit per question across all topics
+const STACK_QUIZ_SESSION_KEY = 'stack_quiz_session_state';
 
 export const QuizView: React.FC<QuizViewProps> = ({
   progress,
   onUpdateProgress,
   onNavigateHome,
 }) => {
-  const [currentIdx, setCurrentIdx] = useState<number>(0);
+  const [currentIdx, setCurrentIdx] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(STACK_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.currentIdx === 'number' && parsed.currentIdx >= 0 && parsed.currentIdx < QUIZ_QUESTIONS.length) {
+          return parsed.currentIdx;
+        }
+      }
+    } catch {}
+    return 0;
+  });
+
   const [answers, setAnswers] = useState<Record<number, QuestionAnswerState>>(() => {
+    try {
+      const saved = localStorage.getItem(STACK_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.answers && typeof parsed.answers === 'object') {
+          return parsed.answers;
+        }
+      }
+    } catch {}
     // Restore any previously scored questions from progress
     const initial: Record<number, QuestionAnswerState> = {};
     const saved = progress.quizQuestionScores || {};
@@ -67,14 +90,50 @@ export const QuizView: React.FC<QuizViewProps> = ({
     return initial;
   });
   const [timeLeft, setTimeLeft] = useState<number>(QUESTION_TIME_LIMIT);
-  const [quizFinished, setQuizFinished] = useState<boolean>(progress.quizCompleted || false);
+  const [quizFinished, setQuizFinished] = useState<boolean>(() => {
+    if (progress.quizCompleted) return true;
+    try {
+      const saved = localStorage.getItem(STACK_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.quizFinished === 'boolean') {
+          return parsed.quizFinished;
+        }
+      }
+    } catch {}
+    return false;
+  });
   const [resultFilter, setResultFilter] = useState<'all' | 'correct' | 'incorrect'>('all');
   const [isQuizStarted, setIsQuizStarted] = useState<boolean>(() => {
-    // If user already answered any question or completed the quiz, consider quiz started
+    if (progress.quizCompleted) return true;
+    try {
+      const saved = localStorage.getItem(STACK_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.isQuizStarted === 'boolean') {
+          return parsed.isQuizStarted;
+        }
+      }
+    } catch {}
     const saved = progress.quizQuestionScores || {};
-    return Object.keys(saved).length > 0 || (progress.quizCompleted || false);
+    return Object.keys(saved).length > 0;
   });
   const [showStartWarning, setShowStartWarning] = useState<boolean>(false);
+
+  // Synchronize quiz session state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STACK_QUIZ_SESSION_KEY,
+        JSON.stringify({
+          currentIdx,
+          answers,
+          isQuizStarted,
+          quizFinished,
+        })
+      );
+    } catch {}
+  }, [currentIdx, answers, isQuizStarted, quizFinished]);
 
   const currentQ: QuizQuestion = QUIZ_QUESTIONS[currentIdx];
   const currentAnswerState = answers[currentIdx] || {
@@ -319,19 +378,33 @@ export const QuizView: React.FC<QuizViewProps> = ({
       }
     }
 
-    const { updated } = awardXP(
-      progress,
-      finalPoints,
-      'quiz_completed',
-      'Quiz Completed',
-      `Earned ${finalPoints} pts on Assessment`
-    );
+    if (!progress.quizCompleted) {
+      const { updated } = awardXP(
+        progress,
+        finalPoints,
+        'quiz_completed',
+        'Quiz Completed',
+        `Earned ${finalPoints} pts on Assessment`
+      );
 
-    onUpdateProgress({
-      ...updated,
-      quizCompleted: true,
-      quizHighScore: Math.max(updated.quizHighScore, totalScorePercent),
-    });
+      onUpdateProgress({
+        ...updated,
+        quizCompleted: true,
+        quizHighScore: Math.max(updated.quizHighScore, totalScorePercent),
+      });
+    }
+  };
+
+  const handleRestartQuiz = () => {
+    soundEffects.playClick();
+    try {
+      localStorage.removeItem(STACK_QUIZ_SESSION_KEY);
+    } catch {}
+    setAnswers({});
+    setCurrentIdx(0);
+    setQuizFinished(false);
+    setIsQuizStarted(true);
+    setTimeLeft(QUESTION_TIME_LIMIT);
   };
 
   const handleReviewQuestions = () => {
@@ -877,6 +950,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 >
                   <Eye className="w-4 h-4" />
                   <span>Review Questions</span>
+                </button>
+                <button
+                  onClick={handleRestartQuiz}
+                  className="w-full sm:w-auto px-6 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <RotateCcw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Retake Quiz</span>
                 </button>
                 {onNavigateHome && (
                   <button

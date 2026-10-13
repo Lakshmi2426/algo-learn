@@ -67,8 +67,8 @@ const POS_60: TreeNodeData = { value: 60, x: 360, y: 225 };
 const POS_35: TreeNodeData = { value: 35, x: 215, y: 305 };
 
 const SPEED_MS: Record<PlaySpeed, number> = {
-  '0.5x': 2000,
-  '1x': 1100,
+  '0.5x': 3600,
+  '1x': 2200,
 };
 
 // 1. BST Rule Steps (5 steps)
@@ -791,10 +791,9 @@ export const VideoPage: React.FC<VideoPageProps> = ({ initialTopic }) => {
     setIsPlaying(false);
   };
 
-  // Backward Navigation Only: Step Back
+  // Backward Navigation Only: Step Back (preserves playback state)
   const handleStepBack = () => {
     soundManager.playClick();
-    setIsPlaying(false);
     setCurrentStepIndex((prev) => Math.max(0, prev - 1));
   };
 

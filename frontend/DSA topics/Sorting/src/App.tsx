@@ -19,17 +19,18 @@ export default function App() {
   const [activeGameLevelId, setActiveGameLevelId] = useState<number>(1);
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastInfo, setToastInfo] = useState<{ text: string; isDeduction?: boolean } | null>(null);
+  const lastNotifiedEntryIdRef = useRef<string | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Auto-dismiss toast message after 4 seconds
   useEffect(() => {
-    if (!toastMessage) return;
+    if (!toastInfo) return;
     const timer = setTimeout(() => {
-      setToastMessage(null);
+      setToastInfo(null);
     }, 4000);
     return () => clearTimeout(timer);
-  }, [toastMessage]);
+  }, [toastInfo]);
 
   // Toggle navigation drawer
   const handleToggleNav = () => {
@@ -89,7 +90,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Keep state synchronized with storage
+  // Keep state synchronized with storage and display points popup notifications
   const handleUpdateProgress = (updatedOrUpdater: UserProgress | ((prev: UserProgress) => UserProgress)) => {
     setProgress((prev) => {
       const next = typeof updatedOrUpdater === 'function' ? updatedOrUpdater(prev) : updatedOrUpdater;
@@ -98,6 +99,24 @@ export default function App() {
         : next;
       if (sanitized && typeof sanitized === 'object') {
         saveProgress(sanitized);
+
+        // Notify of actual points changes reliably without duplicates
+        const latestEntry = sanitized?.pointsLedger?.history?.[0];
+        const prevPoints = prev?.pointsLedger?.totalPoints ?? 0;
+        const nextPoints = sanitized?.pointsLedger?.totalPoints ?? 0;
+        const pointsDiff = nextPoints - prevPoints;
+
+        if (latestEntry && latestEntry.id !== lastNotifiedEntryIdRef.current) {
+          lastNotifiedEntryIdRef.current = latestEntry.id;
+          const isDeduction = latestEntry.delta < 0 || pointsDiff < 0;
+          const displayPts = latestEntry.delta !== 0 ? (latestEntry.delta > 0 ? `+${latestEntry.delta}` : `${latestEntry.delta}`) : (pointsDiff > 0 ? `+${pointsDiff}` : `${pointsDiff}`);
+          const msg = `${displayPts} Points — ${latestEntry.action}`;
+          setToastInfo({ text: msg, isDeduction });
+        } else if (pointsDiff !== 0 && !latestEntry) {
+          const isDeduction = pointsDiff < 0;
+          const displayPts = pointsDiff > 0 ? `+${pointsDiff}` : `${pointsDiff}`;
+          setToastInfo({ text: `${displayPts} Points Changed`, isDeduction });
+        }
       }
       return sanitized;
     });
@@ -180,7 +199,7 @@ export default function App() {
       </div>
 
       {/* Floating Chatbot Assistant Logo (Bottom-Right) */}
-      <div className="floating-chatbot-container fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 transition-transform active:scale-95">
+      <div id="ai-bot-floating-button" className="floating-chatbot-container fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 transition-transform active:scale-95">
         <ChatbotLogo
           size={56}
           onClick={() => {
@@ -191,25 +210,35 @@ export default function App() {
 
       {/* Toast Notification */}
       <AnimatePresence>
-        {toastMessage && (
+        {toastInfo && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed top-5 right-5 sm:right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/80 shadow-lg text-slate-800 dark:text-slate-100"
+            className={`fixed top-5 right-5 sm:right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border shadow-lg text-slate-800 dark:text-slate-100 ${
+              toastInfo.isDeduction
+                ? 'border-amber-300 dark:border-amber-700/80'
+                : 'border-emerald-200 dark:border-emerald-800/80'
+            }`}
             role="status"
             aria-live="polite"
           >
-            <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                toastInfo.isDeduction
+                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+                  : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
+              }`}
+            >
               <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
             </div>
             <span className="text-xs sm:text-sm font-semibold tracking-tight">
-              {toastMessage}
+              {toastInfo.text}
             </span>
             <button
-              onClick={() => setToastMessage(null)}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors ml-1"
+              onClick={() => setToastInfo(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors ml-1 cursor-pointer"
               aria-label="Dismiss notification"
             >
               <X className="w-3.5 h-3.5" />

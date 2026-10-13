@@ -39,18 +39,108 @@ interface QuestionAnswerState {
   isCorrect: boolean;
 }
 
+const QUEUE_QUIZ_SESSION_KEY = 'queue_quiz_session_state';
+
 export const QuizView: React.FC<QuizViewProps> = ({
   progress,
   onUpdateProgress,
   onNavigateHome,
 }) => {
-  const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const [answers, setAnswers] = useState<Record<number, QuestionAnswerState>>({});
-  const [quizFinished, setQuizFinished] = useState<boolean>(false);
+  const [currentIdx, setCurrentIdx] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.currentIdx === 'number' && parsed.currentIdx >= 0 && parsed.currentIdx < QUIZ_QUESTIONS.length) {
+          return parsed.currentIdx;
+        }
+      }
+    } catch {}
+    return 0;
+  });
+
+  const [answers, setAnswers] = useState<Record<number, QuestionAnswerState>>(() => {
+    try {
+      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.answers && typeof parsed.answers === 'object') {
+          return parsed.answers;
+        }
+      }
+    } catch {}
+    return {};
+  });
+
+  const [quizFinished, setQuizFinished] = useState<boolean>(() => {
+    if (progress.quizCompleted) return true;
+    try {
+      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.quizFinished === 'boolean') {
+          return parsed.quizFinished;
+        }
+      }
+    } catch {}
+    return false;
+  });
+
   const [reviewQuestionIdx, setReviewQuestionIdx] = useState<number | null>(null);
   const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
   const [timeRemaining, setTimeRemaining] = useState<number>(QUEUE_SCORING.quiz.timeLimitSeconds);
-  const [quizStarted, setQuizStarted] = useState<boolean>(false);
+
+  const [quizStarted, setQuizStarted] = useState<boolean>(() => {
+    if (progress.quizCompleted) return true;
+    try {
+      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.quizStarted === 'boolean') {
+          return parsed.quizStarted;
+        }
+      }
+    } catch {}
+    return false;
+  });
+
+  // Reconstruct answers if quiz completed previously but local answers cache was empty
+  useEffect(() => {
+    if (progress.quizCompleted && Object.keys(answers).length === 0 && progress.quizQuestionResults) {
+      const reconstructed: Record<number, QuestionAnswerState> = {};
+      QUIZ_QUESTIONS.forEach((q, idx) => {
+        const res = progress.quizQuestionResults?.[q.id];
+        if (res) {
+          reconstructed[idx] = {
+            selectedOption: res === 'correct' ? (typeof q.correctAnswer === 'string' ? q.correctAnswer : null) : null,
+            draggedOrder: Array.isArray(q.correctAnswer) ? (res === 'correct' ? [...q.correctAnswer] : [...(q.options || [])]) : [],
+            isSubmitted: true,
+            isCorrect: res === 'correct',
+          };
+        }
+      });
+      if (Object.keys(reconstructed).length > 0) {
+        setAnswers(reconstructed);
+        setQuizFinished(true);
+        setQuizStarted(true);
+      }
+    }
+  }, [progress.quizCompleted, progress.quizQuestionResults]);
+
+  // Save session state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        QUEUE_QUIZ_SESSION_KEY,
+        JSON.stringify({
+          answers,
+          currentIdx,
+          quizFinished,
+          quizStarted,
+        })
+      );
+    } catch {}
+  }, [answers, currentIdx, quizFinished, quizStarted]);
 
   const currentQ: QuizQuestion = QUIZ_QUESTIONS[currentIdx];
   const currentAnswerState = answers[currentIdx] || {
@@ -265,8 +355,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setCurrentIdx(0);
     setAnswers({});
     setQuizFinished(false);
+    setQuizStarted(false);
     setReviewQuestionIdx(null);
     setExpandedQuestions({});
+    try {
+      localStorage.removeItem(QUEUE_QUIZ_SESSION_KEY);
+    } catch {}
   };
 
   const allAreExpanded = QUIZ_QUESTIONS.every(
@@ -728,6 +822,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     <span>Back to Home</span>
                   </button>
                 )}
+                <button
+                  onClick={handleRestartQuiz}
+                  className="w-full sm:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Retake Quiz</span>
+                </button>
               </div>
 
             </div>

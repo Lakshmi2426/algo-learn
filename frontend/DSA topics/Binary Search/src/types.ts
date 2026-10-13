@@ -1,4 +1,4 @@
-export type TabType = 'home' | 'theory' | 'lab' | 'game' | 'quiz' | 'progress';
+export type TabType = 'home' | 'theory' | 'lab' | 'game' | 'quiz' | 'progress' | 'points';
 
 export interface StackItem {
   id: string;

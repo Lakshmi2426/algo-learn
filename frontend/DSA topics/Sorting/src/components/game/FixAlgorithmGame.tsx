@@ -112,7 +112,7 @@ function buildFixGuidedSteps(levelNum: number, initialArray: number[]): GuidedFi
         isComplete: true,
       },
     ];
-  } else {
+  } else if (levelNum === 3) {
     const arr = [...initialArray];
     return [
       {
@@ -127,10 +127,55 @@ function buildFixGuidedSteps(levelNum: number, initialArray: number[]): GuidedFi
       {
         title: 'Guided Solve Step 2: Shift 15 Right and Insert 12 After 8',
         explanation:
-          'Since 15 > 12, shift 15 right as well. Since 8 ≤ 12, insert 12 at index 1 to reach the completely sorted state!',
-        arrayState: [...initialArray].sort((a, b) => a - b),
+          'Since 15 > 12, shift 15 right as well. Since 8 ≤ 12, insert 12 at index 1 to reach the completely sorted state: [8, 12, 15, 27]!',
+        arrayState: [8, 12, 15, 27],
         highlightIndices: [],
-        sortedIndices: initialArray.map((_, i) => i),
+        sortedIndices: [0, 1, 2, 3],
+        selectedOptionId: 'opt-a',
+        isComplete: true,
+      },
+    ];
+  } else if (levelNum === 4) {
+    return [
+      {
+        title: 'Guided Solve Step 1: Swap 5 and 4 → [1, 2, 3, 4, 5]',
+        explanation:
+          'In Bubble Sort on [1, 2, 3, 5, 4], compare arr[3] (5) and arr[4] (4). Since 5 > 4, swap them. Click "Next Step" to set the adaptive swapped flag.',
+        arrayState: [1, 2, 3, 4, 5],
+        highlightIndices: [3, 4],
+        sortedIndices: [],
+        selectedOptionId: 'opt-a',
+      },
+      {
+        title: 'Guided Solve Step 2: Flag swapped = true & Complete Verification',
+        explanation:
+          'Because a swap occurred, swapped must be marked true! Pass 2 runs next, observes zero swaps, and properly confirms monotonic order: [1, 2, 3, 4, 5]!',
+        arrayState: [1, 2, 3, 4, 5],
+        highlightIndices: [],
+        sortedIndices: [0, 1, 2, 3, 4],
+        selectedOptionId: 'opt-a',
+        isComplete: true,
+      },
+    ];
+  } else {
+    // Level 5
+    return [
+      {
+        title: 'Guided Solve Step 1: Inspect Duplicate Keys [4a, 2, 4b, 1]',
+        explanation:
+          'Notice duplicate cards 4a at index 0 and 4b at index 2. If the comparator uses >=, equal cards 4a and 4b will swap, violating stability! Click "Next Step" to correct the comparator to strict >.',
+        arrayState: [4, 2, 4, 1],
+        highlightIndices: [0, 2],
+        sortedIndices: [],
+        selectedOptionId: 'opt-a',
+      },
+      {
+        title: 'Guided Solve Step 2: Stable Order Preserved → [1, 2, 4a, 4b]',
+        explanation:
+          'With the strict condition (arr[j] > arr[j+1]), 4a and 4b never cross each other. After bubbling 1 and 2, 4a remains before 4b in stable sorted order: [1, 2, 4, 4]!',
+        arrayState: [1, 2, 4, 4],
+        highlightIndices: [],
+        sortedIndices: [0, 1, 2, 3],
         selectedOptionId: 'opt-a',
         isComplete: true,
       },
@@ -222,7 +267,7 @@ export const FixAlgorithmGame: React.FC<FixAlgorithmGameProps> = ({
             },
           ],
         };
-      default:
+      case 3:
         return {
           prompt:
             'Insertion Sort on prefix [8, 15, 27] when key is 12. The program shifted 27 but stopped without comparing 15. What is the necessary fix?',
@@ -250,11 +295,85 @@ export const FixAlgorithmGame: React.FC<FixAlgorithmGameProps> = ({
             },
             {
               id: 'opt-c',
-              text: 'Leave 12 at the end and run Quick Sort instead.',
+              text: 'Leave 12 at the end and stop sorting.',
               isCorrect: false,
               explanation:
                 'Incorrect. Insertion Sort must maintain the invariant of a sorted prefix on every iteration.',
               resultingArray: [8, 15, 27, 12],
+            },
+          ],
+        };
+      case 4:
+        return {
+          prompt:
+            'In an adaptive Bubble Sort on [1, 2, 3, 5, 4], Pass 1 just performed a swap between 5 and 4, producing [1, 2, 3, 4, 5]. A buggy function left swapped = false. What must happen?',
+          operationsTrace: [
+            'Array: [1, 2, 3, 5, 4].',
+            'Pass 1: Swapped 5 and 4 -> [1, 2, 3, 4, 5].',
+            'Bug: swapped flag remained false instead of being updated to true!',
+          ],
+          swapIndices: [3, 4],
+          options: [
+            {
+              id: 'opt-a',
+              text: 'Set swapped = true so Pass 2 executes, making a full non-swapping verification pass before terminating.',
+              isCorrect: true,
+              explanation:
+                'Correct! An adaptive Bubble Sort must set swapped = true whenever any swap occurs. This guarantees that another pass runs to confirm zero inversions remain before exiting.',
+              resultingArray: [1, 2, 3, 4, 5],
+            },
+            {
+              id: 'opt-b',
+              text: 'Leave swapped = false so the algorithm can terminate immediately without checking.',
+              isCorrect: false,
+              explanation:
+                'Incorrect! Terminating prematurely without a verifying pass can cause failure on partially unsorted inputs.',
+              resultingArray: [1, 2, 3, 5, 4],
+            },
+            {
+              id: 'opt-c',
+              text: 'Swap 5 and 4 backwards back to [1, 2, 3, 5, 4].',
+              isCorrect: false,
+              explanation:
+                'Incorrect! Reversing swaps destroys progress toward sorted order.',
+              resultingArray: [1, 2, 3, 5, 4],
+            },
+          ],
+        };
+      default:
+        // Level 5
+        return {
+          prompt:
+            'When sorting [4a, 2, 4b, 1] with duplicate values 4a and 4b, a developer wrote the comparison condition as if (arr[j] >= arr[j+1]) swap(). What invariant does this break and how should it be fixed?',
+          operationsTrace: [
+            'Array contains duplicate keys: 4a (index 0) and 4b (index 2).',
+            'Buggy condition: if (arr[j] >= arr[j+1]) causes equal elements to swap!',
+          ],
+          swapIndices: [0, 2],
+          options: [
+            {
+              id: 'opt-a',
+              text: 'Change >= to strictly > (arr[j] > arr[j+1]) so equal elements never swap, preserving stability.',
+              isCorrect: true,
+              explanation:
+                'Correct! To maintain stability, equal keys must never swap past each other. Using strict inequality (>) ensures duplicate elements maintain their original relative input sequence.',
+              resultingArray: [1, 2, 4, 4],
+            },
+            {
+              id: 'opt-b',
+              text: 'Keep >= and delete the duplicate element from the array entirely.',
+              isCorrect: false,
+              explanation:
+                'Incorrect! Data structures must preserve all customer records and data points without dropping duplicates.',
+              resultingArray: [4, 2, 4, 1],
+            },
+            {
+              id: 'opt-c',
+              text: 'Reverse the array so 4b is in front of 4a.',
+              isCorrect: false,
+              explanation:
+                'Incorrect! That would intentionally violate the stability requirement.',
+              resultingArray: [4, 2, 4, 1],
             },
           ],
         };

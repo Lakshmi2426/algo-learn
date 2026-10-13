@@ -32,7 +32,7 @@ interface UserContextType {
     password?: string;
   }) => Promise<{ success: boolean; message?: string }>;
   isRegdNoTaken: (regdNo: string) => boolean;
-  loginAsAdmin: (name: string, adminCode: string) => Promise<{ success: boolean; message?: string }>;
+  loginAsAdmin: (name: string, adminCode: string) => Promise<{ success: boolean; message?: string; role?: string }>;
   logout: () => Promise<void> | void;
   recoverSession: (regdNo: string, password: string) => Promise<{ success: boolean; message?: string }>;
   showAuthModal: boolean;
@@ -215,7 +215,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<UserRole>(() => {
     if (typeof window !== 'undefined') {
       const savedRole = localStorage.getItem('algolearn_role');
-      if (savedRole === 'admin' || savedRole === 'student') {
+      if (savedRole === 'admin' || savedRole === 'student' || savedRole === 'teacher') {
         return savedRole as UserRole;
       }
     }
@@ -305,12 +305,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   }, []);
 
-  // Verify authenticated session against backend on mount
+  // Issue 13: Verify active session against backend (every 10s & on focus)
+  // If student logs in on another device (Device B), Device A's session is invalidated on server.
+  // When Device A verifies its session, it receives 401 with sessionRevoked and logs out automatically.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('algolearn_token');
-    const isAuth = localStorage.getItem('algolearn_auth') === 'true';
-    if (isAuth && token) {
+
+    let isVerifying = false;
+    const verifySession = () => {
+      const token = localStorage.getItem('algolearn_token');
+      const isAuth = localStorage.getItem('algolearn_auth') === 'true';
+      if (!isAuth || !token || isVerifying) return;
+
+      isVerifying = true;
       fetch(apiUrl('/api/auth/me'), {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
@@ -362,8 +369,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
         })
-        .catch(() => {});
-    }
+        .catch(() => {})
+        .finally(() => {
+          isVerifying = false;
+        });
+    };
+
+    // Initial check on mount
+    verifySession();
+
+    // Check periodically every 10 seconds
+    const intervalId = setInterval(verifySession, 10000);
+
+    // Check immediately when window regains focus
+    window.addEventListener('focus', verifySession);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', verifySession);
+    };
   }, []);
 
   // Save registered students whenever they change
@@ -778,8 +802,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // Password equals registration number
-    const initialPassword = cleanRegdNo;
+    // Use provided password or fallback to registration number if empty
+    const initialPassword = (data.password && data.password.trim()) ? data.password.trim() : cleanRegdNo;
 
     try {
       const res = await fetch(apiUrl('/api/auth/signup'), {
@@ -900,7 +924,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsAdmin = async (
     nameInput: string,
     adminCodeInput: string
-  ): Promise<{ success: boolean; message?: string }> => {
+  ): Promise<{ success: boolean; message?: string; role?: string }> => {
     const cleanName = (nameInput || '').trim();
     const cleanCode = (adminCodeInput || '').trim();
 
@@ -932,16 +956,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data?.success && data?.user) {
+        const userRole = (data.user.role === 'teacher' ? 'teacher' : 'admin') as UserRole;
         if (typeof window !== 'undefined') {
           localStorage.setItem('algolearn_auth', 'true');
           localStorage.setItem('algolearn_token', data.token);
-          localStorage.setItem('algolearn_role', 'admin');
+          localStorage.setItem('algolearn_role', userRole);
         }
 
         setIsAuthenticated(true);
-        setRole('admin');
+        setRole(userRole);
 
-        const adminUser: UserProfile = {
+        const authenticatedProfile: UserProfile = {
           ...defaultUser,
           id: data.user.id,
           name: data.user.name,
@@ -949,16 +974,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: cleanName.toLowerCase().replace(/\s+/g, '_'),
         };
 
-        setUser(adminUser);
+        setUser(authenticatedProfile);
         if (typeof window !== 'undefined') {
-          localStorage.setItem('algolearn_user', JSON.stringify(adminUser));
+          localStorage.setItem('algolearn_user', JSON.stringify(authenticatedProfile));
         }
 
         setShowAuthModal(false);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
         }
-        return { success: true };
+        return { success: true, role: userRole };
       }
 
       return { success: false, message: 'Invalid admin verification response.' };
@@ -1016,6 +1041,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
     setRole('student');
     setUser(defaultUser);
+    setAuthModalMode('login');
   };
 
   const recoverSession = async (

@@ -389,4 +389,5 @@ export interface GuidedStep {
   conceptNote: string;
   resultingStack: (number | string)[];
   resultingTop: number | string | null;
+  statusBadge?: string;
 }

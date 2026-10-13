@@ -961,19 +961,26 @@ export const SLLOperationGameScreen: React.FC<SLLOperationGameScreenProps> = ({
     }
   };
 
-  // GUIDEDSOLVE: Deducts 3 points on every activation, enables NEXT STEP flow, executes exactly ONE step
+  // Track steps deducted for Guided Solve to prevent duplicate deductions
+  const deductedStepsRef = useRef<Set<number>>(new Set());
+
+  // GUIDEDSOLVE: Opens/enables Guided Solve flow without deducting points
   const handleGuidedSolveClick = () => {
-    if (taskStatus === 'completed' || isCompleted) return;
     soundManager.play('click');
-    progressManager.deductGuidedSolvePoints(taskId);
     setIsGuidedSolveActive(true);
-    handleExecuteTeacherStep();
   };
 
-  // NEXT STEP: Executes exactly ONE guided step with 0 points deducted
+  // NEXT STEP: Executes exactly ONE guided step, applying deduction only when step advances
   const handleNextStepClick = () => {
     if (taskStatus === 'completed' || isCompleted) return;
     soundManager.play('step');
+    
+    const isAlreadyCompleted = progressManager.isCompleted(taskId);
+    if (!isAlreadyCompleted && !deductedStepsRef.current.has(currentStep)) {
+      deductedStepsRef.current.add(currentStep);
+      progressManager.deductGuidedSolvePoints(taskId);
+    }
+    
     handleExecuteTeacherStep();
   };
 
@@ -1306,7 +1313,8 @@ export const SLLOperationGameScreen: React.FC<SLLOperationGameScreenProps> = ({
             <SLLTeacherBanner
               step={currentTeacherStep}
               lastActionResult={teacherLastActionResult}
-              onExecuteStep={handleGuidedSolveClick}
+              onExecuteStep={handleNextStepClick}
+              onSwitchToPlay={() => setIsGuidedSolveActive(false)}
               isTaskComplete={isCompleted || taskStatus === 'completed'}
               completedSteps={completedSteps}
               onNextTask={handleNextTaskClick}

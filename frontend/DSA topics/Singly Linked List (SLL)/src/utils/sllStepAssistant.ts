@@ -533,32 +533,34 @@ export const TASK_STEP_BUILDERS: Record<
   ],
 
   // ---------------------------------------------------------------------------
-  // LEVEL 04 - TASK 01: Insert in Middle (Between Nodes)
+  // LEVEL 04 - TASK 01: Insert at Any Position (Node 30 Between 20 and 40)
   // ---------------------------------------------------------------------------
   L4_T1: () => [
     {
       stepNumber: 1,
       totalSteps: 2,
       title: 'Connect New Node to Right Neighbor',
-      what: 'Connect new Node 15 (Address 1005) NEXT to Node 20 (Address 1002).',
+      what: 'Connect Node 30 (Address 1003) NEXT to Node 40 (Address 1004).',
       why: 'Crucial: always link the new node to the downstream list first (`newNode->next = prev->next`).',
+      pointersUpdated: 'Node 30 NEXT = 1004',
       actionType: 'connect_next',
-      targetAddress: 1005,
-      nextAddress: 1002,
-      resultMessage: '✓ Node 15 connected to Node 20 (15 → 20).',
-      nextStepPreview: 'Step 2: Connect Node 10 to Node 15.',
+      targetAddress: 1003,
+      nextAddress: 1004,
+      resultMessage: '✓ Node 30 connected to Node 40 (30 → 40).',
+      nextStepPreview: 'Step 2: Connect Node 20 to Node 30.',
       isCompleted: false,
     },
     {
       stepNumber: 2,
       totalSteps: 2,
       title: 'Connect Left Neighbor to New Node',
-      what: 'Connect Node 10 (Address 1001) NEXT to Node 15 (Address 1005).',
+      what: 'Connect Node 20 (Address 1002) NEXT to Node 30 (Address 1003).',
       why: 'Updating `prev->next = newNode` completes the middle insertion without losing elements.',
+      pointersUpdated: 'Node 20 NEXT = 1003',
       actionType: 'connect_next',
-      targetAddress: 1001,
-      nextAddress: 1005,
-      resultMessage: '✓ Node 10 connected to Node 15. Insertion [10 → 15 → 20] complete!',
+      targetAddress: 1002,
+      nextAddress: 1003,
+      resultMessage: '✓ Node 20 connected to Node 30. Insertion [20 → 30 → 40] complete!',
       nextStepPreview: 'Task Finished!',
       isCompleted: true,
     },

@@ -151,6 +151,12 @@ export const GameView: React.FC<GameViewProps> = ({
 
   // Handler: Hint used in game level (-2 points every time a hint is used)
   const handleUseHint = () => {
+    const currentCompleted = Array.isArray(progress?.sortGameProgress?.[selectedGameId])
+      ? progress.sortGameProgress[selectedGameId]
+      : [];
+    if (currentCompleted.includes(selectedLevelNumber)) {
+      return; // Do not deduct points when replaying an already-completed level
+    }
     onUpdateProgress((prev) =>
       applyPointsEvent(
         prev,
@@ -163,6 +169,12 @@ export const GameView: React.FC<GameViewProps> = ({
 
   // Handler: Guided Solve used for a level (-3 points when user uses Guided Solve)
   const handleUseGuidedSolve = () => {
+    const currentCompleted = Array.isArray(progress?.sortGameProgress?.[selectedGameId])
+      ? progress.sortGameProgress[selectedGameId]
+      : [];
+    if (currentCompleted.includes(selectedLevelNumber)) {
+      return; // Do not deduct points when replaying an already-completed level
+    }
     setGuidedSolveToast(true);
     if (guidedToastTimerRef.current) {
       clearTimeout(guidedToastTimerRef.current);

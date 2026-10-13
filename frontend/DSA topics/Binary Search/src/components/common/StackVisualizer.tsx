@@ -221,7 +221,7 @@ export const StackVisualizer: React.FC<StackVisualizerProps> = ({
                         : undefined
                     }
                     draggable={allowDragPop}
-                    onDragStart={(e) => {
+                    onDragStart={(e: any) => {
                       if (!isTopItem) {
                         e.preventDefault();
                         if (onInvalidPopAttempt) {

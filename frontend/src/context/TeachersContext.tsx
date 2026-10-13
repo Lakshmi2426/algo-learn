@@ -7,6 +7,7 @@ interface TeachersContextType {
   teachers: Teacher[];
   addTeacher: (data: {
     name: string;
+    teacherId?: string;
     email?: string;
     subject: string;
     description?: string;
@@ -91,6 +92,7 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addTeacher = async (data: {
     name: string;
+    teacherId?: string;
     email?: string;
     subject: string;
     description?: string;
@@ -105,9 +107,11 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       .toUpperCase() || 'T';
 
     const randomGradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
+    const assignedId = (data.teacherId || '').trim().toUpperCase() || ('TEA-' + Math.floor(1000 + Math.random() * 9000));
 
-    const newTeacher: Teacher = {
-      id: 'teacher-' + Date.now(),
+    const payload = {
+      id: assignedId,
+      teacherId: assignedId,
       name: data.name.trim(),
       email: data.email?.trim() || `${data.name.toLowerCase().replace(/\s+/g, '.')}@algolearn.edu`,
       subject: data.subject.trim(),
@@ -118,19 +122,27 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: 'Just now',
     };
 
-    setTeachers((prev) => [newTeacher, ...prev]);
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
 
     // Send to backend
-    try {
-      await fetch(apiUrl('/api/teachers'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTeacher),
-      });
-    } catch (e) {
-      console.log('Teacher saved locally');
+    const res = await fetch(apiUrl('/api/teachers'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.error || 'Failed to add teacher to server.');
     }
 
+    const resData = await res.json().catch(() => null);
+    const newTeacher: Teacher = resData?.teacher || payload;
+
+    setTeachers((prev) => [newTeacher, ...prev.filter((t) => t.id !== newTeacher.id)]);
     return newTeacher;
   };
 
@@ -163,9 +175,13 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Send to backend
     try {
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
       await fetch(apiUrl(`/api/teachers/${id}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(updates),
       });
     } catch (e) {
@@ -180,8 +196,12 @@ export const TeachersProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTeachers((prev) => prev.filter((t) => t.id !== id));
 
     try {
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
       await fetch(apiUrl(`/api/teachers/${id}`), {
         method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
     } catch (e) {
       console.log('Teacher removed locally');

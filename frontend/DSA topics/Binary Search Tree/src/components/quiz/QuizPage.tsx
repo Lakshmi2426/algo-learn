@@ -15,6 +15,7 @@ import {
   Clock,
   Sparkles,
   Lock,
+  RotateCcw,
 } from 'lucide-react';
 import { QUIZ_QUESTIONS } from '../../data/quizData';
 import { TreeCanvas } from '../common/TreeCanvas';
@@ -57,8 +58,14 @@ const getInitialQuizState = (): QuizSavedSession => {
         typeof parsed.isQuizCompleted === 'boolean'
       ) {
         const hasAnyConfirmed = parsed.confirmedAnswers.some((ans) => ans !== null);
+        const populatedSelected = parsed.selectedAnswers.map((sel, i) =>
+          parsed.confirmedAnswers[i] !== null && parsed.confirmedAnswers[i] !== undefined
+            ? parsed.confirmedAnswers[i]
+            : sel
+        );
         return {
           ...parsed,
+          selectedAnswers: populatedSelected,
           isQuizStarted:
             typeof parsed.isQuizStarted === 'boolean'
               ? parsed.isQuizStarted
@@ -86,6 +93,7 @@ export const QuizPage: React.FC<QuizPageProps> = ({ onGoToHome, onGoToGame }) =>
     unlockBadge,
     updateQuizProgress,
     recordQuizQuestionScore,
+    quizQuestionScores,
   } = useUserProgress();
 
   const [savedInitial] = useState<QuizSavedSession>(() => getInitialQuizState());
@@ -274,7 +282,9 @@ export const QuizPage: React.FC<QuizPageProps> = ({ onGoToHome, onGoToGame }) =>
     const isCorrect = currentSelected === currentQ.correctIndex;
     if (isCorrect) {
       soundManager.playSuccess();
-      addXP(30, 'Correct Quiz Answer: +3 pts');
+      if (!quizQuestionScores || quizQuestionScores[currentIndex] === undefined) {
+        addXP(30, 'Correct Quiz Answer: +3 pts');
+      }
       recordQuizQuestionScore(currentIndex, 3, 'correct');
     } else {
       soundManager.playError();
@@ -312,6 +322,19 @@ export const QuizPage: React.FC<QuizPageProps> = ({ onGoToHome, onGoToGame }) =>
       soundManager.playClick();
       setCurrentIndex(currentIndex - 1);
     }
+  };
+
+  const handleRestartQuiz = () => {
+    soundManager.playClick();
+    setCurrentIndex(0);
+    setSelectedAnswers(new Array(QUIZ_QUESTIONS.length).fill(null));
+    setConfirmedAnswers(new Array(QUIZ_QUESTIONS.length).fill(null));
+    setIsQuizCompleted(false);
+    setIsQuizStarted(true);
+    setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
+    try {
+      localStorage.removeItem(QUIZ_SESSION_STORAGE_KEY);
+    } catch {}
   };
 
   // Compute final statistics
@@ -537,7 +560,9 @@ export const QuizPage: React.FC<QuizPageProps> = ({ onGoToHome, onGoToGame }) =>
           {/* Answer Options Grid */}
           <div className="space-y-3">
             {currentQ.options.map((opt, idx) => {
-              const isSelected = currentSelected === idx;
+              const isSelected = isCurrentConfirmed
+                ? confirmedAnswers[currentIndex] === idx
+                : currentSelected === idx;
 
               let cardClasses = !isQuizStarted
                 ? 'bg-slate-50/40 dark:bg-[#0D1428] border-slate-200/70 dark:border-[#1E2640]/70 text-slate-400 dark:text-slate-500 opacity-65 cursor-default'
@@ -705,8 +730,18 @@ export const QuizPage: React.FC<QuizPageProps> = ({ onGoToHome, onGoToGame }) =>
               </div>
             </div>
 
-            {/* Navigation Actions (NO Refresh or Reset Buttons) */}
+            {/* Navigation Actions */}
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                id="quiz-completion-retake-btn"
+                type="button"
+                onClick={handleRestartQuiz}
+                className="px-6 py-2.5 bg-white dark:bg-[#111A31] hover:bg-slate-50 dark:hover:bg-[#18223E] text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-semibold border border-slate-300 dark:border-[#282054] transition-colors flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95"
+              >
+                <RotateCcw className="w-4 h-4 text-indigo-500" />
+                <span>Retake Quiz</span>
+              </button>
+
               {onGoToHome && (
                 <button
                   id="quiz-completion-home-btn"

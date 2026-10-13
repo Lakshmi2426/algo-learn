@@ -25,8 +25,10 @@ export default defineConfig(() => {
       // Do not modify file watching behavior.
       hmr: process.env.DISABLE_HMR !== 'true',
 
-      // Disable file watching when DISABLE_HMR is true.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // Disable file watching for heavy video binary files and build artifacts to prevent EBUSY on Windows
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        ignored: ['**/*.mp4', '**/*.webm', '**/*.mov', '**/public/videos/**', '**/public/Videos/**', '**/dist/**', '**/.git/**'],
+      },
     },
   };
 });

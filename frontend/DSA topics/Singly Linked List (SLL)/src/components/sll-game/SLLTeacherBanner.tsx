@@ -28,6 +28,7 @@ export const SLLTeacherBanner: React.FC<SLLTeacherBannerProps> = ({
   isTaskComplete,
   completedSteps = [],
   onExecuteStep,
+  onSwitchToPlay,
   onNextTask,
   hasNextTask,
 }) => {
@@ -153,15 +154,28 @@ export const SLLTeacherBanner: React.FC<SLLTeacherBannerProps> = ({
 
           {/* Action Trigger Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <button
-              type="button"
-              id="guide-solve-perform-step-btn"
-              onClick={onExecuteStep}
-              className="py-2.5 px-4 rounded-2xl bg-[#FFF3E0] hover:bg-[#FFE7C4] dark:bg-[#2A1D0D] dark:hover:bg-[#382611] border-2 border-[#FDBA5A] text-[#7C3F00] dark:text-[#FDBA5A] font-bold text-xs shadow-xs flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
-            >
-              <Zap className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" />
-              <span>GUIDEDSOLVE</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="guide-solve-perform-step-btn"
+                onClick={onExecuteStep}
+                className="py-2.5 px-4 rounded-2xl bg-[#FFF3E0] hover:bg-[#FFE7C4] dark:bg-[#2A1D0D] dark:hover:bg-[#382611] border-2 border-[#FDBA5A] text-[#7C3F00] dark:text-[#FDBA5A] font-bold text-xs shadow-xs flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              >
+                <Zap className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" />
+                <span>Next Step</span>
+              </button>
+
+              {onSwitchToPlay && (
+                <button
+                  type="button"
+                  id="guide-solve-exit-btn"
+                  onClick={onSwitchToPlay}
+                  className="py-2.5 px-3.5 rounded-2xl bg-white dark:bg-[#2A1D0D] border border-amber-300 dark:border-amber-700/60 text-slate-700 dark:text-amber-200 font-semibold text-xs hover:bg-amber-50 dark:hover:bg-[#382611] flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <span>Exit Guided Solve</span>
+                </button>
+              )}
+            </div>
 
             <span className="text-[11px] text-[#7C3F00]/90 dark:text-[#FDBA5A]/90 font-medium">
               One click = One step. Never auto-finishes entire level.

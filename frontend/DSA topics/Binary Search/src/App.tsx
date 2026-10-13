@@ -200,7 +200,7 @@ export default function App() {
       </div>
 
       {/* Floating Chatbot Assistant Logo (Bottom-Right) */}
-      <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 transition-transform active:scale-95">
+      <div id="ai-bot-floating-button" className="floating-chatbot-container fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 transition-transform active:scale-95">
         <ChatbotLogo
           size={56}
           onClick={() => {

@@ -37,24 +37,28 @@ export const TeacherWorkspace: React.FC<TeacherWorkspaceProps> = ({
   const { teachers } = useTeachers();
   const { questions, sendQuestion, sendAnswer, clearConversation } = useQuestions();
 
-  // If authenticated user is ADMIN, render the Admin/Teacher Questions Management View
-  if (role === 'admin') {
+  // If authenticated user is ADMIN or TEACHER, render the Admin/Teacher Questions Management View
+  if (role === 'admin' || role === 'teacher') {
     return (
       <div className="pt-24 pb-20 min-h-screen text-left max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-semibold">
             <Shield className="w-4 h-4 shrink-0" />
             <span>
-              You are viewing as Administrator. Review and reply to student questions below.
+              {role === 'admin'
+                ? 'You are viewing as Administrator. Review and reply to student questions below.'
+                : `Welcome, ${user.name || 'Teacher'}. Review and reply to student questions below.`}
             </span>
           </div>
 
-          <button
-            onClick={() => setActiveTab?.('admin')}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
-          >
-            Go to Admin Dashboard
-          </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setActiveTab?.('admin')}
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
+            >
+              Go to Admin Dashboard
+            </button>
+          )}
         </div>
 
         <AdminTeacherQuestionsView showHeader={true} />

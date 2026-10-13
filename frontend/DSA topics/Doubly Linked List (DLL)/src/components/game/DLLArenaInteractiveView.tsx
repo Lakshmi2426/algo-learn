@@ -42,13 +42,21 @@ export const DLLArenaInteractiveView: React.FC<DLLArenaInteractiveViewProps> = (
   const [guidedStepIdx, setGuidedStepIdx] = useState<number>(0);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'info' | 'error' | 'success' } | null>(null);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = (text: string, type: 'info' | 'error' | 'success' = 'info') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMsg({ text, type });
-    setTimeout(() => {
-      setToastMsg((prev) => (prev?.text === text ? null : prev));
+    toastTimerRef.current = setTimeout(() => {
+      setToastMsg(null);
     }, 3500);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   // =========================================================================
   // LEVEL 1: THE TRAIN LINKER STATE
@@ -557,7 +565,19 @@ export const DLLArenaInteractiveView: React.FC<DLLArenaInteractiveViewProps> = (
         >
           {toastMsg.type === 'success' && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
           {toastMsg.type === 'error' && <AlertTriangle className="w-4 h-4 text-rose-400" />}
-          <span>{toastMsg.text}</span>
+          <span className="flex-1">{toastMsg.text}</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+              setToastMsg(null);
+            }}
+            className="text-xs font-mono font-bold hover:opacity-75 cursor-pointer px-1.5 py-0.5 rounded bg-white/10 ml-2"
+            title="Dismiss notification"
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
         </div>
       )}
 

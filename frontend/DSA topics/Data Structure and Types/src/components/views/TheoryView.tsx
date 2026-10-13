@@ -75,7 +75,7 @@ export const TheoryView: React.FC<TheoryViewProps> = ({
         updatedCompleted = prev.completedTheoryChapters.filter((id) => id !== chapterId);
       } else {
         updatedCompleted = [...(prev.completedTheoryChapters || []), chapterId];
-        xpEarned = 35;
+        xpEarned = 0;
       }
 
       return {
@@ -532,7 +532,7 @@ export const TheoryView: React.FC<TheoryViewProps> = ({
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
-                  {isCurrentCompleted ? 'Chapter Completed ✓ (35 XP Earned)' : 'Mark Chapter as Completed (+35 XP)'}
+                  {isCurrentCompleted ? 'Chapter Completed ✓' : 'Mark Chapter as Completed'}
                 </span>
               </button>
 

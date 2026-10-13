@@ -751,12 +751,18 @@ class ProgressManager {
    * Deducts 3 points from user total points on every activation, including repeated clicks in same level.
    */
   public deductGuidedSolvePoints(taskId: string): number {
+    if (this.isCompleted(taskId)) {
+      return this.getTotalPoints();
+    }
     this.recordGameTaskAssistance(taskId, 'guide');
     this.emitPointDeduction(3, 'Guided Solve Used');
     return this.getTotalPoints();
   }
 
   public deductHintPoints(taskId: string): number {
+    if (this.isCompleted(taskId)) {
+      return this.getTotalPoints();
+    }
     this.recordGameTaskAssistance(taskId, 'hint');
     return this.getTotalPoints();
   }

@@ -391,6 +391,16 @@ class AppController {
       });
     }
 
+    const exitGuidedBtn = document.getElementById("guided-exit-btn");
+    if (exitGuidedBtn) {
+      exitGuidedBtn.addEventListener("click", () => {
+        if (window.game && window.game.guidedEngine) {
+          window.game.guidedEngine.toggle(false);
+          window.game.updateGuidedSolveUI();
+        }
+      });
+    }
+
     const closeGuidanceBtn = document.getElementById("close-guidance-btn");
     const gotGuidanceBtn = document.getElementById("got-guidance-btn");
     const guidanceModal = document.getElementById("guidance-modal");
@@ -2128,12 +2138,13 @@ class AppController {
     if (this.completedChapters.has("complexity-analysis") || completedLevels.has(8) || completedLevels.has(9)) this.completedActivities.add("FN-09");
     if (summary.quizAnsweredCount >= 10 || localStorage.getItem("algolearn_quiz_completed") === "true") this.completedActivities.add("FN-10");
 
-    // 3. Calculate Activity Units for remaining dashboard modules: 2 Videos + 8 Game Levels + 10 Quiz Questions = 20 total
+    // 3. Calculate Activity Units: 12 Learn Chapters + 2 Videos + 8 Game Levels + 10 Quiz Questions = 32 total
+    const learnDone = this.completedChapters ? this.completedChapters.size : 0;
     const videoDone = this.completedVideos ? this.completedVideos.size : 0;
     const gameDone = summary.gameLevelsCleared;
     const quizDone = summary.quizAnsweredCount;
-    const totalActivities = 20;
-    const completedCount = Math.min(totalActivities, videoDone + gameDone + quizDone);
+    const totalActivities = 32;
+    const completedCount = Math.min(totalActivities, learnDone + videoDone + gameDone + quizDone);
     const overallPct = Math.min(100, Math.round((completedCount / totalActivities) * 100));
 
     // 4. Update PANEL A: BFS Learning Progress
@@ -2643,7 +2654,23 @@ class AppController {
     return `${diffDay}d ago`;
   }
 
+  isLevelCompleted(levelNum = 1) {
+    const slot = getCanonicalLevelSlot(levelNum);
+    if (window.game && window.game.completedLevels && window.game.completedLevels.has(slot)) {
+      return true;
+    }
+    const completed = new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
+    if (completed.has(slot)) return true;
+    if (this.pointsHistory && this.pointsHistory.some(e => e.type === "game" && e.level === slot)) {
+      return true;
+    }
+    return false;
+  }
+
   recordHintPenalty(levelNum = 1) {
+    if (this.isLevelCompleted(levelNum)) {
+      return false; // Replaying a completed level must not deduct points
+    }
     const slot = getCanonicalLevelSlot(levelNum);
     if (!this.gameAssistance) this.gameAssistance = {};
     if (!this.gameAssistance[slot]) {
@@ -2687,6 +2714,9 @@ class AppController {
   }
 
   recordGuidedPenalty(levelNum = 1) {
+    if (this.isLevelCompleted(levelNum)) {
+      return false; // Replaying a completed level must not deduct points
+    }
     const slot = getCanonicalLevelSlot(levelNum);
     if (!this.gameAssistance) this.gameAssistance = {};
     if (!this.gameAssistance[slot]) {

@@ -10,6 +10,7 @@ class GuidedSolveEngine {
     this.isAutoPlaying = false;
     this.autoPlayInterval = null;
     this.stepSpeedMs = 1800;
+    this.deductedActions = new Set();
   }
 
   toggle(enable) {
@@ -21,17 +22,14 @@ class GuidedSolveEngine {
       return false;
     }
 
-    // Activating Guided Solve triggers penalty deduction (even if user has 0 points, allowing score to go negative)
+    // Opening Guided Solve alone must not deduct points
     this.isActive = true;
-    const lvlNum = this.game ? (this.game.currentLevelIndex !== undefined ? this.game.currentLevelIndex + 1 : 1) : 1;
-    if (typeof window.app !== "undefined" && typeof window.app.recordGuidedPenalty === "function") {
-      window.app.recordGuidedPenalty(lvlNum);
-    }
     return this.isActive;
   }
 
   reset() {
     this.isActive = false;
+    this.deductedActions.clear();
     this.pauseAutoPlay();
     if (this.game && typeof this.game.updateGuidedSolveUI === "function") {
       this.game.updateGuidedSolveUI();
@@ -123,6 +121,20 @@ class GuidedSolveEngine {
   performSingleStep() {
     const nextAction = this.getNextActionDescription();
     if (!nextAction) return;
+
+    // Apply existing Guided Solve deduction only when advancing a step on an uncompleted level without duplicates
+    const lvlNum = this.game ? (this.game.currentLevelIndex !== undefined ? this.game.currentLevelIndex + 1 : 1) : 1;
+    const isCompleted = (typeof window.app !== "undefined" && typeof window.app.isLevelCompleted === "function")
+      ? window.app.isLevelCompleted(lvlNum)
+      : false;
+
+    const actionKey = `${lvlNum}-${nextAction.actionType}-${nextAction.targetNode}`;
+    if (!isCompleted && !this.deductedActions.has(actionKey)) {
+      this.deductedActions.add(actionKey);
+      if (typeof window.app !== "undefined" && typeof window.app.recordGuidedPenalty === "function") {
+        window.app.recordGuidedPenalty(lvlNum);
+      }
+    }
 
     if (nextAction.actionType === "enqueue_start" || nextAction.actionType === "enqueue_neighbor") {
       this.game.handleNodeEnqueueAttempt(nextAction.targetNode);
