@@ -69,14 +69,11 @@ export const DLLMasterGame: React.FC<DLLMasterGameProps> = ({
       // ignore storage error
     }
 
-    // Ensure any fully completed level is marked in progressManager
+    // Ensure any fully completed level is marked permanently in progressManager
     DLL_LEVELS.forEach((level) => {
       const isLevelComplete = level.tasks.length > 0 && level.tasks.every((t) => completedTaskIds.includes(t.id));
       if (isLevelComplete) {
-        const state = progressManager.getState();
-        if (!state.levelsCompleted?.includes(level.number)) {
-          progressManager.markLevelCompleted(level.number, 50, true);
-        }
+        progressManager.markDllLevelCompleted(level.number);
       }
     });
   }, [completedTaskIds]);
@@ -113,6 +110,11 @@ export const DLLMasterGame: React.FC<DLLMasterGameProps> = ({
 
   // Handle task solved: award +6 raw points in persistent scoring system
   const handleTaskSolved = (taskId: string, xpAwarded: number) => {
+    // Retakes of an already completed level must NOT affect points or progress
+    if (progressManager.isDllLevelCompleted(selectedLevel.number)) {
+      return;
+    }
+
     const isNewlyCompleted = !completedTaskIds.includes(taskId);
 
     if (isNewlyCompleted) {
@@ -130,7 +132,7 @@ export const DLLMasterGame: React.FC<DLLMasterGameProps> = ({
         (t) => t.id === taskId || updated.includes(t.id)
       );
       if (allLevelTasksCompleted) {
-        progressManager.markLevelCompleted(selectedLevel.number, 50, true);
+        progressManager.markDllLevelCompleted(selectedLevel.number);
       }
     }
   };
@@ -174,6 +176,7 @@ export const DLLMasterGame: React.FC<DLLMasterGameProps> = ({
           key={`task-workspace-${selectedTask.id}-${workspaceKey}`}
           task={selectedTask}
           isAlreadyCompleted={completedTaskIds.includes(selectedTask.id)}
+          isLevelAlreadyCompleted={progressManager.isDllLevelCompleted(selectedLevel.number)}
           isFinalTask={
             selectedLevel.tasks.findIndex((t) => t.id === selectedTask.id) ===
             selectedLevel.tasks.length - 1

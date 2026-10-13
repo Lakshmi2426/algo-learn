@@ -48,6 +48,7 @@ export interface GuidedStepHistoryItem {
 interface DLLInteractiveTaskWorkspaceProps {
   task: DLLTask;
   isAlreadyCompleted: boolean;
+  isLevelAlreadyCompleted?: boolean;
   isFinalTask?: boolean;
   onBackToTasks: () => void;
   onTaskSolved: (taskId: string, xp: number) => void;
@@ -1583,12 +1584,20 @@ export const computeDLLLayout = (
 export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspaceProps> = ({
   task,
   isAlreadyCompleted,
+  isLevelAlreadyCompleted = false,
   isFinalTask = false,
   onBackToTasks,
   onTaskSolved,
   onNextTask,
   onResetGame,
 }) => {
+  // Check if this task belongs to an already completed DLL level (permanent retake protection)
+  const isRetake = Boolean(
+    isLevelAlreadyCompleted ||
+    (task.levelId && progressManager.isDllLevelCompleted(task.levelId)) ||
+    progressManager.isDllTaskInCompletedLevel(task.id)
+  );
+
   // Local editable state of nodes — single source of truth initialized with normalized addresses
   const [nodes, setNodes] = useState<DLLNodeState[]>(() =>
     task.initialNodes.map((n) => ({
@@ -1684,37 +1693,54 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [feedbackExplanation, setFeedbackExplanation] = useState<string | null>(null);
   const [showHint, setShowHint] = useState<boolean>(false);
-  // Deduction Notification Popup State
-  const [deductionPopup, setDeductionPopup] = useState<{
+  // Points / Deduction Notification Popup State (Award & Deduction)
+  const [pointsPopup, setPointsPopup] = useState<{
     amount: number;
     reason: string;
-    actionType: 'HINT' | 'GUIDED';
+    actionType: 'HINT' | 'GUIDED' | 'TASK' | 'AWARD';
+    type: 'award' | 'deduction';
     visible: boolean;
   } | null>(null);
-  const deductionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pointsTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const guidedSessionIdRef = useRef<string | null>(null);
+  const guidedSessionDeductedRef = useRef<boolean>(false);
+  const hasAwardedCurrentTaskRef = useRef<boolean>(false);
 
-  const showDeductionNotification = (amount: number, reason: string, actionType: 'HINT' | 'GUIDED') => {
-    if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
-    setDeductionPopup({
-      amount,
+  const showPointsNotification = (
+    amount: number,
+    reason: string,
+    actionType: 'HINT' | 'GUIDED' | 'TASK' | 'AWARD' = 'GUIDED',
+    type: 'award' | 'deduction' = 'deduction'
+  ) => {
+    if (pointsTimerRef.current) clearTimeout(pointsTimerRef.current);
+    setPointsPopup({
+      amount: Math.abs(amount),
       reason,
       actionType,
+      type,
       visible: true,
     });
-    deductionTimerRef.current = setTimeout(() => {
-      setDeductionPopup(null);
+    pointsTimerRef.current = setTimeout(() => {
+      setPointsPopup(null);
     }, 4500);
+  };
+
+  const showDeductionNotification = (amount: number, reason: string, actionType: 'HINT' | 'GUIDED') => {
+    showPointsNotification(amount, reason, actionType, 'deduction');
   };
 
   useEffect(() => {
     return () => {
-      if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
+      if (pointsTimerRef.current) clearTimeout(pointsTimerRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
-    setDeductionPopup(null);
+    if (pointsTimerRef.current) clearTimeout(pointsTimerRef.current);
+    setPointsPopup(null);
+    hasAwardedCurrentTaskRef.current = false;
+    guidedSessionIdRef.current = null;
+    guidedSessionDeductedRef.current = false;
   }, [task.id]);
 
   // Guided Solve State
@@ -1889,8 +1915,10 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
     setFeedbackMessage(null);
     setFeedbackExplanation(null);
     setShowHint(false);
-    if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
-    setDeductionPopup(null);
+    if (pointsTimerRef.current) clearTimeout(pointsTimerRef.current);
+    setPointsPopup(null);
+    guidedSessionIdRef.current = null;
+    guidedSessionDeductedRef.current = false;
     setHighlightedPointer(null);
     setGuidedHistory([]);
     setGuidedState({
@@ -2198,6 +2226,10 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
       instantiateNewNode(task.newNodeConfig.data);
     }
     const total = task.guidedSteps?.length || 0;
+    const newSessionId = `gs_${task.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    guidedSessionIdRef.current = newSessionId;
+    guidedSessionDeductedRef.current = false;
+
     setGuidedHistory([]);
     setGuidedState({
       isActive: true,
@@ -2215,6 +2247,8 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
   const handleStopGuidedSolve = () => {
     soundManager.playClick();
     setGuidedHistory([]);
+    guidedSessionIdRef.current = null;
+    guidedSessionDeductedRef.current = false;
     setGuidedState({
       isActive: false,
       currentStep: 0,
@@ -2235,14 +2269,22 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
     const stepObj = task.guidedSteps[nextStepIndex];
     const newStepNumber = nextStepIndex + 1;
 
-    // Deduct 2 raw points for each Guided Solve step actually used (deductions cannot duplicate)
-    const isNewGuidedStep = progressManager.recordGuidedSolveStepUsed('dll', task.id, newStepNumber);
-    pointsManager.recordEvent('GUIDED_STEP_USED', `${task.id}-s${newStepNumber}`, {
-      taskId: task.id,
-      stepNumber: newStepNumber,
-    });
-    if (isNewGuidedStep) {
-      showDeductionNotification(2, 'Guided Solve Used', 'GUIDED');
+    // Deduct 2 raw points exactly ONCE per genuine Guided Solve session (subsequent steps in same session incur 0 deduction)
+    // Retakes of an already completed level must NOT deduct any points or trigger popup notifications
+    if (!guidedSessionDeductedRef.current) {
+      guidedSessionDeductedRef.current = true;
+      if (!isRetake) {
+        const activeSessionId = guidedSessionIdRef.current || `gs_${task.id}_${Date.now()}`;
+        guidedSessionIdRef.current = activeSessionId;
+        const isNewGuidedStep = progressManager.recordGuidedSolveSessionUsed('dll', task.id, activeSessionId);
+        pointsManager.recordEvent('GUIDED_STEP_USED', `${task.id}-s${activeSessionId}`, {
+          taskId: task.id,
+          sessionId: activeSessionId,
+        });
+        if (isNewGuidedStep) {
+          showPointsNotification(2, 'Guided Solve Used', 'GUIDED', 'deduction');
+        }
+      }
     }
 
     soundManager.playClick();
@@ -2543,6 +2585,10 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
       setFeedbackMessage(result.message);
       setFeedbackExplanation(result.explanation || null);
       soundManager.playSuccess();
+      if (!isRetake && !isAlreadyCompleted && !hasAwardedCurrentTaskRef.current) {
+        hasAwardedCurrentTaskRef.current = true;
+        showPointsNotification(6, 'Task Completed', 'TASK', 'award');
+      }
       onTaskSolved(task.id, task.xp);
     } else {
       setAttemptCount((prev) => prev + 1);
@@ -2750,25 +2796,60 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
         guidedState.isActive ? 'max-w-7xl' : 'max-w-5xl'
       } mx-auto flex flex-col gap-6 font-sans select-text transition-all duration-200`}
     >
-      {/* Scoring Deduction Notification Popup */}
-      {deductionPopup && deductionPopup.visible && (
+      {/* Scoring Points Award / Deduction Notification Popup */}
+      {pointsPopup && pointsPopup.visible && (
         <div
           id="game-deduction-notification"
           role="alert"
           aria-live="assertive"
-          className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 rounded-2xl border-2 border-rose-300 dark:border-rose-900/80 bg-rose-50/95 dark:bg-[#1E1118] text-rose-950 dark:text-rose-100 shadow-sm animate-fade-in transition-all"
+          className={`w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 rounded-2xl border-2 shadow-sm animate-fade-in transition-all ${
+            pointsPopup.type === 'award'
+              ? 'border-emerald-300 dark:border-emerald-900/80 bg-emerald-50/95 dark:bg-[#0c1f17] text-emerald-950 dark:text-emerald-100'
+              : 'border-rose-300 dark:border-rose-900/80 bg-rose-50/95 dark:bg-[#1E1118] text-rose-950 dark:text-rose-100'
+          }`}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-2xs">
-              <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
+            <div
+              className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                pointsPopup.type === 'award'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-100 dark:bg-rose-950/80 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {pointsPopup.type === 'award' ? (
+                <CheckCircle2 className="w-4 h-4 stroke-[2.2]" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm">
-              <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm sm:text-base tracking-tight">
-                -{deductionPopup.amount} {deductionPopup.amount === 1 ? 'Point' : 'Points'}
+              <span
+                className={`font-mono font-black text-sm sm:text-base tracking-tight ${
+                  pointsPopup.type === 'award'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {pointsPopup.type === 'award' ? '+' : '-'}
+                {pointsPopup.amount} {pointsPopup.amount === 1 ? 'Point' : 'Points'}
               </span>
-              <span className="text-rose-300 dark:text-rose-700 font-bold select-none">—</span>
-              <span className="font-bold text-rose-900 dark:text-rose-200">
-                {deductionPopup.reason}
+              <span
+                className={`font-bold select-none ${
+                  pointsPopup.type === 'award'
+                    ? 'text-emerald-300 dark:text-emerald-700'
+                    : 'text-rose-300 dark:text-rose-700'
+                }`}
+              >
+                —
+              </span>
+              <span
+                className={`font-bold ${
+                  pointsPopup.type === 'award'
+                    ? 'text-emerald-900 dark:text-emerald-200'
+                    : 'text-rose-900 dark:text-rose-200'
+                }`}
+              >
+                {pointsPopup.reason}
               </span>
             </div>
           </div>
@@ -2776,10 +2857,14 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
             type="button"
             id="btn-dismiss-deduction-popup"
             onClick={() => {
-              if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
-              setDeductionPopup(null);
+              if (pointsTimerRef.current) clearTimeout(pointsTimerRef.current);
+              setPointsPopup(null);
             }}
-            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer shrink-0"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+              pointsPopup.type === 'award'
+                ? 'text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                : 'text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/50'
+            }`}
             title="Dismiss notification"
             aria-label="Dismiss notification"
           >
@@ -3965,7 +4050,7 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
             onClick={() => {
               setShowHint((prev) => {
                 const next = !prev;
-                if (next) {
+                if (next && !isRetake) {
                   const wasHintRecorded = progressManager.recordHintUsed('dll', task.id);
                   pointsManager.recordEvent('HINT_USED', `${task.id}-h1`, {
                     taskId: task.id,
@@ -3981,7 +4066,7 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
           >
             <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            <span>{showHint ? 'Hide Hint' : 'Hint (-1 pt)'}</span>
+            <span>{showHint ? 'Hide Hint' : isRetake ? 'Hint' : 'Hint (-1 pt)'}</span>
           </button>
 
           {/* Guided Solve Button (Visible when Guided Solve is not active) */}
