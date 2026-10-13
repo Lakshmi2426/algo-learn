@@ -129,10 +129,38 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
           const k = localStorage.key(i);
           if (k && (k.startsWith('hash_user_points_') || k === 'hash_quest_points_system_v2')) {
             const ptsObj: any = safeJsonParse(localStorage.getItem(k));
-            if (ptsObj && typeof ptsObj.totalPoints === 'number') {
-              points = Math.max(points, ptsObj.totalPoints);
+            if (ptsObj) {
+              if (typeof ptsObj.totalPoints === 'number') {
+                points = Math.max(points, ptsObj.totalPoints);
+              } else {
+                const viz = typeof ptsObj.visualizePoints === 'number' ? ptsObj.visualizePoints : 0;
+                const game = typeof ptsObj.gamePoints === 'number' ? ptsObj.gamePoints : 0;
+                const quiz = typeof ptsObj.quizPoints === 'number' ? ptsObj.quizPoints : 0;
+                const hints = typeof ptsObj.hintUsesCount === 'number' ? ptsObj.hintUsesCount * 2 : 0;
+                const guides = typeof ptsObj.guidedSolveUsesCount === 'number' ? ptsObj.guidedSolveUsesCount * 4 : 0;
+                const compTotal = Math.min(100, Math.max(0, viz + game + quiz - hints - guides));
+                points = Math.max(points, compTotal);
+              }
             }
           }
+        }
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('hash_user_progress_')) {
+            const progObj: any = safeJsonParse(localStorage.getItem(k));
+            if (progObj) {
+              const lvls = Array.isArray(progObj.levelsCompleted) ? progObj.levelsCompleted.length : 0;
+              const vids = Array.isArray(progObj.completedVideos) ? progObj.completedVideos.length : 0;
+              const qScore = typeof progObj.quizFinalScore === 'number' ? progObj.quizFinalScore : 0;
+              const computedFromProg = Math.min(100, Math.max(0, (lvls * 10) + (vids * 10) + Math.min(30, qScore)));
+              points = Math.max(points, computedFromProg);
+            }
+          }
+        }
+        const directKey = localStorage.getItem('algolearn_topic_progress_hashing');
+        if (directKey) {
+          const parsed = parseInt(directKey, 10);
+          if (!isNaN(parsed) && parsed > 0) points = Math.max(points, parsed);
         }
         return Math.min(100, Math.max(0, points));
       }
@@ -143,6 +171,11 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const pts: any = safeJsonParse(rawPts);
         if (pts && typeof pts.totalPoints === 'number') {
           points = pts.totalPoints;
+        }
+        const direct = localStorage.getItem('algolearn_topic_progress_linear-search');
+        if (direct) {
+          const num = parseInt(direct, 10);
+          if (!isNaN(num) && num > 0) points = Math.max(points, num);
         }
         return Math.min(100, Math.max(0, points));
       }
@@ -380,6 +413,8 @@ export const NATIVE_STORAGE_KEYS = [
   'stack_master_user_progress_v2',
   'hash_quest_field_notes_progress_v2',
   'hash_quest_points_system_v2',
+  'hash_quest_user_device_id_v2',
+  'hash_quest_sound_settings',
   'linear_search_field_notes_progress_v2',
   'algo_quest_points_system_v3',
   'binary_search_user_progress_v4',
@@ -387,11 +422,19 @@ export const NATIVE_STORAGE_KEYS = [
   'stack_master_user_progress_v1',
   'algolearn_sll_100_points_progress_v4',
   'dll_quest_user_progress_v1',
+  'algolearn_scoring_events_v2',
   'cll_mastery_progress_v1',
+  'cll-learning-points-v5',
   'bfs_learner_progress_v2',
+  'algolearn_completed_videos',
+  'algolearn_completed_levels',
+  'algolearn_quiz_answers',
+  'algolearn_game_assistance',
   'trees_module_progress_v1',
   'bst_mastery_progress_v1',
+  'bst_explorer_user_stats_main',
   'algo_ds_types_progress_v1',
+  'algolearn_topics_progress',
 ];
 
 /**
@@ -409,15 +452,23 @@ export function snapshotActiveModuleKeys(): Record<string, string> {
 
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
+      if (!k) continue;
       if (
-        k &&
-        (k.startsWith('sort_master_user_progress_') ||
-          k.startsWith('stack_master_user_progress_v2_fresh_reset_') ||
-          k.startsWith('hash_user_progress_') ||
-          k.startsWith('hash_user_points_'))
+        k.startsWith('sort_master_user_progress_') ||
+        k.startsWith('stack_master_user_progress_v2_fresh_reset_') ||
+        k.startsWith('hash_user_progress_') ||
+        k.startsWith('hash_user_points_') ||
+        k.startsWith('algolearn_topic_progress_') ||
+        k.startsWith('cll-') ||
+        k.startsWith('bst_') ||
+        k.startsWith('algo_') ||
+        k.includes('video_completed') ||
+        k.includes('quiz_score')
       ) {
-        const val = localStorage.getItem(k);
-        if (val !== null) result[k] = val;
+        if (!k.startsWith('algolearn_student_progress_')) {
+          const val = localStorage.getItem(k);
+          if (val !== null) result[k] = val;
+        }
       }
     }
   } catch {}
@@ -427,6 +478,7 @@ export function snapshotActiveModuleKeys(): Record<string, string> {
 
 /**
  * Clears active module storage so one user's progress is never inherited by another.
+ * NEVER deletes student-scoped records (algolearn_student_progress_ or algolearn_topic_progress_<regd>_).
  */
 export function clearActiveModuleKeys() {
   if (typeof localStorage === 'undefined') return;
@@ -438,63 +490,101 @@ export function clearActiveModuleKeys() {
     const toRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith('algolearn_student_progress_')) continue;
       if (
-        k &&
-        (k.startsWith('sort_master_user_progress_') ||
-          k.startsWith('stack_master_user_progress_v2_fresh_reset_') ||
-          k.startsWith('hash_user_progress_') ||
-          k.startsWith('hash_user_points_') ||
-          k.startsWith('algolearn_topic_progress_') ||
-          k === 'algolearn_topics_progress')
+        k.startsWith('sort_master_user_progress_') ||
+        k.startsWith('stack_master_user_progress_v2_fresh_reset_') ||
+        k.startsWith('hash_user_progress_') ||
+        k.startsWith('hash_user_points_') ||
+        k === 'algolearn_topics_progress'
       ) {
-        if (!k.startsWith('algolearn_student_progress_')) {
+        toRemove.push(k);
+      } else if (k.startsWith('algolearn_topic_progress_')) {
+        const suffix = k.replace('algolearn_topic_progress_', '');
+        // Only remove canonical topic global keys, never remove student-scoped keys!
+        if (CANONICAL_MODULE_IDS.includes(suffix as any)) {
           toRemove.push(k);
         }
       }
     }
     toRemove.forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem('algolearn_active_student_marker');
   } catch {}
 }
 
 /**
  * Restores a specific student's isolated module progress into localStorage.
+ * Does NOT clear active keys on page refresh for the same student.
  */
 export function restoreStudentModuleKeys(studentKey: string) {
   if (typeof localStorage === 'undefined' || !studentKey) return;
   try {
-    clearActiveModuleKeys();
+    const lastActiveKey = localStorage.getItem('algolearn_active_student_marker');
+    // Only clear if switching from a different student
+    if (lastActiveKey && lastActiveKey !== studentKey) {
+      clearActiveModuleKeys();
+    }
+    localStorage.setItem('algolearn_active_student_marker', studentKey);
 
     const raw = localStorage.getItem(`algolearn_student_progress_${studentKey}`);
-    if (!raw) return;
+    if (raw) {
+      const data = safeJsonParse<{
+        topicScores?: Record<string, number>;
+        moduleKeys?: Record<string, string>;
+        xp?: number;
+      }>(raw);
 
-    const data = safeJsonParse<{
-      topicScores?: Record<string, number>;
-      moduleKeys?: Record<string, string>;
-      xp?: number;
-    }>(raw);
-
-    if (!data) return;
-
-    if (data.moduleKeys) {
-      Object.entries(data.moduleKeys).forEach(([key, val]) => {
-        if (typeof val === 'string') {
-          localStorage.setItem(key, val);
+      if (data) {
+        if (data.moduleKeys) {
+          Object.entries(data.moduleKeys).forEach(([key, val]) => {
+            if (typeof val === 'string' && val !== null) {
+              if (lastActiveKey !== studentKey || !localStorage.getItem(key)) {
+                localStorage.setItem(key, val);
+              }
+            }
+          });
         }
-      });
+
+        if (data.topicScores) {
+          const currentTopics = safeJsonParse<Record<string, number>>(localStorage.getItem('algolearn_topics_progress')) || {};
+          Object.entries(data.topicScores).forEach(([modId, score]) => {
+            const num = Number(score) || 0;
+            const existingScoped = parseInt(localStorage.getItem(`algolearn_topic_progress_${studentKey}_${modId}`) || '0', 10) || 0;
+            const existingDirect = parseInt(localStorage.getItem(`algolearn_topic_progress_${modId}`) || '0', 10) || 0;
+            const best = Math.max(num, existingScoped, existingDirect);
+
+            localStorage.setItem(`algolearn_topic_progress_${studentKey}_${modId}`, String(best));
+            localStorage.setItem(`algolearn_topic_progress_${modId}`, String(best));
+            currentTopics[modId] = Math.max(currentTopics[modId] || 0, best);
+          });
+          localStorage.setItem('algolearn_topics_progress', JSON.stringify(currentTopics));
+        }
+      }
     }
 
-    if (data.topicScores) {
-      Object.entries(data.topicScores).forEach(([modId, score]) => {
-        localStorage.setItem(`algolearn_topic_progress_${studentKey}_${modId}`, String(score));
-      });
-    }
-  } catch {}
+    // Align all student-scoped keys to global direct topic keys
+    CANONICAL_MODULE_IDS.forEach((modId) => {
+      const scopedVal = localStorage.getItem(`algolearn_topic_progress_${studentKey}_${modId}`);
+      if (scopedVal) {
+        const num = parseInt(scopedVal, 10);
+        if (!isNaN(num) && num > 0) {
+          const curDirect = parseInt(localStorage.getItem(`algolearn_topic_progress_${modId}`) || '0', 10) || 0;
+          if (num > curDirect) {
+            localStorage.setItem(`algolearn_topic_progress_${modId}`, String(num));
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error in restoreStudentModuleKeys:', err);
+  }
 }
 
 /**
  * Gets the authoritative latest score (0..100) for a given topic ID or title.
  * Unauthenticated guests have strictly 0 progress.
- * Authenticated students read their own isolated progress.
+ * Authenticated students read their own isolated progress from multiple fallback layers.
  */
 export function getTopicScore(topicIdOrTitle: string, explicitUserKey?: string): number {
   const moduleId = normalizeToModuleId(topicIdOrTitle);
@@ -509,7 +599,7 @@ export function getTopicScore(topicIdOrTitle: string, explicitUserKey?: string):
     return 0;
   }
 
-  let directSavedScore = 0;
+  let bestScore = 0;
 
   // 1. Check student-scoped progress record
   const studentDataRaw = localStorage.getItem(`algolearn_student_progress_${studentKey}`);
@@ -519,7 +609,7 @@ export function getTopicScore(topicIdOrTitle: string, explicitUserKey?: string):
   }>(studentDataRaw);
 
   if (studentData?.topicScores && typeof studentData.topicScores[moduleId] === 'number') {
-    directSavedScore = studentData.topicScores[moduleId];
+    bestScore = Math.max(bestScore, studentData.topicScores[moduleId]);
   }
 
   // 2. Check student-scoped direct key
@@ -527,13 +617,58 @@ export function getTopicScore(topicIdOrTitle: string, explicitUserKey?: string):
   if (scopedDirect) {
     const parsed = parseInt(scopedDirect, 10);
     if (!isNaN(parsed) && parsed >= 0) {
-      directSavedScore = Math.max(directSavedScore, parsed);
+      bestScore = Math.max(bestScore, parsed);
     }
   }
 
-  // 3. Check native module storage
+  // 3. Check general direct key
+  const direct = localStorage.getItem(`algolearn_topic_progress_${moduleId}`);
+  if (direct) {
+    const parsed = parseInt(direct, 10);
+    if (!isNaN(parsed) && parsed >= 0) {
+      bestScore = Math.max(bestScore, parsed);
+    }
+  }
+
+  // 4. Check algolearn_topics_progress map
+  const topicsMap = safeJsonParse<Record<string, number>>(localStorage.getItem('algolearn_topics_progress'));
+  if (topicsMap && typeof topicsMap[moduleId] === 'number') {
+    bestScore = Math.max(bestScore, topicsMap[moduleId]);
+  }
+
+  // 5. Check user's exploredTopics in algolearn_user
+  try {
+    const rawUser = localStorage.getItem('algolearn_user');
+    if (rawUser) {
+      const userObj = JSON.parse(rawUser);
+      if (Array.isArray(userObj.exploredTopics)) {
+        const item = userObj.exploredTopics.find(
+          (t: any) => normalizeToModuleId(t.id) === moduleId || normalizeToModuleId(t.title) === moduleId
+        );
+        if (item && typeof item.progress === 'number') {
+          bestScore = Math.max(bestScore, item.progress);
+        }
+      }
+    }
+  } catch {}
+
+  // 6. Check native module storage
   const nativeScore = readNativeModuleProgress(moduleId);
-  const bestScore = Math.min(100, Math.max(0, directSavedScore, nativeScore));
+  bestScore = Math.min(100, Math.max(bestScore, nativeScore));
+
+  // Align keys so they persist across page refreshes
+  if (bestScore > 0) {
+    if (scopedDirect !== String(bestScore)) {
+      try {
+        localStorage.setItem(`algolearn_topic_progress_${studentKey}_${moduleId}`, String(bestScore));
+      } catch {}
+    }
+    if (direct !== String(bestScore)) {
+      try {
+        localStorage.setItem(`algolearn_topic_progress_${moduleId}`, String(bestScore));
+      } catch {}
+    }
+  }
 
   return bestScore;
 }
@@ -553,10 +688,18 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
     return 0;
   }
 
-  // 1. Save student-scoped direct key
+  // 1. Save student-scoped direct key and global topic key
   localStorage.setItem(`algolearn_topic_progress_${studentKey}_${moduleId}`, String(cleanScore));
+  localStorage.setItem(`algolearn_topic_progress_${moduleId}`, String(cleanScore));
 
-  // 2. Update student-scoped full progress record
+  // 2. Update algolearn_topics_progress map
+  try {
+    const currentTopics = safeJsonParse<Record<string, number>>(localStorage.getItem('algolearn_topics_progress')) || {};
+    currentTopics[moduleId] = Math.max(currentTopics[moduleId] || 0, cleanScore);
+    localStorage.setItem('algolearn_topics_progress', JSON.stringify(currentTopics));
+  } catch {}
+
+  // 3. Update student-scoped full progress record
   const studentDataRaw = localStorage.getItem(`algolearn_student_progress_${studentKey}`);
   const studentData = safeJsonParse<{
     topicScores?: Record<string, number>;
@@ -565,7 +708,7 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
   }>(studentDataRaw) || { topicScores: {}, moduleKeys: {}, xp: 0 };
 
   if (!studentData.topicScores) studentData.topicScores = {};
-  studentData.topicScores[moduleId] = cleanScore;
+  studentData.topicScores[moduleId] = Math.max(studentData.topicScores[moduleId] || 0, cleanScore);
 
   // Snapshot active module keys for this student
   studentData.moduleKeys = snapshotActiveModuleKeys();
@@ -579,7 +722,37 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
 
   localStorage.setItem(`algolearn_student_progress_${studentKey}`, JSON.stringify(studentData));
 
-  // 3. Dispatch browser event for reactive update
+  // 4. Update algolearn_user if current user matches
+  try {
+    const rawUser = localStorage.getItem('algolearn_user');
+    if (rawUser) {
+      const userObj = JSON.parse(rawUser);
+      const uKey = (userObj.regdNo || userObj.id || userObj.email || '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      if (uKey === studentKey) {
+        if (!userObj.exploredTopics) userObj.exploredTopics = [];
+        const idx = userObj.exploredTopics.findIndex(
+          (t: any) => normalizeToModuleId(t.id) === moduleId || normalizeToModuleId(t.title) === moduleId
+        );
+        if (idx >= 0) {
+          userObj.exploredTopics[idx].progress = Math.max(userObj.exploredTopics[idx].progress || 0, cleanScore);
+          userObj.exploredTopics[idx].status = userObj.exploredTopics[idx].progress >= 80 ? 'completed' : 'in_progress';
+        } else {
+          userObj.exploredTopics.push({
+            id: moduleId,
+            title: moduleId,
+            progress: cleanScore,
+            status: cleanScore >= 80 ? 'completed' : cleanScore > 0 ? 'in_progress' : 'not_started',
+            lastAccessed: 'Recently',
+          });
+        }
+        userObj.xp = Math.max(userObj.xp || 0, sumScores);
+        userObj.topicsMastered = Object.values(studentData.topicScores).filter((sc) => Number(sc) >= 80).length;
+        localStorage.setItem('algolearn_user', JSON.stringify(userObj));
+      }
+    }
+  } catch {}
+
+  // 5. Dispatch browser event for reactive update
   try {
     window.dispatchEvent(
       new CustomEvent('algolearn_topic_progress_updated', {
@@ -662,13 +835,16 @@ export function syncUserProfileWithTopicProgress(user: UserProfile): UserProfile
 
   const exploredTopics = DSA_TOPICS.map((topic) => {
     const modId = normalizeToModuleId(topic.id) || normalizeToModuleId(topic.title);
-    const score = (!isGuest && modId) ? (summary.topicScores[modId] || 0) : 0;
+    const existing = user.exploredTopics?.find(
+      (t) => normalizeToModuleId(t.id) === modId || normalizeToModuleId(t.title) === modId
+    );
+    const score = (!isGuest && modId) ? Math.max(summary.topicScores[modId] || 0, existing?.progress || 0) : 0;
 
     return {
       id: topic.id,
       title: topic.title,
       progress: score,
-      lastAccessed: score > 0 ? 'Recently' : 'Not started',
+      lastAccessed: score > 0 ? 'Recently' : (existing?.lastAccessed || 'Not started'),
       status: (score >= 80 ? 'completed' : score > 0 ? 'in_progress' : 'not_started') as 'completed' | 'in_progress' | 'not_started',
     };
   });

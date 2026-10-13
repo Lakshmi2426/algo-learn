@@ -1,0 +1,22 @@
+{
+  "name": "AlgoLearn – Circular Linked List Learning Platform",
+  "short_name": "AlgoLearn",
+  "description": "Master the Circular Linked List data structure with interactive visualizations, step-by-step pointer manipulation lessons, time complexity analysis, and gamified challenges.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#2563EB",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/algolearn-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

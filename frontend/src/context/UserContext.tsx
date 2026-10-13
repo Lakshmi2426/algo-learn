@@ -252,11 +252,29 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data?.students && Array.isArray(data.students)) {
           const cleanServerStudents = data.students.filter(isRealStudent);
           const activeKey = getActiveStudentKey();
-          const allProg = getAllTopicsProgress();
+          const allProg = getAllTopicsProgress(activeKey || undefined);
 
           const formatted: StudentProgressRecord[] = cleanServerStudents.map((s: any) => {
             const sKey = (s.regdNo || s.id || '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
             const isCurrent = Boolean(activeKey && sKey === activeKey);
+
+            if (isCurrent && s.progress && typeof s.progress === 'object') {
+              Object.entries(s.progress).forEach(([tKey, scoreVal]) => {
+                const num = Number(scoreVal);
+                if (!isNaN(num) && num > 0) {
+                  const curScore = getTopicScore(tKey, activeKey);
+                  if (num > curScore) {
+                    setTopicScore(tKey, num, activeKey);
+                  }
+                }
+              });
+            }
+
+            const userXp = isCurrent ? Math.max(s.xp || 0, allProg.totalXP) : (s.xp || 0);
+            const userMastered = isCurrent ? Math.max(s.topicsCompleted || 0, allProg.topicsMasteredCount) : (s.topicsCompleted || 0);
+            const userStarted = isCurrent ? Math.max(s.topicsStarted || 0, allProg.topicsStartedCount) : (s.topicsStarted || 0);
+            const userProgress = isCurrent ? Math.max(s.overallProgress || 0, allProg.overallPercentage) : (s.overallProgress || 0);
+
             return {
               id: s.id || s._id,
               name: s.name,
@@ -264,13 +282,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               avatar: s.avatar || '',
               regdNo: s.regdNo,
               branch: s.branch,
-              topicsStarted: isCurrent ? allProg.topicsStartedCount : (s.topicsStarted || 0),
-              topicsCompleted: isCurrent ? allProg.topicsMasteredCount : (s.topicsCompleted || 0),
-              overallProgress: isCurrent ? allProg.overallPercentage : (s.overallProgress || 0),
+              topicsStarted: userStarted,
+              topicsCompleted: userMastered,
+              overallProgress: userProgress,
               lastActive: s.lastActive || 'Just now',
               streak: 1,
               currentStage: s.currentStage || 'Phase 1: Foundations',
-              xp: isCurrent ? allProg.totalXP : (s.xp || 0),
+              xp: userXp,
               exploredTopics: s.exploredTopics || [],
               recentActivities: s.recentActivities || [],
             };
@@ -318,14 +336,37 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const student = data.student;
             const studentKey = student.regdNo.toLowerCase();
             restoreStudentModuleKeys(studentKey);
-            setUser((prev) => ({
-              ...prev,
-              id: student._id || student.id,
-              name: student.name,
-              branch: student.branch,
-              regdNo: student.regdNo,
-              xp: student.xp || 0,
-            }));
+
+            if (student.progress && typeof student.progress === 'object') {
+              Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
+                const num = Number(scoreVal);
+                if (!isNaN(num) && num > 0) {
+                  const cur = getTopicScore(tKey, studentKey);
+                  if (num > cur) {
+                    setTopicScore(tKey, num, studentKey);
+                  }
+                }
+              });
+            }
+
+            const latestProg = getAllTopicsProgress(studentKey);
+
+            setUser((prev) => {
+              const updated = {
+                ...prev,
+                id: student._id || student.id,
+                name: student.name,
+                branch: student.branch,
+                regdNo: student.regdNo,
+                xp: Math.max(prev.xp || 0, student.xp || 0, latestProg.totalXP),
+                topicsMastered: Math.max(prev.topicsMastered || 0, student.topicsCompleted || 0, latestProg.topicsMasteredCount),
+              };
+              const synced = syncUserProfileWithTopicProgress(updated);
+              try {
+                localStorage.setItem('algolearn_user', JSON.stringify(synced));
+              } catch {}
+              return synced;
+            });
           }
         })
         .catch(() => {})
@@ -366,19 +407,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let syncTimeout: any = null;
 
     const handleProgressChange = () => {
-      const allProg = getAllTopicsProgress();
+      const activeKey = getActiveStudentKey() || (userRef.current?.regdNo ? userRef.current.regdNo.toLowerCase() : undefined);
+      const allProg = getAllTopicsProgress(activeKey);
 
       setUser((prev) => {
         const synced = syncUserProfileWithTopicProgress(prev);
         if (synced.regdNo || (synced.name && synced.name !== 'Guest Learner')) {
+          try {
+            localStorage.setItem('algolearn_user', JSON.stringify(synced));
+          } catch {}
+
           if (syncTimeout) clearTimeout(syncTimeout);
           syncTimeout = setTimeout(() => {
             const payload = {
               studentName: synced.name,
               regdNo: synced.regdNo,
-              xp: allProg.totalXP,
+              xp: Math.max(synced.xp || 0, allProg.totalXP),
               progress: allProg.topicScores,
-              topicsCompleted: allProg.topicsMasteredCount,
+              topicsCompleted: Math.max(synced.topicsMastered || 0, allProg.topicsMasteredCount),
               topicsStarted: allProg.topicsStartedCount,
               overallProgress: allProg.overallPercentage,
             };
@@ -413,7 +459,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const currentUser = userRef.current;
       setRegisteredStudents((prevList) => {
-        return prevList.map((s) => {
+        const nextList = prevList.map((s) => {
           if (
             (currentUser.regdNo && s.regdNo?.toUpperCase() === currentUser.regdNo?.toUpperCase()) ||
             (currentUser.email && s.email.toLowerCase() === currentUser.email.toLowerCase()) ||
@@ -421,15 +467,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ) {
             return {
               ...s,
-              xp: allProg.totalXP,
-              topicsCompleted: allProg.topicsMasteredCount,
-              topicsStarted: allProg.topicsStartedCount,
-              overallProgress: allProg.overallPercentage,
+              xp: Math.max(s.xp || 0, allProg.totalXP),
+              topicsCompleted: Math.max(s.topicsCompleted || 0, allProg.topicsMasteredCount),
+              topicsStarted: Math.max(s.topicsStarted || 0, allProg.topicsStartedCount),
+              overallProgress: Math.max(s.overallProgress || 0, allProg.overallPercentage),
               lastActive: 'Just now',
             };
           }
           return s;
         });
+        try {
+          localStorage.setItem('algolearn_registered_students', JSON.stringify(nextList));
+        } catch {}
+        return nextList;
       });
     };
 
@@ -651,6 +701,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('dsa_user_email', `${student.regdNo.toLowerCase()}@algolearn.edu`);
           localStorage.setItem('current_user', `${student.regdNo.toLowerCase()}@algolearn.edu`);
           restoreStudentModuleKeys(studentKey);
+        }
+
+        if (student.progress && typeof student.progress === 'object') {
+          Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
+            const num = Number(scoreVal);
+            if (!isNaN(num) && num > 0) {
+              setTopicScore(tKey, num, studentKey);
+            }
+          });
         }
 
         setIsAuthenticated(true);

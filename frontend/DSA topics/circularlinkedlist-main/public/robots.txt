@@ -1,0 +1,6 @@
+# Robots.txt for AlgoLearn – Circular Linked List Learning Platform
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://algolearn-circularlinkedlist.vercel.app/sitemap.xml
