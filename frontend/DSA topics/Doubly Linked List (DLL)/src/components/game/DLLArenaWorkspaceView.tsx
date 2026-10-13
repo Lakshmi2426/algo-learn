@@ -82,12 +82,21 @@ export const DLLArenaWorkspaceView: React.FC<DLLArenaWorkspaceViewProps> = ({
     setUnlockedHintTier(1);
   }, [activeTask.id, initialGuidedMode]);
 
+  const toastTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToastMessage({ text, type });
-    setTimeout(() => {
-      setToastMessage((prev) => (prev?.text === text ? null : prev));
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
     }, 4500);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   const pushHistory = () => {
     setHistory((prev) => [...prev.slice(-20), { nodes: JSON.parse(JSON.stringify(nodes)), head, tail }]);
@@ -515,7 +524,10 @@ export const DLLArenaWorkspaceView: React.FC<DLLArenaWorkspaceViewProps> = ({
             <span>{toastMessage.text}</span>
           </div>
           <button
-            onClick={() => setToastMessage(null)}
+            onClick={() => {
+              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+              setToastMessage(null);
+            }}
             className="text-xs font-mono font-bold hover:opacity-75 cursor-pointer px-2 py-1 rounded bg-black/20"
           >
             ✕

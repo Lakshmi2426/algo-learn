@@ -198,20 +198,37 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const p: any = safeJsonParse(raw);
         if (!p) return 0;
 
-        const vizCount = Math.min(2, (p.completedLabs || []).length);
-        const gameCount = Math.min(4, (p.completedGameLevels || []).length);
-        const theoryCount = Math.min(12, (p.completedTheoryChapters || []).length);
-        const quizCount = p.quizCompleted ? 1 : 0;
-        const completedModules = vizCount + gameCount + theoryCount + quizCount;
-        const pct = Math.min(100, Math.round((completedModules / 19) * 100));
+        if (typeof p.queueScore === 'number') {
+          return Math.min(100, Math.max(0, p.queueScore));
+        }
 
-        // Queue scoring: viz 20, game 40, quiz 40
-        const vizPts = vizCount * 10;
-        const gamePts = gameCount * 10;
-        const quizPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : 0;
-        const totalPts = Math.min(100, Math.max(0, vizPts + gamePts + quizPts));
+        // Authoritative QUEUE_SCORING rules:
+        // learn: 0, visualize: 12 pts (6 per lab, max 2 labs),
+        // game: 40 pts (lvl 1: 13, lvl 2: 13, lvl 3: 14), quiz: 48 pts (4 per correct, -2 per incorrect)
+        const vizCount = Math.min(2, (p.completedLabs || []).filter((id: number) => id >= 1 && id <= 2).length);
+        const vizPts = vizCount * 6;
 
-        return totalPts;
+        const completedLevels = new Set(
+          (p.completedGameLevels || []).filter((id: number) => id >= 1 && id <= 3)
+        );
+        let rawGamePts = 0;
+        completedLevels.forEach((lvl: any) => {
+          rawGamePts += lvl === 3 ? 14 : 13;
+        });
+        const deductions = Math.max(0, p.queueDeductions || 0);
+        const gamePts = Math.max(0, Math.min(40, rawGamePts) - deductions);
+
+        let quizPts = 0;
+        if (p.quizQuestionResults && typeof p.quizQuestionResults === 'object') {
+          const results = Object.values(p.quizQuestionResults);
+          const correct = results.filter((r) => r === 'correct').length;
+          const incorrect = results.filter((r) => r === 'incorrect').length;
+          quizPts = Math.max(0, Math.min(48, correct * 4 - incorrect * 2));
+        } else if (p.quizHighScore) {
+          quizPts = Math.round((p.quizHighScore / 100) * 48);
+        }
+
+        return Math.min(100, Math.max(0, vizPts + gamePts + quizPts));
       }
 
       case 'sll': {
@@ -660,6 +677,6 @@ export function syncUserProfileWithTopicProgress(user: UserProfile): UserProfile
     ...user,
     exploredTopics,
     topicsMastered: isGuest ? 0 : summary.topicsMasteredCount,
-    xp: isGuest ? 0 : Math.max(user.xp, summary.totalXP),
+    xp: isGuest ? 0 : summary.totalXP,
   };
 }

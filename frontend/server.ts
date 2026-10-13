@@ -537,7 +537,10 @@ async function startServer() {
       </script>
     `;
 
-    const themeBgStyle = `<style>html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; height: 100% !important; background-color: ${reqThemeStr === 'light' ? '#f6f9fe' : '#070b14'} !important; color-scheme: ${reqThemeStr === 'light' ? 'light' : 'dark'}; }</style>`;
+    const themeBgStyle = `<style>
+html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; height: 100% !important; background-color: ${reqThemeStr === 'light' ? '#f6f9fe' : '#070b14'} !important; color-scheme: ${reqThemeStr === 'light' ? 'light' : 'dark'}; }
+#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-container, #ai-assistant-fab, .ai-fab-btn, .floating-chatbot-container, [aria-label*="AI Chatbot" i], [aria-label*="AI Assistant" i], [aria-label*="Chatbot" i], [aria-label*="Assistant" i], [aria-label*="Ask a Teacher" i], [title*="AI Chatbot" i], [title*="AI Assistant" i], [title*="Chatbot" i], [title*="Assistant" i], [title*="Ask a Teacher" i], div:has(> [aria-label*="Chatbot" i]), div:has(> [aria-label*="Assistant" i]), div:has(> #ai-bot-floating-button), div:has(> #floating-chat-badge), div:has(> #floating-chat-bubble-container), div:has(> img[src*="ai-assistant"]), div:has(> img[src*="aiboticon"]), img[src*="ai-assistant"], img[src*="aiboticon"], div.fixed.bottom-6.right-6, div.fixed.bottom-8.right-8, div.fixed.sm\\:bottom-8.sm\\:right-8 { display: none !important; visibility: hidden !important; pointer-events: none !important; opacity: 0 !important; }
+</style>`;
     const themeClasses = reqThemeStr === 'dark' ? 'dark dark-theme' : 'light';
 
     if (rawHtml.includes('<html')) {

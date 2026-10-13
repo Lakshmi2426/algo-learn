@@ -26,11 +26,12 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [teacherId, setTeacherId] = useState('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Delete Confirmation Dialog state
@@ -40,7 +41,7 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
   const handleOpenAddModal = () => {
     setEditingTeacher(null);
     setName('');
-    setEmail('');
+    setTeacherId('');
     setSubject('');
     setDescription('');
     setAvatarUrl('');
@@ -51,7 +52,7 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
   const handleOpenEditModal = (teacher: Teacher) => {
     setEditingTeacher(teacher);
     setName(teacher.name);
-    setEmail(teacher.email || '');
+    setTeacherId(teacher.teacherId || teacher.id);
     setSubject(teacher.subject);
     setDescription(teacher.description || '');
     setAvatarUrl(teacher.avatarUrl || '');
@@ -75,25 +76,27 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
 
     try {
       if (editingTeacher) {
-        await updateTeacher(editingTeacher.id, {
+        const updated = await updateTeacher(editingTeacher.id, {
           name: name.trim(),
-          email: email.trim(),
           subject: subject.trim(),
           description: description.trim(),
           avatarUrl: avatarUrl.trim(),
         });
+        setSuccessMessage(`Teacher "${updated.name}" updated successfully (ID: ${updated.teacherId || updated.id}).`);
       } else {
-        await addTeacher({
+        const added = await addTeacher({
           name: name.trim(),
-          email: email.trim(),
+          teacherId: teacherId.trim() || undefined,
           subject: subject.trim(),
           description: description.trim(),
           avatarUrl: avatarUrl.trim(),
         });
+        setSuccessMessage(`Teacher "${added.name}" added successfully with ID: ${added.teacherId || added.id}`);
       }
+      setTimeout(() => setSuccessMessage(null), 5000);
       setModalOpen(false);
-    } catch (err) {
-      setFormError('Failed to save teacher. Please try again.');
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to save teacher. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -139,6 +142,22 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
           <span>+ Add Teacher</span>
         </button>
       </div>
+
+      {/* Success banner */}
+      {successMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Teachers Cards Grid */}
       {teachers.length === 0 ? (
@@ -194,12 +213,11 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
                   </div>
                 </div>
 
-                {teacher.email && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-mono mb-2">
-                    <Mail className="w-3 h-3" />
-                    {teacher.email}
-                  </p>
-                )}
+                <div className="flex items-center gap-2 mb-2 font-mono text-xs">
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 font-bold">
+                    Teacher ID: {teacher.teacherId || teacher.id}
+                  </span>
+                </div>
 
                 {teacher.description && (
                   <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 italic mb-4">
@@ -290,15 +308,19 @@ export const AdminTeacherManagementView: React.FC<AdminTeacherManagementViewProp
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 font-mono mb-1.5">
-                    Email Address
+                    Unique Teacher ID {editingTeacher ? '' : '(Optional - Auto-generated if left blank)'}
                   </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. priya.sharma@algolearn.edu"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    value={teacherId}
+                    onChange={(e) => setTeacherId(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
+                    placeholder="e.g. TEA-1001 or TCH-DSA"
+                    disabled={!!editingTeacher}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                   />
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                    Used by the teacher to log in via the Teacher ID field.
+                  </p>
                 </div>
 
                 <div>

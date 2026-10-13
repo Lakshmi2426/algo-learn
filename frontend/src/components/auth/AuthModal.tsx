@@ -15,6 +15,7 @@ import {
   Hash,
   GraduationCap,
   UserPlus,
+  LogIn,
 } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { Logo } from '../common/Logo';
@@ -74,14 +75,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage(null);
     setIsAccountNotFound(false);
     setAdminSuccess(false);
+    if (mode === 'login' && signUpRegdNo.trim() && !signInRegdNo.trim()) {
+      setSignInRegdNo(signUpRegdNo.trim().toUpperCase());
+    } else if (mode === 'signup' && signInRegdNo.trim() && !signUpRegdNo.trim()) {
+      setSignUpRegdNo(signInRegdNo.trim().toUpperCase());
+    }
   };
 
-  // Sync signup password whenever registration number changes
+  // Keep registration number and password fields independent
   const handleSignUpRegdNoChange = (val: string) => {
     const uppercaseVal = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     setSignUpRegdNo(uppercaseVal);
-    // Initial password equals the 10-character registration number
-    setSignUpPassword(uppercaseVal);
     if (errorMessage) {
       setErrorMessage(null);
       setIsAccountNotFound(false);
@@ -122,11 +126,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setAdminSuccess(false);
           onClose();
           if (onNavigateTab) {
-            onNavigateTab('admin');
+            if (res.role === 'teacher') {
+              onNavigateTab('ask-teacher');
+            } else {
+              onNavigateTab('admin');
+            }
           }
         }, 800);
       } else {
-        setErrorMessage(res.message || 'Invalid administrator access code. Access denied.');
+        setErrorMessage(res.message || 'Invalid administrator access code or Teacher ID. Access denied.');
       }
       return;
     }
@@ -163,12 +171,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       if (isRegdNoTaken(cleanRegdNo)) {
-        setErrorMessage('Registration Number is already registered to another student account.');
+        setErrorMessage('Registration Number is already registered. Please switch to Sign In to access your account.');
         return;
       }
 
-      // Password must equal registration number
-      const password = cleanRegdNo;
+      const cleanPassword = signUpPassword.trim();
+      if (!cleanPassword || cleanPassword.length < 6) {
+        setErrorMessage('Password must be at least 6 characters long.');
+        return;
+      }
+      const password = cleanPassword;
 
       setIsSubmitting(true);
       const res = await registerStudent({
@@ -307,11 +319,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleModeChange('login')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  authMode === 'login'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${authMode === 'login'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+                  }`}
                 id="auth-tab-login"
               >
                 Sign In
@@ -319,11 +330,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleModeChange('signup')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  authMode === 'signup'
-                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${authMode === 'signup'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+                  }`}
                 id="auth-tab-signup"
               >
                 Sign Up
@@ -331,11 +341,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleModeChange('admin')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  authMode === 'admin'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-blue-600'
-                }`}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${authMode === 'admin'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-blue-600'
+                  }`}
                 id="auth-tab-admin"
               >
                 Admin
@@ -360,6 +369,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="font-medium">{errorMessage}</span>
                 </div>
+
                 {/* Switch to Sign Up option for Account Not Found */}
                 {isAccountNotFound && (
                   <button
@@ -479,10 +489,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Password (Derived from registration number) */}
+                {/* 4. Password */}
                 <div>
-                  <label className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 uppercase mb-1.5 flex items-center justify-between">
-                    <span>Password (Equals Registration Number)</span>
+                  <label className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 uppercase mb-1.5 block">
+                    Password
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -490,9 +500,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={signUpPassword}
-                      readOnly
-                      placeholder="Derived from registration number"
-                      className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono font-medium text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none"
+                      onChange={(e) => {
+                        setSignUpPassword(e.target.value);
+                        if (errorMessage) {
+                          setErrorMessage(null);
+                          setIsAccountNotFound(false);
+                        }
+                      }}
+                      placeholder="Enter your password (min. 10 chacters)"
+                      className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       id="signup-password-input"
                     />
                     <button
@@ -504,9 +520,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Your initial student password is set to your 10-character Registration Number.
-                  </p>
                 </div>
 
                 {/* Submit Button */}
@@ -519,6 +532,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>{isSubmitting ? 'Creating Account...' : 'Create Account'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
+
+                <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-3">
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (signUpRegdNo) setSignInRegdNo(signUpRegdNo.trim().toUpperCase());
+                      handleModeChange('login');
+                    }}
+                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                    id="switch-to-login-link"
+                  >
+                    Sign In
+                  </button>
+                </p>
               </form>
             )}
 
@@ -618,6 +646,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>{isSubmitting ? 'Signing In...' : 'Sign In'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
+
+                <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-3">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (signInRegdNo) setSignUpRegdNo(signInRegdNo.trim().toUpperCase());
+                      handleModeChange('signup');
+                    }}
+                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                    id="switch-to-signup-link"
+                  >
+                    Sign Up
+                  </button>
+                </p>
               </form>
             )}
 

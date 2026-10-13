@@ -484,7 +484,13 @@ export const HomePage: React.FC<HomePageProps> = ({
             {/* 3D Launch Rocket Image (Picture 1) */}
             <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl overflow-hidden border border-blue-200/80 dark:border-blue-800/50 shadow-md shadow-blue-950/20 flex items-center justify-center group bg-[#0B1120]">
               <img
-                src="/rocket-launch.svg"
+                src="rocket-launch.svg"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (!target.src.endsWith('/rocket-launch.svg')) {
+                    target.src = '/rocket-launch.svg';
+                  }
+                }}
                 alt="Rocket Launch"
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300 select-none"
                 referrerPolicy="no-referrer"

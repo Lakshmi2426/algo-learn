@@ -13578,13 +13578,56 @@ body.dark-theme .deduction-notif-close-btn:hover {
   }
 }
 
-/* Enforce strict single-logo display (hide duplicate or broken img tags in topbar) */
-.topbar-left img,
-.topbar-brand-logo-left img,
-#topbar-brand-logo-img,
-.algolearn-brand-logo-img,
-.algolearn-cap-logo {
+/* Allow theme-driven AlgoLearn logo display in topbar matching main website */
+.topbar-brand-logo-left {
+  position: relative !important;
+  height: 36px !important;
+  width: 156px !important;
+  display: inline-block !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent !important;
+  border: none !important;
+}
+
+.topbar-brand-logo-left .logo-light-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: left !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  display: block !important;
+}
+
+.topbar-brand-logo-left .logo-dark-img {
+  position: absolute !important;
+  max-width: none !important;
+  object-fit: contain !important;
+  object-position: left !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  width: 166.3px !important;
+  height: 40.4px !important;
+  left: -8.6px !important;
+  top: -0.3px !important;
   display: none !important;
+}
+
+body.dark-theme .topbar-brand-logo-left .logo-light-img,
+[data-theme="dark"] .topbar-brand-logo-left .logo-light-img,
+html.dark .topbar-brand-logo-left .logo-light-img,
+.dark .topbar-brand-logo-left .logo-light-img {
+  display: none !important;
+}
+
+body.dark-theme .topbar-brand-logo-left .logo-dark-img,
+[data-theme="dark"] .topbar-brand-logo-left .logo-dark-img,
+html.dark .topbar-brand-logo-left .logo-dark-img,
+.dark .topbar-brand-logo-left .logo-dark-img {
+  display: block !important;
 }
 
 

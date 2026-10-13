@@ -418,13 +418,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th className="py-4 px-6 text-center font-bold">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
                 {filteredStudents.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
+                    <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
                       No students on the leaderboard yet.
                     </td>
                   </tr>
@@ -440,17 +439,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                     </td>
 
                     {/* Student Info */}
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    <td
+                      onClick={() => setSelectedStudent(std)}
+                      className="py-4 px-6 whitespace-nowrap cursor-pointer hover:opacity-90"
+                      title="Click to view student details"
+                    >
                       <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm ring-2 ring-blue-500/20 dark:ring-blue-400/20">
                           {getStudentInitial(std.name)}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-slate-900 dark:text-white text-sm tracking-tight leading-snug">
-                            {std.name}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-900 dark:text-white text-sm tracking-tight leading-snug">
+                              {std.name}
+                            </span>
+                            {std.branch && (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/50">
+                                {std.branch}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
-                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider flex items-center gap-1 mt-0.5">
                             <span className="truncate">{std.regdNo || std.username || std.email}</span>
                           </div>
                         </div>
@@ -496,18 +505,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                           />
                         </div>
                       </div>
-                    </td>
-
-                    {/* Action Button */}
-                    <td className="py-4 px-6 text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedStudent(std)}
-                        className="px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 font-bold text-xs border border-blue-200 dark:border-blue-800 transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                        id={`btn-view-student-${std.id}`}
-                      >
-                        <span>Details</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
                     </td>
                   </tr>
                 ))}

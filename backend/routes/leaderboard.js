@@ -65,7 +65,7 @@ const formatLeaderboardEntry = (s, idx) => ({
   streak: 1,
   level: Math.floor((s.xp || 0) / 350) + 1,
   tier: getTier(s.xp || 0),
-  countryCode: '🌐',
+  countryCode: '',
   solvedCount: s.topicsCompleted || 0,
   topicsCompleted: s.topicsCompleted || 0,
   topicsMastered: s.topicsCompleted || 0,
@@ -78,15 +78,22 @@ const formatLeaderboardEntry = (s, idx) => ({
 /**
  * GET /api/leaderboard
  * Returns real eligible student rankings aggregated from MongoDB.
+ * Administrator accounts are strictly excluded.
  * Every registered student appears on the leaderboard, starting at 0 XP if no points earned yet.
- * Returns empty array [] if no students registered yet.
  */
 router.get('/', async (_req, res) => {
   try {
-    const students = await Student.find({})
-      .select('name regdNo branch xp topicsCompleted topicsStarted overallProgress createdAt')
-      .sort({ xp: -1, topicsCompleted: -1, createdAt: 1, regdNo: 1 })
+    const students = await Student.find({ role: { $ne: 'admin' } })
+      .select('name regdNo branch xp progress topicsCompleted topicsStarted overallProgress createdAt role')
       .lean();
+
+    students.forEach((s) => {
+      if (s.progress && typeof s.progress === 'object' && Object.keys(s.progress).length > 0) {
+        s.xp = sumTopicPoints(s.progress);
+      } else {
+        s.xp = s.xp || 0;
+      }
+    });
 
     students.sort(compareStudents);
 
@@ -118,11 +125,7 @@ router.post('/sync', async (req, res) => {
         }
 
         const calculatedSum = sumTopicPoints(student.progress);
-        if (xp !== undefined && typeof xp === 'number') {
-          student.xp = Math.max(xp, calculatedSum);
-        } else if (calculatedSum > 0) {
-          student.xp = calculatedSum;
-        }
+        student.xp = calculatedSum;
 
         if (topicsCompleted !== undefined && typeof topicsCompleted === 'number') {
           student.topicsCompleted = Math.max(student.topicsCompleted || 0, topicsCompleted);
@@ -139,8 +142,11 @@ router.post('/sync', async (req, res) => {
     } else if (studentName && studentName !== 'Guest Learner' && studentName !== 'Student') {
       const student = await Student.findOne({ name: studentName.trim() });
       if (student) {
-        if (xp !== undefined && typeof xp === 'number') {
-          student.xp = Math.max(student.xp || 0, xp);
+        if (progress && typeof progress === 'object') {
+          student.progress = { ...(student.progress || {}), ...progress };
+          student.xp = sumTopicPoints(student.progress);
+        } else if (xp !== undefined && typeof xp === 'number') {
+          student.xp = xp;
         }
         if (topicsCompleted !== undefined && typeof topicsCompleted === 'number') {
           student.topicsCompleted = Math.max(student.topicsCompleted || 0, topicsCompleted);
@@ -149,8 +155,15 @@ router.post('/sync', async (req, res) => {
       }
     }
 
-    // Re-fetch sorted leaderboard including ALL students (even 0 XP)
-    const allStudents = await Student.find({}, '-password');
+    // Re-fetch sorted leaderboard excluding admins
+    const allStudents = await Student.find({ role: { $ne: 'admin' } }, '-password').lean();
+    allStudents.forEach((s) => {
+      if (s.progress && typeof s.progress === 'object' && Object.keys(s.progress).length > 0) {
+        s.xp = sumTopicPoints(s.progress);
+      } else {
+        s.xp = s.xp || 0;
+      }
+    });
     allStudents.sort(compareStudents);
 
     const leaderboard = allStudents.map((s, idx) => formatLeaderboardEntry(s, idx));

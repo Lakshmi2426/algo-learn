@@ -910,7 +910,7 @@ export const SLL_TASKS: Record<string, SLLTaskDef> = {
     id: 'L4_T1',
     levelId: 4,
     taskIndex: 1,
-    title: 'Task 1: Insert in the Middle',
+    title: 'Task 1: Insert at Any Position',
     objective: 'Insert Node 30 (at 1003) between Node 20 and Node 40. Make 30 point to 40, and 20 point to 30.',
     detailedInstructions: '1. Create or select Node 30 (at 1003).\n2. First: Set Node 30 NEXT = 1004 (address of Node 40).\n3. Second: Set Node 20 NEXT = 1003 (address of Node 30).\n4. Click "Check Answer".',
     initialNodes: [

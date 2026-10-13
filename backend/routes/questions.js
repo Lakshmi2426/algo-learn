@@ -43,8 +43,8 @@ router.get('/', async (req, res) => {
       return res.json({ questions: [] });
     }
 
-    if (caller.role === 'admin') {
-      // Admin dashboard view: return all conversations
+    if (caller.role === 'admin' || caller.role === 'teacher') {
+      // Admin & Teacher view: return conversations for answering student questions
       const questions = await Question.find({}).sort({ updatedAt: -1 });
       return res.json({ questions });
     }

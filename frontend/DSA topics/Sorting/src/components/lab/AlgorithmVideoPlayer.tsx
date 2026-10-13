@@ -83,6 +83,8 @@ export const AlgorithmVideoPlayer: React.FC<AlgorithmVideoPlayerProps> = ({
   const candidateVideoUrls = [
     STATIC_VIDEO_PATHS[algorithm.id] || algorithm.videoUrl || `/Videos/${videoFileName}`,
     `/videos/${videoFileName}`,
+    `./Videos/${videoFileName}`,
+    `/dsa-modules/sorting/Videos/${videoFileName}`,
     `/api/videos/${algorithm.id}`,
   ];
 

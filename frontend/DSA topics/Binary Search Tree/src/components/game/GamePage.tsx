@@ -223,14 +223,19 @@ const GamePageContent: React.FC = () => {
     const nextState = !showGuidedSolve;
     setShowGuidedSolve(nextState);
     if (nextState) {
-      setUsedGuidedSolve(true);
-      setShowGuidedDeductionNotice(true);
-      if (deductionTimerRef.current) {
-        clearTimeout(deductionTimerRef.current);
+      const isAlreadyCompleted =
+        (stats.completedGameChallenges || []).includes(challenge.id) ||
+        (gameScores && gameScores[challenge.id] !== undefined);
+      if (!isAlreadyCompleted) {
+        setUsedGuidedSolve(true);
+        setShowGuidedDeductionNotice(true);
+        if (deductionTimerRef.current) {
+          clearTimeout(deductionTimerRef.current);
+        }
+        deductionTimerRef.current = setTimeout(() => {
+          setShowGuidedDeductionNotice(false);
+        }, 3000);
       }
-      deductionTimerRef.current = setTimeout(() => {
-        setShowGuidedDeductionNotice(false);
-      }, 3000);
     }
   };
 
@@ -653,7 +658,9 @@ const GamePageContent: React.FC = () => {
     soundManager.playSuccess();
     confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
 
-    const alreadyCompleted = stats.completedGameChallenges?.includes(challenge.id);
+    const alreadyCompleted =
+      stats.completedGameChallenges?.includes(challenge.id) ||
+      (gameScores && gameScores[challenge.id] !== undefined);
     if (!alreadyCompleted) {
       completeGameChallenge(challenge.id);
       addXP(challenge.xp, `Completed Level ${challenge.level}`);

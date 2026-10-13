@@ -1706,6 +1706,17 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
     }, 4500);
   };
 
+  useEffect(() => {
+    return () => {
+      if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (deductionTimerRef.current) clearTimeout(deductionTimerRef.current);
+    setDeductionPopup(null);
+  }, [task.id]);
+
   // Guided Solve State
   const [guidedState, setGuidedState] = useState<{
     isActive: boolean;
@@ -2231,7 +2242,7 @@ export const DLLInteractiveTaskWorkspace: React.FC<DLLInteractiveTaskWorkspacePr
       stepNumber: newStepNumber,
     });
     if (isNewGuidedStep) {
-      showDeductionNotification(newStepNumber * 2, 'Guided Solve Used', 'GUIDED');
+      showDeductionNotification(2, 'Guided Solve Used', 'GUIDED');
     }
 
     soundManager.playClick();

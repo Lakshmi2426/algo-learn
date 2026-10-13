@@ -8,7 +8,7 @@ export type NavigationTab =
   | 'about'
   | 'admin';
 
-export type UserRole = 'student' | 'admin';
+export type UserRole = 'student' | 'admin' | 'teacher';
 
 export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 
@@ -50,6 +50,7 @@ export interface StudentProgressRecord {
   avatar: string;
   regdNo?: string;
   branch?: string;
+  role?: string;
   topicsStarted: number;
   topicsCompleted: number;
   overallProgress: number; // percentage
@@ -121,6 +122,7 @@ export interface LeaderboardUser {
   overallProgress?: number;
   email?: string;
   branch?: string;
+  role?: string;
   createdAt?: string | Date;
 }
 
@@ -171,6 +173,7 @@ export interface UserProfile {
 
 export interface Teacher {
   id: string;
+  teacherId?: string;
   name: string;
   email?: string;
   subject: string;

@@ -327,13 +327,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <span className="font-semibold text-[#78350f] dark:text-amber-200 font-mono text-xs sm:text-sm">
               Time: {isQuizStarted && !isQuestionLocked ? `${timeLeft}s` : '20s'}
             </span>
-            <button
-              type="button"
-              onClick={handleStartQuiz}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
-            >
-              Start Quiz
-            </button>
+            {!isQuizStarted && (
+              <button
+                type="button"
+                onClick={handleStartQuiz}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
+                id="start-quiz-btn"
+              >
+                Start Quiz
+              </button>
+            )}
           </div>
         </div>
       )}

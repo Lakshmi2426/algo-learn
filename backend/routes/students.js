@@ -84,11 +84,7 @@ const handleProgressUpdate = async (req, res) => {
 
     // Leaderboard XP = sum of points across all topics
     const calculatedSum = sumTopicPoints(student.progress);
-    if (xp !== undefined && typeof xp === 'number') {
-      student.xp = Math.max(xp, calculatedSum);
-    } else if (calculatedSum > 0) {
-      student.xp = calculatedSum;
-    }
+    student.xp = calculatedSum;
 
     if (topicsStarted !== undefined) student.topicsStarted = topicsStarted;
     if (topicsCompleted !== undefined) student.topicsCompleted = topicsCompleted;

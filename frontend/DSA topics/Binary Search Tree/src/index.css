@@ -134,4 +134,17 @@ body {
   background: rgba(148, 163, 184, 0.5);
 }
 
+/* Prevent text selection during drag-and-drop game operations */
+#bst-tree-canvas-container,
+#bst-svg-canvas,
+#elements-top-tray,
+.drag-element,
+[draggable="true"],
+svg text {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
 

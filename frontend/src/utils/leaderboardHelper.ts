@@ -46,12 +46,15 @@ export function buildAuthoritativeLeaderboard({
 
   // 1. Ingest server API leaderboard records
   serverLeaderboard.forEach((u) => {
-    if (!isRealStudent(u)) return;
+    if (!isRealStudent(u) || u.role === 'admin') return;
     const xp = u.xp || 0;
     const solvedCount = u.solvedCount || u.topicsCompleted || 0;
     const key = getKey(u);
+    const existing = map.get(key);
     map.set(key, {
       ...u,
+      regdNo: u.regdNo || existing?.regdNo || '',
+      branch: u.branch || existing?.branch || '',
       xp,
       solvedCount,
       topicsCompleted: solvedCount,
@@ -59,6 +62,7 @@ export function buildAuthoritativeLeaderboard({
       overallProgress: u.overallProgress || 0,
       email: u.email || '',
       tier: getTierFromXP(xp),
+      countryCode: '',
       rank: 0,
       isCurrentUser: false,
     });
@@ -66,10 +70,10 @@ export function buildAuthoritativeLeaderboard({
 
   // 2. Ingest registered students list from context
   studentsList.forEach((std) => {
-    if (!isRealStudent(std)) return;
+    if (!isRealStudent(std) || std.role === 'admin') return;
     const key = getKey(std);
     const existing = map.get(key);
-    const xp = Math.max(std.xp || 0, existing?.xp || 0);
+    const xp = existing?.xp !== undefined ? existing.xp : (std.xp || 0);
     const solvedCount = Math.max(std.topicsCompleted || 0, existing?.solvedCount || 0);
 
     map.set(key, {
@@ -77,14 +81,15 @@ export function buildAuthoritativeLeaderboard({
       rank: 0,
       name: std.name,
       username: std.email ? std.email.split('@')[0].toLowerCase() : (std.regdNo || std.name).toLowerCase().replace(/\s+/g, '_'),
-      regdNo: std.regdNo,
+      regdNo: std.regdNo || existing?.regdNo || '',
+      branch: std.branch || existing?.branch || '',
       email: std.email || existing?.email || '',
       avatar: std.avatar || '',
       xp,
       streak: 1,
       level: Math.floor(xp / 350) + 1,
       tier: getTierFromXP(xp),
-      countryCode: '🌐',
+      countryCode: '',
       solvedCount,
       topicsCompleted: solvedCount,
       topicsStarted: std.topicsStarted || (xp > 0 ? 1 : 0),
@@ -95,13 +100,13 @@ export function buildAuthoritativeLeaderboard({
   });
 
   // 3. Merge active current student with local aggregate progress
-  const isStudentUser = isAuthenticated && role !== 'admin' && currentUser?.name && currentUser.name !== 'Guest Learner' && isRealStudent(currentUser);
+  const isStudentUser = isAuthenticated && role === 'student' && currentUser?.name && currentUser.name !== 'Guest Learner' && isRealStudent(currentUser);
   if (isStudentUser && currentUser) {
     const topicSummary = getAllTopicsProgress();
     const currKey = getKey(currentUser);
     const existing = map.get(currKey);
 
-    const userXp = Math.max(currentUser.xp || 0, topicSummary.totalXP, existing?.xp || 0);
+    const userXp = topicSummary.totalXP;
     const userCompleted = Math.max(topicSummary.topicsMasteredCount, currentUser.topicsMastered || 0, currentUser.problemsSolved || 0, existing?.solvedCount || 0);
     const userStarted = Math.max(topicSummary.topicsStartedCount, existing?.topicsStarted || 0);
 
@@ -110,14 +115,15 @@ export function buildAuthoritativeLeaderboard({
       rank: 0,
       name: `${currentUser.name} (You)`,
       username: currentUser.username || (currentUser.email ? currentUser.email.split('@')[0] : (currentUser.regdNo || 'learner').toLowerCase()),
-      regdNo: currentUser.regdNo || existing?.regdNo,
+      regdNo: currentUser.regdNo || existing?.regdNo || '',
+      branch: currentUser.branch || existing?.branch || '',
       email: currentUser.email || existing?.email || '',
       avatar: currentUser.avatar || existing?.avatar || '',
       xp: userXp,
       streak: 1,
       level: Math.floor(userXp / 350) + 1,
       tier: getTierFromXP(userXp),
-      countryCode: '🌐',
+      countryCode: '',
       solvedCount: userCompleted,
       topicsCompleted: userCompleted,
       topicsStarted: userStarted,
