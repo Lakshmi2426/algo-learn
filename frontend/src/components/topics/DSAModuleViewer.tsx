@@ -183,20 +183,13 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       const hideInternalChat = () => {
         try {
           const chatElements = doc.querySelectorAll(
-            '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-container, #ai-assistant-fab, .ai-fab-btn, .floating-chatbot-container, [aria-label*="Chatbot" i], [aria-label*="Assistant" i], [title*="Chatbot" i], [title*="Assistant" i], [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i]'
+            '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-container, #ai-assistant-fab, .ai-fab-btn, .floating-chatbot-container'
           );
           chatElements.forEach((el) => {
             (el as HTMLElement).style.setProperty('display', 'none', 'important');
             (el as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
             (el as HTMLElement).style.setProperty('pointer-events', 'none', 'important');
             (el as HTMLElement).style.setProperty('opacity', '0', 'important');
-            const parent = el.parentElement;
-            if (parent && (parent.className.includes('fixed') || parent.className.includes('bottom-'))) {
-              parent.style.setProperty('display', 'none', 'important');
-              parent.style.setProperty('visibility', 'hidden', 'important');
-              parent.style.setProperty('pointer-events', 'none', 'important');
-              parent.style.setProperty('opacity', '0', 'important');
-            }
           });
         } catch (e) { }
       };
@@ -216,29 +209,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
           #ai-assistant-container,
           #ai-assistant-fab,
           .ai-fab-btn,
-          .floating-chatbot-container,
-          [aria-label*="AI Chatbot" i],
-          [aria-label*="AI Assistant" i],
-          [aria-label*="Chatbot" i],
-          [aria-label*="Assistant" i],
-          [aria-label*="Ask a Teacher" i],
-          [title*="AI Chatbot" i],
-          [title*="AI Assistant" i],
-          [title*="Chatbot" i],
-          [title*="Assistant" i],
-          [title*="Ask a Teacher" i],
-          div:has(> [aria-label*="Chatbot" i]),
-          div:has(> [aria-label*="Assistant" i]),
-          div:has(> #ai-bot-floating-button),
-          div:has(> #floating-chat-badge),
-          div:has(> #floating-chat-bubble-container),
-          div:has(> img[src*="ai-assistant"]),
-          div:has(> img[src*="aiboticon"]),
-          img[src*="ai-assistant"],
-          img[src*="aiboticon"],
-          div.fixed.bottom-6.right-6,
-          div.fixed.bottom-8.right-8,
-          div.fixed.sm\\:bottom-8.sm\\:right-8 {
+          .floating-chatbot-container {
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;

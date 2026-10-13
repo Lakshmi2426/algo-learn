@@ -62,10 +62,20 @@ async function startServer() {
 
   // DSA Topic Mini-Websites Mapping for 11 Integrated Modules
   const MODULE_FOLDER_MAP: Record<string, string> = {
-    hashing: "Hashing-and-Collision-Resolution",
-    "hashing-and-collision-resolution": "Hashing-and-Collision-Resolution",
-    "linear-search": "Linear Search",
-    "linear search": "Linear Search",
+    hashing: fs.existsSync(path.join(projectRoot, "DSA topics", "hashing and collision resolution techniques"))
+      ? "hashing and collision resolution techniques"
+      : "Hashing-and-Collision-Resolution",
+    "hashing-and-collision-resolution": fs.existsSync(path.join(projectRoot, "DSA topics", "hashing and collision resolution techniques"))
+      ? "hashing and collision resolution techniques"
+      : "Hashing-and-Collision-Resolution",
+    "hashing and collision resolution techniques": "hashing and collision resolution techniques",
+    "linear-search": fs.existsSync(path.join(projectRoot, "DSA topics", "linearsearchf-main"))
+      ? "linearsearchf-main"
+      : "Linear Search",
+    "linear search": fs.existsSync(path.join(projectRoot, "DSA topics", "linearsearchf-main"))
+      ? "linearsearchf-main"
+      : "Linear Search",
+    "linearsearchf-main": "linearsearchf-main",
     cll: "Circular Linked List (CLL)",
     "circular-linked-list": "Circular Linked List (CLL)",
     dll: "Doubly Linked List (DLL)",
@@ -92,6 +102,9 @@ async function startServer() {
 
   const resolveFolderName = (rawId: string): string => {
     let folderName = MODULE_FOLDER_MAP[rawId] || MODULE_FOLDER_MAP[rawId.replace(/_/g, "-")];
+    if (folderName && !fs.existsSync(path.join(projectRoot, "DSA topics", folderName))) {
+      folderName = "";
+    }
     if (!folderName) {
       try {
         const topicsDir = path.join(projectRoot, "DSA topics");
@@ -539,7 +552,7 @@ async function startServer() {
 
     const themeBgStyle = `<style>
 html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; height: 100% !important; background-color: ${reqThemeStr === 'light' ? '#f6f9fe' : '#070b14'} !important; color-scheme: ${reqThemeStr === 'light' ? 'light' : 'dark'}; }
-#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-container, #ai-assistant-fab, .ai-fab-btn, .floating-chatbot-container, [aria-label*="AI Chatbot" i], [aria-label*="AI Assistant" i], [aria-label*="Chatbot" i], [aria-label*="Assistant" i], [aria-label*="Ask a Teacher" i], [title*="AI Chatbot" i], [title*="AI Assistant" i], [title*="Chatbot" i], [title*="Assistant" i], [title*="Ask a Teacher" i], div:has(> [aria-label*="Chatbot" i]), div:has(> [aria-label*="Assistant" i]), div:has(> #ai-bot-floating-button), div:has(> #floating-chat-badge), div:has(> #floating-chat-bubble-container), div:has(> img[src*="ai-assistant"]), div:has(> img[src*="aiboticon"]), img[src*="ai-assistant"], img[src*="aiboticon"], div.fixed.bottom-6.right-6, div.fixed.bottom-8.right-8, div.fixed.sm\\:bottom-8.sm\\:right-8 { display: none !important; visibility: hidden !important; pointer-events: none !important; opacity: 0 !important; }
+#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-container, #ai-assistant-fab, .ai-fab-btn, .floating-chatbot-container { display: none !important; visibility: hidden !important; pointer-events: none !important; opacity: 0 !important; }
 </style>`;
     const themeClasses = reqThemeStr === 'dark' ? 'dark dark-theme' : 'light';
 

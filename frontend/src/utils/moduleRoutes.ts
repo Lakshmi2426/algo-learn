@@ -10,13 +10,13 @@ export interface ModuleRouteConfig {
 export const INTEGRATED_MODULES: Record<string, ModuleRouteConfig> = {
   hashing: {
     moduleId: 'hashing',
-    folderName: 'Hashing-and-Collision-Resolution',
+    folderName: 'hashing and collision resolution techniques',
     title: 'Hashing & Collision Resolution',
     routeHash: '#/topics/Hashing',
   },
   'linear-search': {
     moduleId: 'linear-search',
-    folderName: 'Linear Search',
+    folderName: 'linearsearchf-main',
     title: 'Linear Search',
     routeHash: '#/topics/Linear-search',
   },
