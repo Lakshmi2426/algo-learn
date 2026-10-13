@@ -237,6 +237,12 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         if (typeof p.queueScore === 'number') {
           return Math.min(100, p.queueScore);
         }
+        if (typeof p.totalTopicPoints === 'number') {
+          return Math.min(100, p.totalTopicPoints);
+        }
+        if (typeof p.totalPoints === 'number') {
+          return Math.min(100, p.totalPoints);
+        }
 
         // Authoritative QUEUE_SCORING rules:
         // learn: 0, visualize: 12 pts (6 per lab, max 2 labs),
