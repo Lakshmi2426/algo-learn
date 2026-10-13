@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lightbulb, ChevronDown, ChevronUp, Sparkles, HelpCircle, ArrowRight } from 'lucide-react';
 import { GameState, LevelConfig, ProbeStep } from '../types/game';
+import { pointsManager } from '../utils/pointsManager';
 import { soundManager } from '../utils/audio';
 
 interface GameHintCardProps {
@@ -97,8 +98,12 @@ export const GameHintCard: React.FC<GameHintCardProps> = ({
         <button
           type="button"
           onClick={() => {
-            if (!isExpanded) soundManager.playPanelOpen();
-            else soundManager.playPanelClose();
+            if (!isExpanded) {
+              soundManager.playPanelOpen();
+              pointsManager.recordHintUse(level.id);
+            } else {
+              soundManager.playPanelClose();
+            }
             setIsExpanded(!isExpanded);
           }}
           className="w-full px-4 py-3 flex items-center justify-between gap-2 bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer text-left select-none"
@@ -110,6 +115,9 @@ export const GameHintCard: React.FC<GameHintCardProps> = ({
             </span>
             <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider font-mono">
               Field Hint // What should I do next?
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
+              −2 pts
             </span>
           </div>
 

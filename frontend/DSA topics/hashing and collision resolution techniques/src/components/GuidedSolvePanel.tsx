@@ -34,6 +34,9 @@ export const GuidedSolvePanel: React.FC<GuidedSolvePanelProps> = ({
               <span className="text-[10px] uppercase font-bold font-mono px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-500/30 text-[#2563EB] dark:text-[#3B82F6]">
                 Interactive Teacher
               </span>
+              <span className="text-[10px] uppercase font-bold font-mono px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300">
+                −4 pts
+              </span>
             </div>
           </div>
         </div>

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   CheckCircle2,
   XCircle,
   HelpCircle,
   Award,
-  RotateCcw,
   Sparkles,
   ArrowRight,
   ArrowLeft,
@@ -18,10 +17,16 @@ import {
   ListOrdered,
   Trophy,
   Home,
+  Clock,
+  Timer,
+  Play,
+  AlertCircle,
 } from 'lucide-react';
 import { progressManager } from '../utils/progressManager';
+import { pointsManager } from '../utils/pointsManager';
 import { soundManager } from '../utils/audio';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import { userManager } from '../utils/userManager';
 
 export interface QuizViewProps {
   onNavigateToTheory: (chapterId?: string) => void;
@@ -50,6 +55,7 @@ export interface StudentAnswerRecord {
   correctOptionIndex: number;
   correctAnswerText: string;
   isCorrect: boolean;
+  isTimedOut?: boolean;
 }
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
@@ -218,9 +224,6 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
 ];
 
-const QUIZ_STORAGE_ANSWERS_KEY = 'hash_quest_quiz_answers_v3';
-const QUIZ_STORAGE_SUBMITTED_KEY = 'hash_quest_quiz_submitted_v3';
-
 export const QuizView: React.FC<QuizViewProps> = ({
   onNavigateToTheory,
   onNavigateToQuest,
@@ -229,10 +232,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
 }) => {
   useScrollReveal();
 
-  // Load persisted student answers
-  const [studentAnswers, setStudentAnswers] = useState<Record<number, StudentAnswerRecord>>(() => {
+  const loadAnswersForUser = (userId?: string): Record<number, StudentAnswerRecord> => {
     try {
-      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      const stored = localStorage.getItem(userManager.getQuizAnswersKey(userId));
       if (stored) {
         return JSON.parse(stored);
       }
@@ -240,51 +242,256 @@ export const QuizView: React.FC<QuizViewProps> = ({
       // fallback
     }
     return {};
-  });
+  };
 
-  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
+  const loadSubmittedForUser = (userId?: string): boolean => {
     try {
-      const storedSub = localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY);
+      const pState = progressManager.getState();
+      if (!pState.quizSubmitted) {
+        return false;
+      }
+      const storedSub = localStorage.getItem(userManager.getQuizSubmittedKey(userId));
       if (storedSub !== null) {
         return storedSub === 'true';
       }
-      return progressManager.getState().quizSubmitted || false;
+      return Boolean(pState.quizSubmitted);
     } catch {
       return false;
     }
+  };
+
+  const loadQuizStartedForUser = (userId?: string): boolean => {
+    try {
+      const stored = localStorage.getItem(userManager.getQuizStartedKey(userId));
+      if (stored === 'true') return true;
+      const ans = loadAnswersForUser(userId);
+      if (Object.keys(ans).length > 0) return true;
+    } catch {
+      // fallback
+    }
+    return false;
+  };
+
+  const loadActiveQuestionIndex = (userId?: string): number => {
+    try {
+      const storedTimer = localStorage.getItem(userManager.getQuizTimerKey(userId));
+      if (storedTimer) {
+        const parsed = JSON.parse(storedTimer);
+        if (typeof parsed.questionIndex === 'number' && parsed.questionIndex >= 0 && parsed.questionIndex < QUIZ_QUESTIONS.length) {
+          return parsed.questionIndex;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    const answers = loadAnswersForUser(userId);
+    const firstUnanswered = QUIZ_QUESTIONS.findIndex((q) => answers[q.id] === undefined);
+    return firstUnanswered >= 0 ? firstUnanswered : 0;
+  };
+
+  // Load persisted student answers for current user
+  const [studentAnswers, setStudentAnswers] = useState<Record<number, StudentAnswerRecord>>(() => {
+    return loadAnswersForUser();
   });
 
-  const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
+    return loadSubmittedForUser();
+  });
+
+  // Navigation within Quiz (0-indexed current question)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(() => {
+    return loadActiveQuestionIndex();
+  });
+  // Temporary selection before confirming/submitting the question
+  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+
+  // Per-question countdown timer (20 seconds per question)
+  const QUESTION_TIME_LIMIT = 20;
+  const [timeLeft, setTimeLeft] = useState<number>(QUESTION_TIME_LIMIT);
+  const [isQuizStarted, setIsQuizStarted] = useState<boolean>(() => {
+    return loadQuizStartedForUser();
+  });
+  const [startQuizWarning, setStartQuizWarning] = useState<string | null>(null);
+
+  // Subscribe to user changes to load user-specific quiz state cleanly
+  useEffect(() => {
+    const handleUserChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const newUserId = customEvent.detail?.id || userManager.getCurrentUserId();
+      const freshAnswers = loadAnswersForUser(newUserId);
+      const freshSubmitted = loadSubmittedForUser(newUserId);
+      const freshStarted = loadQuizStartedForUser(newUserId);
+      const freshIndex = loadActiveQuestionIndex(newUserId);
+
+      setStudentAnswers(freshAnswers);
+      setIsSubmitted(freshSubmitted);
+      setIsQuizStarted(freshStarted);
+      setStartQuizWarning(null);
+      setCurrentQuestionIndex(freshIndex);
+      setPendingSelection(null);
+    };
+
+    window.addEventListener('hash_user_changed', handleUserChanged);
+    return () => {
+      window.removeEventListener('hash_user_changed', handleUserChanged);
+    };
+  }, []);
 
   // Subscribe to progressManager for reset synchronization
   useEffect(() => {
     const unsub = progressManager.subscribe((pState) => {
-      if (!pState.quizSubmitted) {
-        setIsSubmitted(false);
-        try {
-          const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
-          if (!stored || stored === '{}') {
-            setStudentAnswers({});
-            setCurrentQuestionIndex(0);
-            setPendingSelection(null);
+      if (!pState.quizSubmitted && Object.keys(pState.quizScores || {}).length === 0) {
+        const currentAns = loadAnswersForUser();
+        if (Object.keys(currentAns).length === 0) {
+          setStudentAnswers({});
+          setIsSubmitted(false);
+          setIsQuizStarted(false);
+          setPendingSelection(null);
+          setCurrentQuestionIndex(0);
+          try {
+            localStorage.removeItem(userManager.getQuizStartedKey());
+            localStorage.removeItem(userManager.getQuizTimerKey());
+          } catch {
+            // Ignore
           }
-        } catch {
-          // Ignore
         }
       }
     });
     return unsub;
   }, []);
 
-  // Navigation within Quiz (0-indexed current question)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  // Temporary selection before confirming/submitting the question
-  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+  // Persist isQuizStarted to localStorage
+  useEffect(() => {
+    try {
+      if (isQuizStarted) {
+        localStorage.setItem(userManager.getQuizStartedKey(), 'true');
+      } else {
+        localStorage.removeItem(userManager.getQuizStartedKey());
+      }
+    } catch {
+      // Ignore
+    }
+  }, [isQuizStarted]);
+
+  // Subscribe to pointsManager for live score display
+  const [pointsState, setPointsState] = useState(() => pointsManager.getState());
+
+  useEffect(() => {
+    const unsub = pointsManager.subscribe((st) => setPointsState(st));
+    return unsub;
+  }, []);
+
+  const handleStartQuiz = useCallback(() => {
+    setIsQuizStarted(true);
+    setStartQuizWarning(null);
+    try {
+      localStorage.setItem(userManager.getQuizStartedKey(), 'true');
+    } catch {
+      // Ignore
+    }
+    soundManager.playClick();
+  }, []);
 
   // Current question helper
   const currentQuestion = QUIZ_QUESTIONS[currentQuestionIndex] || QUIZ_QUESTIONS[0];
   const currentAnswerRecord = studentAnswers[currentQuestion.id];
   const isCurrentQuestionAnswered = currentAnswerRecord !== undefined;
+
+  // Handle countdown timer timeout (0 points awarded)
+  const handleTimeout = useCallback((qId: number) => {
+    const q = QUIZ_QUESTIONS.find((item) => item.id === qId) || currentQuestion;
+    const timeoutRecord: StudentAnswerRecord = {
+      questionId: q.id,
+      selectedOptionIndex: -1,
+      selectedAnswerText: 'Timed Out (No Answer)',
+      correctOptionIndex: q.correctIndex,
+      correctAnswerText: q.correctAnswerText,
+      isCorrect: false,
+      isTimedOut: true,
+    };
+    setTimeLeft(0);
+    setStudentAnswers((prev) => {
+      if (prev[q.id]) return prev;
+      return { ...prev, [q.id]: timeoutRecord };
+    });
+    try {
+      localStorage.removeItem(userManager.getQuizTimerKey());
+    } catch {
+      // Ignore
+    }
+    pointsManager.recordQuizTimeout(q.id);
+    soundManager.playQuizWrong();
+  }, [currentQuestion]);
+
+  // Countdown timer effect with real wall-clock tracking across tab switches and page navigations
+  useEffect(() => {
+    if (!isQuizStarted || isCurrentQuestionAnswered || isSubmitted) return;
+
+    const targetQId = currentQuestion.id;
+    const timerKey = userManager.getQuizTimerKey();
+
+    let deadline: number;
+    try {
+      const savedTimer = localStorage.getItem(timerKey);
+      if (savedTimer) {
+        const parsed = JSON.parse(savedTimer);
+        if (parsed.questionId === targetQId && typeof parsed.deadline === 'number') {
+          deadline = parsed.deadline;
+        } else {
+          deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+          localStorage.setItem(
+            timerKey,
+            JSON.stringify({ questionId: targetQId, questionIndex: currentQuestionIndex, deadline })
+          );
+        }
+      } else {
+        deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+        localStorage.setItem(
+          timerKey,
+          JSON.stringify({ questionId: targetQId, questionIndex: currentQuestionIndex, deadline })
+        );
+      }
+    } catch {
+      deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+    }
+
+    const checkAndSyncTimer = (): boolean => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
+      setTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        handleTimeout(targetQId);
+        return false;
+      }
+      return true;
+    };
+
+    const isRunning = checkAndSyncTimer();
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      const keepGoing = checkAndSyncTimer();
+      if (!keepGoing) {
+        clearInterval(interval);
+      }
+    }, 250);
+
+    const handleVisibilityOrFocus = () => {
+      checkAndSyncTimer();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('pageshow', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('pageshow', handleVisibilityOrFocus);
+    };
+  }, [isQuizStarted, currentQuestionIndex, isCurrentQuestionAnswered, isSubmitted, currentQuestion.id, handleTimeout]);
 
   // Synchronize selection with current question record
   useEffect(() => {
@@ -299,9 +506,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
   useEffect(() => {
     try {
       if (Object.keys(studentAnswers).length === 0) {
-        localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
+        localStorage.removeItem(userManager.getQuizAnswersKey());
       } else {
-        localStorage.setItem(QUIZ_STORAGE_ANSWERS_KEY, JSON.stringify(studentAnswers));
+        localStorage.setItem(userManager.getQuizAnswersKey(), JSON.stringify(studentAnswers));
       }
     } catch {
       // Ignore storage errors
@@ -312,9 +519,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
   useEffect(() => {
     try {
       if (isSubmitted) {
-        localStorage.setItem(QUIZ_STORAGE_SUBMITTED_KEY, 'true');
+        localStorage.setItem(userManager.getQuizSubmittedKey(), 'true');
       } else {
-        localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
+        localStorage.removeItem(userManager.getQuizSubmittedKey());
       }
     } catch {
       // Ignore storage errors
@@ -396,15 +603,27 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
   }, [percentage]);
 
-  // Handle student selecting an option (before or during answering)
+  // Handle student selecting an option (prevent selection if answered or timed out)
   const handleSelectOption = (optionIndex: number) => {
-    if (isCurrentQuestionAnswered && isSubmitted) return;
+    if (isCurrentQuestionAnswered || isSubmitted) return;
+    if (!isQuizStarted) {
+      setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+      soundManager.playError();
+      setPendingSelection(optionIndex);
+      return;
+    }
+    setStartQuizWarning(null);
     soundManager.playQuizSelect();
     setPendingSelection(optionIndex);
   };
 
   // Handle confirming answer for current question (Records answer without revealing final result screen)
   const handleConfirmAnswer = () => {
+    if (!isQuizStarted) {
+      setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+      soundManager.playError();
+      return;
+    }
     if (pendingSelection === null || isCurrentQuestionAnswered) return;
 
     const q = currentQuestion;
@@ -426,6 +645,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
     };
 
     setStudentAnswers(updatedAnswers);
+    try {
+      localStorage.removeItem(userManager.getQuizTimerKey());
+    } catch {
+      // Ignore
+    }
+    pointsManager.recordQuizAnswer(q.id, isCorrect);
 
     // Play appropriate interaction sound
     if (isCorrect) {
@@ -437,6 +662,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   // Handle submitting the entire examination ONLY when user clicks "Complete & Review"
   const handleSubmitExamination = () => {
+    if (!isQuizStarted) {
+      setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+      soundManager.playError();
+      return;
+    }
     // If pending selection on current question is not saved yet, save it
     const updatedAnswers = { ...studentAnswers };
     if (pendingSelection !== null && !updatedAnswers[currentQuestion.id]) {
@@ -453,6 +683,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
       };
       updatedAnswers[q.id] = newRecord;
       setStudentAnswers(updatedAnswers);
+      pointsManager.recordQuizAnswer(q.id, isCorrect);
     }
 
     const totalAnswered = Object.keys(updatedAnswers).length;
@@ -467,7 +698,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
     setIsSubmitted(true);
     try {
-      localStorage.setItem(QUIZ_STORAGE_SUBMITTED_KEY, 'true');
+      localStorage.setItem(userManager.getQuizSubmittedKey(), 'true');
+      localStorage.removeItem(userManager.getQuizTimerKey());
     } catch {
       // Ignore storage errors
     }
@@ -494,29 +726,34 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
   };
 
-  // Handle resetting the quiz completely
-  const handleResetQuiz = () => {
-    soundManager.playReset();
-    setStudentAnswers({});
-    setIsSubmitted(false);
-    setCurrentQuestionIndex(0);
-    setPendingSelection(null);
-    setShowResetConfirm(false);
-
-    try {
-      localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
-      localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
-    } catch {
-      // Ignore
-    }
-
-    progressManager.resetQuizAttempt();
-  };
-
   const answeredCount = Object.keys(studentAnswers).length;
 
   return (
     <div className="w-full max-w-4xl mx-auto py-4 px-4 font-sans text-slate-900 dark:text-white animate-page-enter">
+      {/* Scoring Banner */}
+      <div className="w-full mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-blue-950/40 border border-blue-200/80 dark:border-blue-500/30 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-xs">
+        <div className="flex items-center gap-2">
+          <Award className="w-4 h-4 text-[#2563EB] dark:text-[#3B82F6]" />
+          <span className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+            Scoring Rules:
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 font-semibold">
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/50">
+            Correct: +3 pts
+          </span>
+          <span className="px-2.5 py-1 rounded-lg bg-rose-100/80 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300/60 dark:border-rose-800/50">
+            Wrong: −2 pts
+          </span>
+          <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+            Timeout / Unanswered: 0 pts
+          </span>
+          <span className="px-2.5 py-1 rounded-lg bg-blue-100/80 text-[#2563EB] dark:bg-blue-950/70 dark:text-blue-300 border border-blue-300/60 dark:border-blue-800/50 font-bold">
+            Max Score: 30 pts
+          </span>
+        </div>
+      </div>
+
       {/* Header Banner */}
       <div className="border border-slate-200 dark:border-slate-800 rounded-2xl pb-6 mb-6 bg-white dark:bg-[#111827] p-6 sm:p-8 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] reveal-on-scroll">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -525,28 +762,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <span>Knowledge Assessment</span>
           </div>
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="hidden sm:inline text-xs font-medium text-slate-500 dark:text-slate-400">
-              Simple Hashing Quiz (10 Questions)
+            <span className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/50 text-[#2563EB] dark:text-[#3B82F6] font-mono text-xs font-bold">
+              Quiz Score: {pointsState.quizPoints} / 30 pts
             </span>
             {isSubmitted && (
-              <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-md text-xs font-semibold">
+              <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold">
                 Completed
               </span>
             )}
-            <button
-              id="btn-quiz-reset-progress"
-              type="button"
-              onClick={() => {
-                soundManager.playModalOpen();
-                setShowResetConfirm(true);
-              }}
-              className="text-xs font-semibold text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 flex items-center gap-1.5 cursor-pointer transition-colors px-2.5 py-1 rounded-lg bg-slate-100/80 hover:bg-rose-50 dark:bg-slate-800/80 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-800/50 shadow-2xs"
-              title="Reset Quiz Progress"
-              aria-label="Reset Quiz Progress"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Progress</span>
-            </button>
           </div>
         </div>
 
@@ -584,7 +807,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
               if (isCurrent) {
                 pillStyle = 'bg-[#2563EB] dark:bg-[#2563EB] text-white border-[#1D4ED8] dark:border-[#2563EB] font-bold shadow-xs dark:shadow-none';
               } else if (isAnswered) {
-                if (rec.isCorrect) {
+                if (rec.isTimedOut) {
+                  pillStyle = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 font-semibold';
+                } else if (rec.isCorrect) {
                   pillStyle = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30 font-semibold';
                 } else {
                   pillStyle = 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30 font-semibold';
@@ -596,13 +821,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   key={q.id}
                   id={`btn-quiz-jump-${q.id}`}
                   onClick={() => {
-                    soundManager.playNav();
                     if (isSubmitted) {
                       const el = document.getElementById(`quiz-review-card-${q.id}`);
                       if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }
+                    } else if (!isQuizStarted) {
+                      setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+                      soundManager.playError();
+                      return;
                     } else {
+                      soundManager.playNav();
                       setCurrentQuestionIndex(idx);
                     }
                   }}
@@ -612,7 +841,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   <span>Q{idx + 1}</span>
                   {isAnswered && (
                     <span className="block text-[10px] leading-tight mt-0.5">
-                      {rec.isCorrect ? '✓' : '✕'}
+                      {rec.isTimedOut ? '⏱' : rec.isCorrect ? '✓' : '✕'}
                     </span>
                   )}
                 </button>
@@ -697,20 +926,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </div>
             </div>
 
-            {/* 7. Action Buttons (Retake Quiz & Back to Home) */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 mt-8 w-full max-w-md mx-auto">
-              {/* 1. Retake Quiz (Primary Action) */}
-              <button
-                id="btn-quiz-retake"
-                type="button"
-                onClick={handleResetQuiz}
-                className="w-full sm:w-auto px-6 sm:px-7 py-3 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] dark:bg-[#2563EB] dark:hover:bg-blue-600 text-white font-sans text-sm font-semibold shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4 stroke-[2.2]" />
-                <span>Retake Quiz</span>
-              </button>
-
-              {/* 2. Back to Home (Secondary Action) */}
+            {/* Action Button: Back to Home */}
+            <div className="flex items-center justify-center gap-3.5 mt-8 w-full max-w-md mx-auto">
               <button
                 id="btn-quiz-back-to-home"
                 type="button"
@@ -718,12 +935,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   soundManager.playNav();
                   if (onNavigateToHome) {
                     onNavigateToHome();
+                  } else {
+                    onNavigateToProgress();
                   }
                 }}
-                className="w-full sm:w-auto px-6 sm:px-7 py-3 rounded-2xl bg-white hover:bg-slate-50 dark:bg-[#0B1120] dark:hover:bg-[#172033] text-slate-800 dark:text-slate-200 border border-slate-200/90 dark:border-slate-800 font-sans text-sm font-semibold shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] dark:bg-[#2563EB] dark:hover:bg-blue-600 text-white font-sans text-sm font-semibold shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Home className="w-4 h-4 stroke-[2.2] text-[#2563EB] dark:text-[#3B82F6]" />
-                <span>Back to Home</span>
+                <Home className="w-4 h-4 stroke-[2.2] text-white" />
+                <span>Back to Overview</span>
               </button>
             </div>
           </div>
@@ -771,15 +990,20 @@ export const QuizView: React.FC<QuizViewProps> = ({
                       </div>
 
                       <div>
-                        {isCorrect ? (
+                        {rec?.isTimedOut ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold font-sans">
+                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Timed Out (0 pts)</span>
+                          </div>
+                        ) : isCorrect ? (
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold font-sans">
                             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Correct</span>
+                            <span>Correct (+3 pts)</span>
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold font-sans">
                             <XCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Incorrect</span>
+                            <span>Incorrect (−2 pts)</span>
                           </div>
                         )}
                       </div>
@@ -897,22 +1121,86 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 <span className="text-xs font-semibold text-[#2563EB] dark:text-[#3B82F6] font-mono">{currentQuestion.techniqueCode}</span>
               </div>
 
-              {isCurrentQuestionAnswered && (
-                <div>
-                  {currentAnswerRecord?.isCorrect ? (
+              {isCurrentQuestionAnswered ? (
+                <div className="flex items-center gap-2">
+                  {currentAnswerRecord?.isTimedOut ? (
+                    <>
+                      <div
+                        id="quiz-question-timer-expired"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-mono text-xs font-bold border bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800"
+                        aria-label="0 seconds remain - Timed Out"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>⏱ 0s remaining</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded-lg">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Timed Out (0 pts)</span>
+                      </span>
+                    </>
+                  ) : currentAnswerRecord?.isCorrect ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
                       <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Correct</span>
+                      <span>Correct (+3 pts)</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/60 text-xs font-bold text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 rounded-lg">
                       <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                      <span>Incorrect</span>
+                      <span>Incorrect (−2 pts)</span>
                     </span>
                   )}
                 </div>
+              ) : (
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  {!isQuizStarted && (
+                    <button
+                      id="btn-start-quiz"
+                      type="button"
+                      onClick={handleStartQuiz}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#2563EB] hover:bg-[#1D4ED8] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white border border-[#1D4ED8] dark:border-[#3B82F6] rounded-lg text-xs font-bold font-mono tracking-wide shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Start Quiz</span>
+                    </button>
+                  )}
+                  <div
+                    id="quiz-question-timer"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-mono text-xs font-bold border transition-all ${
+                      !isQuizStarted
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
+                        : timeLeft <= 10
+                        ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800 animate-pulse'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
+                    }`}
+                    aria-label={`Time remaining: ${timeLeft} seconds`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>⏱ {timeLeft}s remaining</span>
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Inactive State Warning Banner */}
+            {startQuizWarning && !isQuizStarted && (
+              <div
+                id="quiz-start-warning"
+                role="alert"
+                className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>{startQuizWarning}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleStartQuiz}
+                  className="px-2.5 py-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg text-xs font-bold font-mono shrink-0 cursor-pointer transition-all active:scale-95"
+                >
+                  Start Quiz
+                </button>
+              </div>
+            )}
 
             {/* Question Statement */}
             <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-6 leading-snug break-words">
@@ -971,13 +1259,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
             {/* Answer Confirmation / Next Button Bar */}
             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <button
-                disabled={currentQuestionIndex === 0}
+                disabled={!isQuizStarted || currentQuestionIndex === 0}
                 onClick={() => {
+                  if (!isQuizStarted) {
+                    setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+                    soundManager.playError();
+                    return;
+                  }
                   soundManager.playNav();
                   setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
                 }}
                 className={`btn-modern-secondary px-4 py-2 text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  currentQuestionIndex === 0 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'cursor-pointer'
+                  !isQuizStarted || currentQuestionIndex === 0 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'cursor-pointer'
                 }`}
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -985,35 +1278,26 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </button>
 
               {!isCurrentQuestionAnswered ? (
-                currentQuestionIndex < totalQuestions - 1 ? (
-                  <button
-                    id="btn-confirm-answer"
-                    disabled={pendingSelection === null}
-                    onClick={handleConfirmAnswer}
-                    className={`btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
-                      pendingSelection !== null ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Submit Answer</span>
-                  </button>
-                ) : (
-                  <button
-                    id="btn-finish-quiz"
-                    disabled={pendingSelection === null}
-                    onClick={handleSubmitExamination}
-                    className={`btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
-                      pendingSelection !== null ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'
-                    }`}
-                  >
-                    <Award className="w-4 h-4" />
-                    <span>Complete & Review</span>
-                  </button>
-                )
+                <button
+                  id="btn-confirm-answer"
+                  disabled={isQuizStarted && pendingSelection === null}
+                  onClick={handleConfirmAnswer}
+                  className={`btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
+                    !isQuizStarted || pendingSelection !== null ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Submit Answer</span>
+                </button>
               ) : currentQuestionIndex < totalQuestions - 1 ? (
                 <button
                   id="btn-next-question"
                   onClick={() => {
+                    if (!isQuizStarted) {
+                      setStartQuizWarning('Please click Start Quiz first to begin the quiz.');
+                      soundManager.playError();
+                      return;
+                    }
                     soundManager.playClick();
                     setCurrentQuestionIndex((prev) => prev + 1);
                   }}
@@ -1026,7 +1310,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 <button
                   id="btn-finish-quiz"
                   onClick={handleSubmitExamination}
-                  className="btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                  className="btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-500/20"
                 >
                   <Award className="w-4 h-4" />
                   <span>Complete & Review</span>
@@ -1083,68 +1367,6 @@ export const QuizView: React.FC<QuizViewProps> = ({
         </div>
       )}
 
-      {/* Reset Quiz Progress Confirmation Modal */}
-      {showResetConfirm && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              soundManager.playModalClose();
-              setShowResetConfirm(false);
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="quiz-reset-modal-title"
-        >
-          <div className="relative w-full max-w-md bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-2xl text-center animate-scale-enter font-sans">
-            {/* Warning Icon Badge */}
-            <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-xs">
-              <RotateCcw className="w-6 h-6 stroke-[2.2]" />
-            </div>
-
-            {/* Title */}
-            <h2
-              id="quiz-reset-modal-title"
-              className="text-xl sm:text-2xl font-black font-sans text-slate-900 dark:text-white tracking-tight uppercase mb-3"
-            >
-              Reset Quiz Progress?
-            </h2>
-
-            {/* Body Description */}
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6 font-normal">
-              All answers and progress will be cleared. This action cannot be undone.
-            </p>
-
-            {/* Action Buttons: [ Cancel ] [ Reset Progress ] */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              {/* Cancel Button */}
-              <button
-                id="btn-quiz-cancel-reset"
-                type="button"
-                onClick={() => {
-                  soundManager.playModalClose();
-                  setShowResetConfirm(false);
-                }}
-                className="py-3 px-4 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
-              >
-                Cancel
-              </button>
-
-              {/* Reset Progress Button */}
-              <button
-                id="btn-quiz-confirm-reset"
-                type="button"
-                onClick={handleResetQuiz}
-                className="py-3 px-4 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reset Progress</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

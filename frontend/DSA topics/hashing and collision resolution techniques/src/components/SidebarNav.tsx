@@ -6,10 +6,12 @@ import {
   Gamepad2,
   HelpCircle,
   TrendingUp,
+  Target,
   X,
 } from 'lucide-react';
 import { MainViewTab } from '../types/game';
 import { progressManager } from '../utils/progressManager';
+import { pointsManager } from '../utils/pointsManager';
 import { soundManager } from '../utils/audio';
 
 export interface SidebarNavProps {
@@ -32,13 +34,20 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   onToggleDesktopCollapse,
 }) => {
   const [stats, setStats] = React.useState(() => progressManager.getStats());
+  const [points, setPoints] = React.useState(() => pointsManager.getPoints());
   const [isProgressHovered, setIsProgressHovered] = useState(false);
 
   React.useEffect(() => {
     const unsub = progressManager.subscribe(() => {
       setStats(progressManager.getStats());
     });
-    return unsub;
+    const unsubPoints = pointsManager.subscribe((newPoints) => {
+      setPoints(newPoints);
+    });
+    return () => {
+      unsub();
+      unsubPoints();
+    };
   }, []);
 
   const navItems = [

@@ -3,7 +3,6 @@ import {
   Play,
   Pause,
   RotateCcw,
-  RotateCw,
   Volume2,
   VolumeX,
   Maximize,
@@ -151,27 +150,19 @@ export const VideoTutorialsView: React.FC = () => {
     setCurrentTime(newTime);
   }, []);
 
-  // 3. FORWARD (Right button, moves forward 10s, never exceeds duration)
-  const handleForward = useCallback(() => {
-    if (!videoRef.current) return;
-    soundManager.playVideoSeek();
-    const maxTime = duration || videoRef.current.duration || 0;
-    const newTime = Math.min(maxTime, videoRef.current.currentTime + 10);
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  }, [duration]);
-
-  // Timeline scrubber seek
+  // Timeline scrubber seek - Allow backward seeking only, prevent seeking forward
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
+    const targetTime = parseFloat(e.target.value);
+    const newTime = Math.min(targetTime, currentTime);
+    setCurrentTime(newTime);
     if (videoRef.current) {
-      videoRef.current.currentTime = time;
+      videoRef.current.currentTime = newTime;
     }
   };
 
-  // Speed selector
+  // Speed selector - Max 1x speed to prevent fast-forwarding
   const handleChangeSpeed = useCallback((spd: number) => {
+    if (spd > 1) return;
     soundManager.playVideoSpeed();
     setPlaybackSpeed(spd);
     if (videoRef.current) {
@@ -276,7 +267,12 @@ export const VideoTutorialsView: React.FC = () => {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const cur = videoRef.current.currentTime;
+      const dur = videoRef.current.duration;
+      setCurrentTime(cur);
+      if (selectedLesson && dur > 0 && cur >= dur - 0.5) {
+        progressManager.completeVideo(selectedLesson.id);
+      }
     }
   };
 
@@ -356,9 +352,6 @@ export const VideoTutorialsView: React.FC = () => {
       } else if (e.key === 'k' || e.key === 'K') {
         e.preventDefault();
         pauseVideoStrict();
-      } else if (e.key === 'l' || e.key === 'L') {
-        e.preventDefault();
-        handleForward();
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         toggleFullscreen();
@@ -369,7 +362,7 @@ export const VideoTutorialsView: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [togglePlay, handleRewind, pauseVideoStrict, handleForward, toggleFullscreen]);
+  }, [togglePlay, handleRewind, pauseVideoStrict, toggleFullscreen]);
 
   // Sync document fullscreen state
   useEffect(() => {
@@ -443,6 +436,11 @@ export const VideoTutorialsView: React.FC = () => {
                         }`}
                       >
                         {lesson.lessonNumber}
+                      </span>
+
+                      {/* +10 pts Reward Badge */}
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/80 text-[#2563EB] dark:text-[#3B82F6] border border-blue-200 dark:border-blue-500/40">
+                        +10 pts
                       </span>
 
                       {/* Small Minimal Completion Indicator */}
@@ -668,7 +666,7 @@ export const VideoTutorialsView: React.FC = () => {
 
               {/* Exact Control Order: LEFT (1. Rewind, 2. Play/Pause, 3. Forward) | MIDDLE (Speed) | RIGHT (Volume, Slider, Fullscreen) */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-white">
-                {/* Left Side: [ REWIND ] [ PLAY / PAUSE ] [ FORWARD ] */}
+                {/* Left Side: [ REWIND ] [ PLAY / PAUSE ] (Backward navigation only) */}
                 <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-3">
                   {/* 1. REWIND BUTTON */}
                   <button
@@ -688,22 +686,13 @@ export const VideoTutorialsView: React.FC = () => {
                     {isPlaying ? <Pause className="w-4 h-4 sm:w-4.5 sm:h-4.5" /> : <Play className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />}
                     <span className="uppercase font-bold text-xs">{isPlaying ? 'Pause' : 'Play'}</span>
                   </button>
-
-                  {/* 3. FORWARD BUTTON */}
-                  <button
-                    onClick={handleForward}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-xl bg-white/10 hover:bg-white/20 dark:bg-blue-950/40 text-slate-200 hover:text-white transition-colors cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
-                    title="Forward 10s (L)"
-                  >
-                    <RotateCw className="w-4 h-4" />
-                  </button>
                 </div>
 
                 {/* Right Side: Speed Selector + Volume + Fullscreen */}
                 <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 border-t sm:border-t-0 border-white/10 pt-2 sm:pt-0">
-                  {/* 4. PLAYBACK SPEED SELECTOR */}
+                  {/* Playback Speed Selector (Max 1x, no fast forward) */}
                   <div className="flex items-center gap-0.5 sm:gap-1 bg-black/40 border border-white/10 dark:border-slate-800 rounded-xl p-1 shadow-inner shrink-0">
-                    {[0.5, 1, 1.5, 2].map((spd) => (
+                    {[0.5, 1].map((spd) => (
                       <button
                         key={spd}
                         onClick={() => handleChangeSpeed(spd)}
@@ -790,7 +779,7 @@ export const VideoTutorialsView: React.FC = () => {
 
             {/* Exact Control Order Bar: [ REWIND ] [ PLAY / PAUSE ] [ FORWARD ] | SPEED | VOLUME | FULLSCREEN */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-0.5">
-              {/* LEFT SIDE: [ REWIND ] [ PLAY / PAUSE ] [ FORWARD ] (Centered on mobile, left on desktop) */}
+              {/* LEFT SIDE: [ REWIND ] [ PLAY / PAUSE ] (Backward navigation only) */}
               <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-3">
                 {/* 1. REWIND BUTTON (FIRST) */}
                 <button
@@ -816,25 +805,13 @@ export const VideoTutorialsView: React.FC = () => {
                   {isPlaying ? <Pause className="w-4 h-4 sm:w-4.5 sm:h-4.5" /> : <Play className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />}
                   <span className="tracking-wide uppercase font-bold text-xs">{isPlaying ? 'Pause' : 'Play'}</span>
                 </button>
-
-                {/* 3. FORWARD BUTTON (THIRD) */}
-                <button
-                  id="btn-video-forward"
-                  onClick={handleForward}
-                  disabled={hasError}
-                  className="h-10 w-10 sm:h-9 sm:w-9 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0B1120] dark:hover:bg-blue-950/40 border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-300 transition-all cursor-pointer active:scale-95 shadow-xs flex items-center justify-center shrink-0"
-                  title="Forward 10 seconds (L)"
-                  aria-label="Forward 10 seconds"
-                >
-                  <RotateCw className="w-4 h-4" />
-                </button>
               </div>
 
               {/* SECONDARY CONTROLS: Speed Selector + Volume + Fullscreen */}
               <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3.5 border-t sm:border-t-0 border-slate-100 dark:border-slate-800 pt-2.5 sm:pt-0">
-                {/* 4. PLAYBACK SPEED (0.5x | 1x | 1.5x | 2x) */}
+                {/* Playback Speed (0.5x | 1x - no fast-forward) */}
                 <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-[#0B1120] border border-slate-200/90 dark:border-slate-800 rounded-xl p-1 shadow-inner shrink-0">
-                  {[0.5, 1, 1.5, 2].map((spd) => (
+                  {[0.5, 1].map((spd) => (
                     <button
                       key={spd}
                       id={`btn-video-speed-${spd}`}

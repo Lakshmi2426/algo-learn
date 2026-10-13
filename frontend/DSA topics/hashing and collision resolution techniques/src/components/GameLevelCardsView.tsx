@@ -149,19 +149,24 @@ export const GameLevelCardsView: React.FC<GameLevelCardsViewProps> = ({
               <div>
                 {/* Top Row: Level Number Badge & Status Pill */}
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <span
-                    className={`font-mono text-xs font-extrabold tracking-wider px-2.5 py-1 rounded-lg border uppercase ${
-                      isCompleted
-                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-500/40'
-                        : isInProgress
-                        ? 'bg-[#2563EB] text-white border-[#2563EB]'
-                        : isUnlocked
-                        ? 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700'
-                        : 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-800/60 dark:text-slate-500 dark:border-slate-700'
-                    }`}
-                  >
-                    LEVEL {levelCode}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`font-mono text-xs font-extrabold tracking-wider px-2.5 py-1 rounded-lg border uppercase ${
+                        isCompleted
+                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-500/40'
+                          : isInProgress
+                          ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                          : isUnlocked
+                          ? 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700'
+                          : 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-800/60 dark:text-slate-500 dark:border-slate-700'
+                      }`}
+                    >
+                      LEVEL {levelCode}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold font-mono bg-blue-50 dark:bg-blue-950/80 text-[#2563EB] dark:text-[#3B82F6] border border-blue-200 dark:border-blue-500/40">
+                      +10 pts
+                    </span>
+                  </div>
 
                   {/* Status Indicator */}
                   {isCompleted ? (

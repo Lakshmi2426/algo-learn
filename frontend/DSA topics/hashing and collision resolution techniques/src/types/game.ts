@@ -1,6 +1,6 @@
 export type TechniqueType = 'basic' | 'chaining' | 'linear' | 'quadratic' | 'double_hashing';
 
-export type MainViewTab = 'HOME' | 'THEORY' | 'VIDEO' | 'GAME' | 'QUEST' | 'LAB' | 'QUIZ' | 'PROGRESS';
+export type MainViewTab = 'HOME' | 'THEORY' | 'VIDEO' | 'GAME' | 'QUEST' | 'LAB' | 'QUIZ' | 'PROGRESS' | 'POINTS';
 
 export interface VideoChapter {
   title: string;
@@ -99,6 +99,8 @@ export interface ModuleRecord {
 
 export interface UserProgressState {
   version: number;
+  userId?: string;
+  topicId?: string;
   modules: Record<string, ModuleStatus>;
   moduleProgress: Record<string, number>; // 0 - 100 percentage for each
   completedTheoryChapters: string[]; // Set of completed theory chapter IDs, e.g. ['theory-01', 'theory-02']

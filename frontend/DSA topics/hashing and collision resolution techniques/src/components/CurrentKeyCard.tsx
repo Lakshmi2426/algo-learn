@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, ArrowRight, Sparkles, Check, HelpCircle, GripVertical } from 'lucide-react';
 import { GameState, LevelConfig } from '../types/game';
+import { pointsManager } from '../utils/pointsManager';
 import { soundManager } from '../utils/audio';
 
 interface CurrentKeyCardProps {
@@ -180,6 +181,13 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isGuidedSolveActive ? 'text-white' : 'text-[#2563EB] dark:text-[#3B82F6]'}`} />
                       <span>{isGuidedSolveActive ? 'GUIDED SOLVE ON' : '✦ GUIDED SOLVE'}</span>
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                        isGuidedSolveActive
+                          ? 'bg-blue-800 text-blue-100 border-blue-600'
+                          : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
+                      }`}>
+                        −4 pts
+                      </span>
                     </button>
                   </form>
 
@@ -227,14 +235,21 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                     </button>
                     <button
                       onClick={() => {
-                        if (!showHint) soundManager.playPanelOpen();
-                        else soundManager.playPanelClose();
+                        if (!showHint) {
+                          soundManager.playPanelOpen();
+                          pointsManager.recordHintUse(level.id);
+                        } else {
+                          soundManager.playPanelClose();
+                        }
                         setShowHint(!showHint);
                       }}
-                      className="btn-modern-secondary p-2 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs"
-                      title="Hint"
+                      className="btn-modern-secondary px-2.5 py-2 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+                      title="Hint (−2 pts)"
                     >
                       <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                      <span className="text-[10px] font-mono font-bold px-1 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
+                        −2 pts
+                      </span>
                     </button>
                   </div>
 

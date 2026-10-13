@@ -1,6 +1,5 @@
 import { ModuleRecord, ModuleStatus, UserProgressState } from '../types/game';
-
-const STORAGE_KEY = 'hash_quest_field_notes_progress_v2';
+import { userManager } from './userManager';
 
 export const FIELD_NOTES_MODULES: Omit<ModuleRecord, 'status' | 'progressPercent'>[] = [
   {
@@ -139,6 +138,8 @@ export const FIELD_NOTES_MODULES: Omit<ModuleRecord, 'status' | 'progressPercent
 
 const INITIAL_PROGRESS: UserProgressState = {
   version: 2,
+  userId: 'user_alice',
+  topicId: 'hashing',
   modules: {
     'fn-01-basics': 'NOT_STARTED',
     'fn-02-modulo': 'NOT_STARTED',
@@ -210,23 +211,54 @@ export const normalizeTheoryChapterId = (idOrSlug: string): string => {
 type ProgressListener = (state: UserProgressState) => void;
 
 class ProgressManager {
+  private currentUserId: string;
   private state: UserProgressState;
   private listeners: Set<ProgressListener> = new Set();
 
   constructor() {
-    this.state = this.loadState();
+    this.currentUserId = userManager.getCurrentUserId();
+    this.state = this.loadState(this.currentUserId);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hash_user_changed', (e: Event) => {
+        const customEvent = e as CustomEvent;
+        const newUserId = customEvent.detail?.id || userManager.getCurrentUserId();
+        this.handleUserSwitch(newUserId);
+      });
+      (window as any).progressManager = this;
+    }
   }
 
-  private loadState(): UserProgressState {
-    if (typeof window === 'undefined') return INITIAL_PROGRESS;
+  public getCurrentUserId(): string {
+    return this.currentUserId;
+  }
+
+  public handleUserSwitch(newUserId: string) {
+    if (!newUserId) return;
+    this.currentUserId = newUserId;
+    this.state = this.loadState(newUserId);
+    this.notifyListeners();
+  }
+
+  private loadState(userId: string = this.currentUserId): UserProgressState {
+    const defaultState: UserProgressState = {
+      ...INITIAL_PROGRESS,
+      userId,
+      topicId: 'hashing',
+    };
+
+    if (typeof window === 'undefined') return defaultState;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return INITIAL_PROGRESS;
+      const storageKey = userManager.getProgressKey(userId);
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return defaultState;
       const parsed = JSON.parse(stored);
       if (parsed && parsed.version === 2) {
         return {
-          ...INITIAL_PROGRESS,
+          ...defaultState,
           ...parsed,
+          userId,
+          topicId: 'hashing',
           completedTheoryChapters: Array.isArray(parsed.completedTheoryChapters)
             ? Array.from(new Set(parsed.completedTheoryChapters.map(normalizeTheoryChapterId)))
             : [],
@@ -241,17 +273,20 @@ class ProgressManager {
             : [],
         };
       }
-      return INITIAL_PROGRESS;
+      return defaultState;
     } catch {
-      return INITIAL_PROGRESS;
+      return defaultState;
     }
   }
 
   private saveState() {
     if (typeof window === 'undefined') return;
     try {
+      this.state.userId = this.currentUserId;
+      this.state.topicId = 'hashing';
       this.state.lastActiveTimestamp = Date.now();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      const storageKey = userManager.getProgressKey(this.currentUserId);
+      localStorage.setItem(storageKey, JSON.stringify(this.state));
       this.notifyListeners();
     } catch {
       // Ignore write errors
@@ -604,6 +639,14 @@ class ProgressManager {
     this.state.quizScores = {};
     this.state.quizSubmitted = false;
     this.state.quizFinalScore = 0;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(userManager.getQuizAnswersKey(this.currentUserId));
+        localStorage.removeItem(userManager.getQuizSubmittedKey(this.currentUserId));
+      } catch {
+        // Ignore storage errors
+      }
+    }
     this.saveState();
   }
 
@@ -625,8 +668,9 @@ class ProgressManager {
   public resetProgress() {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem('hash_quest_quiz_answers_v3');
-        localStorage.removeItem('hash_quest_quiz_submitted_v3');
+        localStorage.removeItem(userManager.getQuizAnswersKey(this.currentUserId));
+        localStorage.removeItem(userManager.getQuizSubmittedKey(this.currentUserId));
+        localStorage.removeItem(userManager.getProgressKey(this.currentUserId));
       } catch {
         // Ignore storage errors
       }
@@ -634,6 +678,8 @@ class ProgressManager {
 
     this.state = {
       version: 2,
+      userId: this.currentUserId,
+      topicId: 'hashing',
       modules: {
         'fn-01-basics': 'NOT_STARTED',
         'fn-02-modulo': 'NOT_STARTED',
