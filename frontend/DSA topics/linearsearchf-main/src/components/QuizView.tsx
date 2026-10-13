@@ -1,0 +1,1382 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Award,
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
+  BookOpen,
+  Gamepad2,
+  Check,
+  Star,
+  Layers,
+  ChevronRight,
+  ListOrdered,
+  Trophy,
+  Home,
+  Clock,
+  Play,
+} from 'lucide-react';
+import { progressManager } from '../utils/progressManager';
+import { pointsManager } from '../utils/pointsManager';
+import { soundManager } from '../utils/audio';
+import { useScrollReveal } from '../hooks/useScrollReveal';
+import { POINTS_CONFIG } from '../types/points';
+
+export interface QuizViewProps {
+  onNavigateToTheory: (chapterId?: string) => void;
+  onNavigateToQuest: (levelId?: number) => void;
+  onNavigateToProgress: () => void;
+  onNavigateToHome?: () => void;
+}
+
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  correctAnswerText: string;
+  explanation: string;
+  exampleSnippet?: string;
+  techniqueCode: string;
+  targetChapterId?: string;
+  targetLevelId?: number;
+}
+
+export interface StudentAnswerRecord {
+  questionId: number;
+  selectedOptionIndex: number;
+  selectedAnswerText: string;
+  correctOptionIndex: number;
+  correctAnswerText: string;
+  isCorrect: boolean;
+  isTimedOut?: boolean;
+}
+
+export const QUIZ_QUESTIONS: QuizQuestion[] = [
+  {
+    id: 1,
+    question: 'What is Linear Search?',
+    options: [
+      'A method of sorting elements',
+      'A method of searching elements one by one',
+      'A method of reversing an array',
+      'A method of deleting elements',
+    ],
+    correctIndex: 1,
+    correctAnswerText: 'A method of searching elements one by one',
+    explanation:
+      'Linear Search is a searching technique that checks elements one by one, starting from the beginning of the collection, until the target element is found or all elements have been checked.',
+    techniqueCode: 'SEARCH-01',
+    targetChapterId: 'theory-01',
+  },
+  {
+    id: 2,
+    question: 'Where does Linear Search usually start?',
+    options: [
+      'From the last element',
+      'From the middle element',
+      'From the first element',
+      'From a random element',
+    ],
+    correctIndex: 2,
+    correctAnswerText: 'From the first element',
+    explanation:
+      'Linear Search normally begins with the first element and proceeds sequentially toward the end of the array. Each element is compared with the target in order.',
+    techniqueCode: 'SEARCH-02',
+    targetChapterId: 'theory-02',
+  },
+  {
+    id: 3,
+    question: 'Which array can be searched using Linear Search?',
+    options: [
+      'Only sorted arrays',
+      'Only reversed arrays',
+      'Only arrays with unique elements',
+      'Both sorted and unsorted arrays',
+    ],
+    correctIndex: 3,
+    correctAnswerText: 'Both sorted and unsorted arrays',
+    explanation:
+      'Linear Search can operate on both sorted and unsorted arrays because it simply checks elements sequentially. Unlike binary search, it does not depend on the array being sorted.',
+    techniqueCode: 'SEARCH-03',
+    targetChapterId: 'theory-01',
+  },
+  {
+    id: 4,
+    question: 'Consider the array [10, 20, 30, 40, 50]. What happens first when searching for 30?',
+    options: [
+      'Check 50',
+      'Check 30',
+      'Check 10',
+      'Check 40',
+    ],
+    correctIndex: 2,
+    correctAnswerText: 'Check 10',
+    explanation:
+      'When searching for 30, Linear Search begins with the first element, 10. It then compares 10, followed by 20, and then 30 until the target is found.',
+    techniqueCode: 'SEARCH-04',
+    targetChapterId: 'theory-03',
+  },
+  {
+    id: 5,
+    question: 'In the array [5, 10, 15, 20], how many elements are checked to find 15?',
+    options: [
+      '1',
+      '2',
+      '3',
+      '4',
+    ],
+    correctIndex: 2,
+    correctAnswerText: '3',
+    explanation:
+      'The search checks 5 first, then 10, and finally 15. Therefore, the target is found after 3 comparisons.',
+    techniqueCode: 'SEARCH-05',
+    targetChapterId: 'theory-03',
+  },
+  {
+    id: 6,
+    question: 'What happens if the searched element is not found?',
+    options: [
+      'The search continues forever',
+      'The algorithm reports that the element is not present',
+      'The array is automatically sorted',
+      'The first element is deleted',
+    ],
+    correctIndex: 1,
+    correctAnswerText: 'The algorithm reports that the element is not present',
+    explanation:
+      'If Linear Search checks every element without finding the target, the algorithm concludes that the target is not present in the array and returns an appropriate “not found” result.',
+    techniqueCode: 'SEARCH-06',
+    targetChapterId: 'theory-04',
+  },
+  {
+    id: 7,
+    question: 'What is the best case for Linear Search?',
+    options: [
+      'The element is the first element',
+      'The element is the last element',
+      'The element is not present',
+      'The array is empty',
+    ],
+    correctIndex: 0,
+    correctAnswerText: 'The element is the first element',
+    explanation:
+      'The best case occurs when the target is the first element. Only one comparison is required, giving Linear Search a best-case time complexity of O(1).',
+    techniqueCode: 'SEARCH-07',
+    targetChapterId: 'theory-05',
+  },
+  {
+    id: 8,
+    question: 'What is the worst-case time complexity of Linear Search?',
+    options: [
+      'O(1)',
+      'O(log n)',
+      'O(n)',
+      'O(n²)',
+    ],
+    correctIndex: 2,
+    correctAnswerText: 'O(n)',
+    explanation:
+      'In the worst case, Linear Search checks every element before finding the target or determining that it is absent. Therefore, its worst-case time complexity is O(n).',
+    techniqueCode: 'SEARCH-08',
+    targetChapterId: 'theory-05',
+  },
+  {
+    id: 9,
+    question: 'Consider [12, 25, 7, 18, 30]. How many elements are checked when searching for 30?',
+    options: [
+      '1',
+      '3',
+      '4',
+      '5',
+    ],
+    correctIndex: 3,
+    correctAnswerText: '5',
+    explanation:
+      'Because 30 is the final element, Linear Search must check 12, 25, 7, 18, and finally 30. Therefore, 5 elements are checked.',
+    techniqueCode: 'SEARCH-09',
+    targetChapterId: 'theory-03',
+  },
+  {
+    id: 10,
+    question: 'What does Linear Search do when it finds the target element?',
+    options: [
+      'It stops the search',
+      'It sorts the array',
+      'It deletes the element',
+      'It starts again from the beginning',
+    ],
+    correctIndex: 0,
+    correctAnswerText: 'It stops the search',
+    explanation:
+      'When Linear Search finds the target element, it immediately stops searching and returns the position or result associated with that element.',
+    techniqueCode: 'SEARCH-10',
+    targetChapterId: 'theory-02',
+  },
+];
+
+const QUIZ_STORAGE_ANSWERS_KEY = 'hash_quest_quiz_answers_v4';
+const QUIZ_STORAGE_SUBMITTED_KEY = 'hash_quest_quiz_submitted_v4';
+const QUIZ_STORAGE_STARTED_KEY = 'hash_quest_quiz_started_v4';
+const QUIZ_STORAGE_CURRENT_INDEX_KEY = 'hash_quest_quiz_current_index_v4';
+const QUIZ_STORAGE_QUESTION_DEADLINE_KEY = 'hash_quest_quiz_q_deadline_v4';
+
+export const QuizView: React.FC<QuizViewProps> = ({
+  onNavigateToTheory,
+  onNavigateToQuest,
+  onNavigateToProgress,
+  onNavigateToHome,
+}) => {
+  useScrollReveal();
+
+  // Load persisted student answers
+  const [studentAnswers, setStudentAnswers] = useState<Record<number, StudentAnswerRecord>>(() => {
+    try {
+      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // fallback
+    }
+    return {};
+  });
+
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
+    try {
+      const storedSub = localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY);
+      if (storedSub !== null) {
+        return storedSub === 'true';
+      }
+      return progressManager.getState().quizSubmitted || false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Subscribe to progressManager for reset synchronization
+  useEffect(() => {
+    const unsub = progressManager.subscribe((pState) => {
+      if (!pState.quizSubmitted) {
+        try {
+          const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+          if (!stored || stored === '{}') {
+            setIsSubmitted(false);
+            setIsQuizStarted(false);
+            setShowStartQuizWarning(false);
+            setStudentAnswers({});
+            setCurrentQuestionIndex(0);
+            setPendingSelection(null);
+            setViewMode('STEP_BY_STEP');
+            localStorage.removeItem(QUIZ_STORAGE_STARTED_KEY);
+            localStorage.removeItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
+            localStorage.removeItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+          }
+        } catch {
+          // Ignore
+        }
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Subscribe to pointsManager for instant score tracking
+  const [pointsState, setPointsState] = useState(() => pointsManager.getState());
+  useEffect(() => {
+    const unsub = pointsManager.subscribe((ps) => {
+      setPointsState(ps);
+    });
+    return unsub;
+  }, []);
+
+  // Navigation within Quiz (0-indexed current question)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(() => {
+    try {
+      const storedIdx = localStorage.getItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
+      if (storedIdx !== null) {
+        const parsed = parseInt(storedIdx, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed < QUIZ_QUESTIONS.length) {
+          return parsed;
+        }
+      }
+      const storedAnswers = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      if (storedAnswers) {
+        const parsedAnswers = JSON.parse(storedAnswers);
+        const firstUnanswered = QUIZ_QUESTIONS.findIndex((q) => parsedAnswers[q.id] === undefined);
+        if (firstUnanswered >= 0) return firstUnanswered;
+      }
+    } catch {
+      // fallback
+    }
+    return 0;
+  });
+
+  // Persist current question index whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUIZ_STORAGE_CURRENT_INDEX_KEY, currentQuestionIndex.toString());
+    } catch {
+      // Ignore
+    }
+  }, [currentQuestionIndex]);
+
+  // Temporary selection before confirming/submitting the question
+  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+  // View mode: 'STEP_BY_STEP' or 'FULL_REVIEW'
+  const [viewMode, setViewMode] = useState<'STEP_BY_STEP' | 'FULL_REVIEW'>(() => {
+    return isSubmitted ? 'FULL_REVIEW' : 'STEP_BY_STEP';
+  });
+
+  // Quiz start state
+  const [isQuizStarted, setIsQuizStarted] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(QUIZ_STORAGE_STARTED_KEY);
+      if (stored === 'true') return true;
+    } catch {
+      // fallback
+    }
+    return Object.keys(studentAnswers).length > 0 || isSubmitted;
+  });
+  const [showStartQuizWarning, setShowStartQuizWarning] = useState<boolean>(false);
+
+  // Question countdown timer (20 seconds per question)
+  const QUESTION_TIME_LIMIT = 20;
+  const [timeLeft, setTimeLeft] = useState<number>(QUESTION_TIME_LIMIT);
+
+  // Handle starting the quiz countdown
+  const handleStartQuiz = useCallback(() => {
+    setIsQuizStarted((prev) => {
+      if (prev) return prev;
+      try {
+        soundManager.playClick();
+      } catch {
+        // audio fallback
+      }
+      return true;
+    });
+    try {
+      localStorage.setItem(QUIZ_STORAGE_STARTED_KEY, 'true');
+    } catch {
+      // Ignore
+    }
+    setShowStartQuizWarning(false);
+  }, []);
+
+  // Current question helper
+  const currentQuestion = QUIZ_QUESTIONS[currentQuestionIndex] || QUIZ_QUESTIONS[0];
+  const currentAnswerRecord = studentAnswers[currentQuestion.id];
+  const isCurrentQuestionAnswered = currentAnswerRecord !== undefined;
+
+  // Synchronize selection with current question record
+  useEffect(() => {
+    if (currentAnswerRecord !== undefined) {
+      setPendingSelection(currentAnswerRecord.selectedOptionIndex);
+    } else {
+      setPendingSelection(null);
+    }
+  }, [currentQuestionIndex, currentAnswerRecord]);
+
+  // Handle Question Timeout (0 points awarded, question locked)
+  const handleQuestionTimeout = useCallback((qId: number) => {
+    setTimeLeft(0);
+    try {
+      localStorage.removeItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+    } catch {
+      // Ignore
+    }
+    setStudentAnswers((prev) => {
+      if (prev[qId] !== undefined) return prev;
+      const q = QUIZ_QUESTIONS.find((item) => item.id === qId) || currentQuestion;
+
+      soundManager.playError();
+      const timeoutRecord: StudentAnswerRecord = {
+        questionId: q.id,
+        selectedOptionIndex: -1,
+        selectedAnswerText: 'Timed out (No answer selected)',
+        correctOptionIndex: q.correctIndex,
+        correctAnswerText: q.correctAnswerText,
+        isCorrect: false,
+        isTimedOut: true,
+      };
+
+      pointsManager.recordQuizTimeout(q.id);
+
+      return {
+        ...prev,
+        [q.id]: timeoutRecord,
+      };
+    });
+  }, [currentQuestion]);
+
+  // Countdown timer effect for current question (with real-time wall-clock deadline persistence)
+  useEffect(() => {
+    if (!isQuizStarted || viewMode !== 'STEP_BY_STEP' || isCurrentQuestionAnswered || isSubmitted) {
+      return;
+    }
+
+    const qId = currentQuestion.id;
+    let deadline: number;
+
+    try {
+      const stored = localStorage.getItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.questionId === qId && typeof parsed.deadline === 'number') {
+          deadline = parsed.deadline;
+        } else {
+          deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+          localStorage.setItem(
+            QUIZ_STORAGE_QUESTION_DEADLINE_KEY,
+            JSON.stringify({ questionId: qId, deadline })
+          );
+        }
+      } else {
+        deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+        localStorage.setItem(
+          QUIZ_STORAGE_QUESTION_DEADLINE_KEY,
+          JSON.stringify({ questionId: qId, deadline })
+        );
+      }
+    } catch {
+      deadline = Date.now() + QUESTION_TIME_LIMIT * 1000;
+    }
+
+    const computeRemaining = () => {
+      const msLeft = deadline - Date.now();
+      return Math.max(0, Math.ceil(msLeft / 1000));
+    };
+
+    const initialRemaining = computeRemaining();
+    setTimeLeft(initialRemaining);
+
+    if (initialRemaining <= 0) {
+      handleQuestionTimeout(qId);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const remaining = computeRemaining();
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        handleQuestionTimeout(qId);
+      }
+    }, 250);
+
+    const handleVisibilityOrFocus = () => {
+      const remaining = computeRemaining();
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        handleQuestionTimeout(qId);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [isQuizStarted, currentQuestionIndex, isCurrentQuestionAnswered, viewMode, isSubmitted, handleQuestionTimeout, currentQuestion.id]);
+
+  // Persist answers to localStorage whenever they change
+  useEffect(() => {
+    try {
+      if (Object.keys(studentAnswers).length > 0) {
+        localStorage.setItem(QUIZ_STORAGE_ANSWERS_KEY, JSON.stringify(studentAnswers));
+      } else {
+        localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [studentAnswers]);
+
+  // Calculate score deterministically from stored answers
+  const { score, totalQuestions, percentage, correctAnswersCount } = useMemo(() => {
+    let correct = 0;
+    QUIZ_QUESTIONS.forEach((q) => {
+      const rec = studentAnswers[q.id];
+      if (rec && rec.isCorrect) {
+        correct++;
+      }
+    });
+    const total = QUIZ_QUESTIONS.length;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    return {
+      score: correct,
+      totalQuestions: total,
+      percentage: pct,
+      correctAnswersCount: correct,
+    };
+  }, [studentAnswers]);
+
+  // Get result tier based on final score
+  const getResultTier = (correctCount: number) => {
+    if (correctCount >= 8) {
+      return {
+        level: 'EXCELLENT',
+        emoji: '🟢',
+        title: '8–10: 🟢 Excellent — Linear Search Master!',
+        badgeText: '🟢 EXCELLENT — LINEAR SEARCH MASTER!',
+        badgeClass: 'bg-emerald-700 text-white border-emerald-900',
+        cardClass: 'border-emerald-700 bg-emerald-50/80',
+        summary:
+          'Outstanding achievement! You scored in the top tier and have mastered all primary Linear Search concepts, execution traces, and complexity tradeoffs.',
+        isMastered: true,
+      };
+    } else if (correctCount >= 6) {
+      return {
+        level: 'GOOD',
+        emoji: '🟡',
+        title: '6–7: 🟡 Good — Review a little and try again.',
+        badgeText: '🟡 GOOD — REVIEW & PRACTICE',
+        badgeClass: 'bg-amber-500 text-[#181818] border-amber-600',
+        cardClass: 'border-amber-600 bg-amber-50/80',
+        summary:
+          'Solid foundation! You understand the key concepts. Review the detailed technical rationales below and try again to achieve Linear Search Master status.',
+        isMastered: false,
+      };
+    } else {
+      return {
+        level: 'KEEP_LEARNING',
+        emoji: '🔴',
+        title: '0–5: 🔴 Keep Learning — Review the theory and visualization.',
+        badgeText: '🔴 KEEP LEARNING — REVIEW THEORY',
+        badgeClass: 'bg-red-600 text-white border-red-800',
+        cardClass: 'border-red-600 bg-red-50/80',
+        summary:
+          'Keep practicing! Review the step-by-step Theory modules and try interactive simulations in the Visualizer.',
+        isMastered: false,
+      };
+    }
+  };
+
+  const tier = getResultTier(score);
+
+  // Dynamic Certificate / Completion Card Theme & Grade Content based on final quiz percentage
+  const certificateTheme = useMemo(() => {
+    if (percentage >= 80) {
+      // 🟢 Green / Grade A (80%–100%)
+      return {
+        grade: 'A',
+        badgeText: '★ OUTSTANDING MASTERY (GRADE A) ★',
+        description:
+          'Incredible performance! You demonstrated thorough command of Linear Search traversal, edge cases, and algorithmic complexities.',
+        cardBorder: 'border-slate-200 dark:border-emerald-500/30',
+        iconBg: 'bg-[#00A86B] dark:bg-emerald-600 shadow-emerald-500/20 dark:shadow-emerald-950/50',
+        badge: 'border-[#00A86B]/40 dark:border-emerald-500/40 bg-[#E6F8F0] dark:bg-emerald-950/60 text-[#008A54] dark:text-emerald-300',
+        scoreCardBorder: 'border-[#A7F3D0] dark:border-emerald-500/40',
+        scoreLabel: 'text-[#008A54] dark:text-emerald-400',
+        scoreAccent: 'text-[#00A86B] dark:text-emerald-400',
+        scoreSubBorder: 'border-slate-200 dark:border-emerald-500/30',
+      };
+    } else if (percentage >= 40) {
+      // 🔵 Light Blue / Grade B (40%–79%)
+      return {
+        grade: 'B',
+        badgeText: '★ STRONG PERFORMANCE (GRADE B) ★',
+        description:
+          'Solid performance! You have a good grasp of Linear Search fundamentals. Review any missed questions to master all concepts.',
+        cardBorder: 'border-slate-200 dark:border-sky-500/30',
+        iconBg: 'bg-[#0284C7] dark:bg-sky-500 shadow-sky-500/20 dark:shadow-sky-950/50',
+        badge: 'border-sky-400/40 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300',
+        scoreCardBorder: 'border-sky-200 dark:border-sky-500/40',
+        scoreLabel: 'text-sky-600 dark:text-sky-400',
+        scoreAccent: 'text-[#0284C7] dark:text-sky-400',
+        scoreSubBorder: 'border-slate-200 dark:border-sky-500/30',
+      };
+    } else {
+      // 🟡 Yellow / Grade C (0%–39%)
+      return {
+        grade: 'C',
+        badgeText: '★ NEEDS IMPROVEMENT (GRADE C) ★',
+        description:
+          'Keep practicing! Review the step-by-step Theory modules and try interactive simulations in the Visualizer to strengthen your understanding.',
+        cardBorder: 'border-slate-200 dark:border-amber-500/30',
+        iconBg: 'bg-[#EAB308] dark:bg-amber-500 shadow-amber-500/20 dark:shadow-amber-950/50',
+        badge: 'border-amber-400/40 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300',
+        scoreCardBorder: 'border-amber-200 dark:border-amber-500/40',
+        scoreLabel: 'text-amber-700 dark:text-amber-400',
+        scoreAccent: 'text-[#D97706] dark:text-amber-400',
+        scoreSubBorder: 'border-slate-200 dark:border-amber-500/30',
+      };
+    }
+  }, [percentage]);
+
+  // Handle student selecting an option (before or during answering)
+  const handleSelectOption = (optionIndex: number) => {
+    if (isCurrentQuestionAnswered && isSubmitted) return;
+    soundManager.playQuizSelect();
+    setPendingSelection(optionIndex);
+  };
+
+  // Handle confirming answer for current question (Records answer without revealing final result screen)
+  const handleConfirmAnswer = () => {
+    if (pendingSelection === null || isCurrentQuestionAnswered) return;
+
+    // Block submission if user has not clicked Start Quiz on the first question
+    if (!isQuizStarted) {
+      soundManager.playError();
+      setShowStartQuizWarning(true);
+      return;
+    }
+
+    const q = currentQuestion;
+    const isCorrect = pendingSelection === q.correctIndex;
+    const selectedText = q.options[pendingSelection] || '';
+
+    const newRecord: StudentAnswerRecord = {
+      questionId: q.id,
+      selectedOptionIndex: pendingSelection,
+      selectedAnswerText: selectedText,
+      correctOptionIndex: q.correctIndex,
+      correctAnswerText: q.correctAnswerText,
+      isCorrect,
+      isTimedOut: false,
+    };
+
+    const updatedAnswers = {
+      ...studentAnswers,
+      [q.id]: newRecord,
+    };
+
+    setStudentAnswers(updatedAnswers);
+
+    try {
+      localStorage.removeItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+    } catch {
+      // Ignore
+    }
+
+    // Record Quiz Points (+4 for correct, -3 for wrong, capped at 40 max)
+    pointsManager.recordQuizAnswer(q.id, isCorrect);
+
+    // Play appropriate interaction sound
+    if (isCorrect) {
+      soundManager.playQuizCorrect();
+    } else {
+      soundManager.playQuizWrong();
+    }
+  };
+
+  // Handle submitting the entire examination ONLY when user clicks "Complete & Review"
+  const handleSubmitExamination = () => {
+    const totalAnswered = Object.keys(studentAnswers).length;
+    if (totalAnswered < QUIZ_QUESTIONS.length) {
+      soundManager.playError();
+      const firstUnansweredIndex = QUIZ_QUESTIONS.findIndex((quest) => studentAnswers[quest.id] === undefined);
+      if (firstUnansweredIndex >= 0) {
+        setCurrentQuestionIndex(firstUnansweredIndex);
+      }
+      return;
+    }
+
+    setIsSubmitted(true);
+    setViewMode('FULL_REVIEW');
+    try {
+      localStorage.setItem(QUIZ_STORAGE_SUBMITTED_KEY, 'true');
+    } catch {
+      // Ignore storage errors
+    }
+
+    // Synchronize with progressManager
+    const rawScoresMap: Record<number, number> = {};
+    (Object.values(studentAnswers) as StudentAnswerRecord[]).forEach((rec) => {
+      rawScoresMap[rec.questionId] = rec.selectedOptionIndex;
+    });
+
+    progressManager.recordQuizCompletion(rawScoresMap, score, QUIZ_QUESTIONS.length);
+
+    if (score >= 6) {
+      soundManager.playQuizComplete();
+    } else {
+      soundManager.playQuizWrong();
+    }
+  };
+
+  // Handle resetting the quiz completely
+  const handleResetQuiz = () => {
+    soundManager.playReset();
+    setStudentAnswers({});
+    setIsSubmitted(false);
+    setIsQuizStarted(false);
+    setShowStartQuizWarning(false);
+    setCurrentQuestionIndex(0);
+    setPendingSelection(null);
+    setViewMode('STEP_BY_STEP');
+    setTimeLeft(QUESTION_TIME_LIMIT);
+
+    try {
+      localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_STARTED_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+      localStorage.removeItem('hash_quest_quiz_answers_v3');
+      localStorage.removeItem('hash_quest_quiz_submitted_v3');
+    } catch {
+      // Ignore
+    }
+
+    progressManager.resetQuizAttempt();
+    pointsManager.resetQuizAttempt();
+  };
+
+  const answeredCount = Object.keys(studentAnswers).length;
+  const allAnswered = answeredCount === QUIZ_QUESTIONS.length;
+
+  return (
+    <div className="w-full max-w-4xl mx-auto py-4 px-4 font-sans text-slate-900 dark:text-white animate-page-enter">
+      {/* Header Banner */}
+      <div className="border border-slate-200 dark:border-blue-500/20 rounded-2xl pb-6 mb-6 bg-white dark:bg-[#111827] p-6 sm:p-8 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] reveal-on-scroll">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#EFF6FF] dark:bg-blue-950/60 border border-[#DBEAFE] dark:border-blue-500/30 text-[#2563EB] dark:text-[#3B82F6] rounded-lg text-xs font-semibold uppercase tracking-wider font-mono">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
+            <span>Knowledge Assessment</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Simple Linear Search Quiz (10 Questions)
+            </span>
+            {isSubmitted && (
+              <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-md text-xs font-semibold">
+                Completed
+              </span>
+            )}
+          </div>
+        </div>
+
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight animate-heading-enter">
+          Linear Search Knowledge Check
+        </h1>
+        <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl mt-1 leading-relaxed">
+          Test your understanding of sequential searching, best/worst case complexities, element comparison, and early termination.
+        </p>
+
+        {/* Quiz Points Scoring Guideline Banner */}
+        <div className="mt-4 p-3.5 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold font-sans">
+            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />
+            <span>Quiz Scoring Rules:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="font-sans text-slate-700 dark:text-slate-300">Correct answer:</span>
+              <strong className="px-2 py-0.5 rounded-md bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30">
+                +{POINTS_CONFIG.QUIZ_CORRECT} pts
+              </strong>
+            </span>
+            <span className="text-amber-400 dark:text-amber-600 font-sans">|</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-rose-700 dark:text-rose-400">
+              <span className="font-sans text-slate-700 dark:text-slate-300">Wrong answer:</span>
+              <strong className="px-2 py-0.5 rounded-md bg-rose-100/90 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-200/80 dark:border-rose-500/30">
+                {POINTS_CONFIG.QUIZ_WRONG} pts
+              </strong>
+            </span>
+            <span className="text-amber-400 dark:text-amber-600 font-sans">|</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-400">
+              <span className="font-sans text-slate-700 dark:text-slate-300">Timeout or unanswered:</span>
+              <strong className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                0 pts
+              </strong>
+            </span>
+            <span className="text-amber-400 dark:text-amber-600 font-sans">|</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+              <span className="font-sans text-slate-700 dark:text-slate-300">Maximum positive Quiz score:</span>
+              <strong className="px-2 py-0.5 rounded-md bg-blue-100/90 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/30">
+                {POINTS_CONFIG.MAX_QUIZ} pts
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Question Index Tabs / Progress Tracker */}
+        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-blue-500/15">
+          <div className="flex items-center justify-between gap-2 mb-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
+              <span>
+                Progress: <strong className="text-[#2563EB] dark:text-[#3B82F6] font-mono">{answeredCount}</strong> / {totalQuestions} Answered
+              </span>
+            </div>
+            {isSubmitted && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    soundManager.playNav();
+                    setViewMode(viewMode === 'STEP_BY_STEP' ? 'FULL_REVIEW' : 'STEP_BY_STEP');
+                  }}
+                  className="text-xs font-semibold text-[#2563EB] dark:text-[#3B82F6] hover:text-[#1D4ED8] dark:hover:text-[#3B82F6] flex items-center gap-1 cursor-pointer"
+                >
+                  <ListOrdered className="w-3.5 h-3.5" />
+                  <span>{viewMode === 'STEP_BY_STEP' ? 'Switch to Full Review' : 'Switch to Step Mode'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Question Index Pills */}
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+            {QUIZ_QUESTIONS.map((q, idx) => {
+              const rec = studentAnswers[q.id];
+              const isAnswered = rec !== undefined;
+              const isCurrent = currentQuestionIndex === idx && viewMode === 'STEP_BY_STEP';
+
+              let pillStyle = 'bg-slate-50 dark:bg-[#0F172A] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-blue-500/20 hover:bg-slate-100 dark:hover:bg-[#172033]';
+              if (isCurrent) {
+                pillStyle = 'bg-[#2563EB] dark:bg-[#3B82F6] text-white border-[#2563EB] dark:border-[#3B82F6] font-bold shadow-xs';
+              } else if (isAnswered) {
+                if (rec.isTimedOut) {
+                  pillStyle = 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-500/30 font-semibold';
+                } else if (rec.isCorrect) {
+                  pillStyle = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30 font-semibold';
+                } else {
+                  pillStyle = 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-500/30 font-semibold';
+                }
+              }
+
+              return (
+                <button
+                  key={q.id}
+                  id={`btn-quiz-jump-${q.id}`}
+                  onClick={() => {
+                    soundManager.playNav();
+                    if (isSubmitted) {
+                      if (viewMode !== 'FULL_REVIEW') {
+                        setViewMode('FULL_REVIEW');
+                        setTimeout(() => {
+                          const targetElement = document.getElementById(`quiz-review-card-${q.id}`);
+                          if (targetElement) {
+                            targetElement.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            });
+                          }
+                        }, 50);
+                      } else {
+                        const targetElement = document.getElementById(`quiz-review-card-${q.id}`);
+                        if (targetElement) {
+                          targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
+                        }
+                      }
+                    } else {
+                      setCurrentQuestionIndex(idx);
+                      setViewMode('STEP_BY_STEP');
+                    }
+                  }}
+                  className={`py-2 text-center text-xs font-mono rounded-lg border transition-all cursor-pointer ${pillStyle}`}
+                  title={`Question ${idx + 1}`}
+                >
+                  <span>Q{idx + 1}</span>
+                  {isAnswered && (
+                    <span className="block text-[10px] leading-tight mt-0.5">
+                      {rec.isCorrect ? '✓' : '✕'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Quiz Assessment Completed Section (Shown when submitted or in review mode) */}
+      {isSubmitted && (
+        <div
+          id="quiz-result-card"
+          className={`mb-8 p-6 sm:p-10 lg:p-12 bg-white dark:bg-[#111827] border ${certificateTheme.cardBorder} rounded-3xl shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center text-center animate-editorial-scale transition-all`}
+        >
+          {/* 1. Top Achievement Trophy Icon */}
+          <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl ${certificateTheme.iconBg} flex items-center justify-center shadow-lg mx-auto mb-4 sm:mb-5`}>
+            <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.2]" />
+          </div>
+
+          {/* 2. Achievement Badge */}
+          <div className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full border ${certificateTheme.badge} font-mono text-[11px] sm:text-xs font-bold tracking-wider uppercase mb-3 sm:mb-4`}>
+            {certificateTheme.badgeText}
+          </div>
+
+          {/* 3. Main Completion Heading */}
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0B192C] dark:text-white tracking-tight uppercase mb-3">
+            QUIZ ASSESSMENT COMPLETED
+          </h2>
+
+          {/* 4. Supporting Description */}
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl mx-auto leading-relaxed font-normal mb-6 sm:mb-8">
+            {certificateTheme.description}
+          </p>
+
+          {/* 5. Large Highlighted Score Card */}
+          <div className={`w-full max-w-md mx-auto p-6 sm:p-8 bg-white dark:bg-[#0F172A] border-2 ${certificateTheme.scoreCardBorder} rounded-3xl shadow-sm dark:shadow-md flex flex-col items-center justify-center text-center mb-6 sm:mb-8`}>
+            <span className={`text-[11px] sm:text-xs font-mono font-bold tracking-[0.2em] ${certificateTheme.scoreLabel} uppercase mb-2`}>
+              FINAL HIGHLIGHTED SCORE
+            </span>
+            <div className={`text-5xl sm:text-6xl font-black ${certificateTheme.scoreAccent} font-sans tracking-tight leading-none my-2`}>
+              {percentage}%
+            </div>
+            <div className={`mt-3 px-4 py-1.5 rounded-xl bg-slate-50 dark:bg-blue-950/40 border ${certificateTheme.scoreSubBorder} text-slate-700 dark:text-slate-300 font-mono text-xs sm:text-sm font-semibold`}>
+              {score} / {totalQuestions} Questions Correct
+            </div>
+          </div>
+
+          {/* 6. Summary Statistics Cards (CORRECT, INCORRECT, ACCURACY - STRICTLY NO XP) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full max-w-2xl mx-auto">
+            {/* CORRECT CARD */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200/90 dark:border-blue-500/30 shadow-xs flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-1.5">
+                CORRECT
+              </span>
+              <span className={`text-xl sm:text-2xl font-extrabold ${certificateTheme.scoreAccent} font-mono flex items-center justify-center gap-1.5`}>
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                {score}
+              </span>
+            </div>
+
+            {/* INCORRECT CARD */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200/90 dark:border-blue-500/30 shadow-xs flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-1.5">
+                INCORRECT
+              </span>
+              <span className="text-xl sm:text-2xl font-extrabold text-rose-500 dark:text-rose-400 font-mono">
+                {totalQuestions - score}
+              </span>
+            </div>
+
+            {/* ACCURACY CARD */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-slate-200/90 dark:border-blue-500/30 shadow-xs flex flex-col items-center justify-center text-center">
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-1.5">
+                ACCURACY
+              </span>
+              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
+                {percentage}%
+              </span>
+            </div>
+          </div>
+
+          {/* 7. Action Button (Back to Home) */}
+          <div className="flex items-center justify-center mt-8 w-full max-w-xs mx-auto">
+            {/* Back to Home Action */}
+            <button
+              id="btn-quiz-back-to-home"
+              type="button"
+              onClick={() => {
+                soundManager.playNav();
+                if (onNavigateToHome) {
+                  onNavigateToHome();
+                }
+              }}
+              className="w-full px-6 sm:px-7 py-3 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white font-sans text-sm font-semibold shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Home className="w-4 h-4 stroke-[2.2]" />
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW MODE 1: STEP BY STEP QUESTION FLOW */}
+      {viewMode === 'STEP_BY_STEP' && (
+        <div className="space-y-6">
+          <div
+            key={currentQuestion.id}
+            id={`quiz-step-card-${currentQuestion.id}`}
+            className={`p-6 sm:p-8 border rounded-2xl transition-all bg-white dark:bg-[#111827] shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] animate-chapter-switch ${isCurrentQuestionAnswered
+              ? currentAnswerRecord?.isCorrect
+                ? 'border-emerald-300 dark:border-emerald-500/40 ring-1 ring-emerald-200 dark:ring-emerald-500/30'
+                : 'border-rose-300 dark:border-rose-500/40 ring-1 ring-rose-200 dark:ring-rose-500/30'
+              : 'border-slate-200 dark:border-blue-500/20'
+              }`}
+          >
+            {/* Question Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-blue-500/15">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-1 bg-[#2563EB] dark:bg-[#3B82F6] text-white rounded-md text-xs font-bold font-mono shadow-xs">
+                  Question {currentQuestionIndex + 1 < 10 ? `0${currentQuestionIndex + 1}` : currentQuestionIndex + 1} of {totalQuestions}
+                </span>
+                <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-mono text-xs font-semibold">
+                  Quiz Score: <strong className="text-[#2563EB] dark:text-[#3B82F6]">{pointsState.quizScore}</strong> / 40 pts
+                </span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-mono">{currentQuestion.techniqueCode}</span>
+              </div>
+
+              {/* Status or Countdown Timer */}
+              <div>
+                {isCurrentQuestionAnswered ? (
+                  <div className="flex items-center gap-2">
+                    {currentAnswerRecord?.isTimedOut && (
+                      <div
+                        id="quiz-countdown-timer-timedout"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border font-mono text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-500/40"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-rose-500" />
+                        <span>⏱️ 0s remaining</span>
+                      </div>
+                    )}
+                    {currentAnswerRecord?.isTimedOut ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/60 text-xs font-bold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 rounded-lg">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Timed Out (0 pts)</span>
+                      </span>
+                    ) : currentAnswerRecord?.isCorrect ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Correct (+{POINTS_CONFIG.QUIZ_CORRECT} pts)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/60 text-xs font-bold text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 rounded-lg">
+                        <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                        <span>Wrong ({POINTS_CONFIG.QUIZ_WRONG} pts)</span>
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {!isQuizStarted && currentQuestionIndex === 0 && (
+                      <button
+                        id="btn-start-quiz"
+                        type="button"
+                        onClick={handleStartQuiz}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs sm:text-sm font-bold font-sans rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] text-white border border-[#2563EB] dark:border-[#3B82F6] shadow-xs transition-all cursor-pointer hover:shadow-sm active:scale-95"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Start Quiz</span>
+                      </button>
+                    )}
+                    <div
+                      id="quiz-countdown-timer"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border font-mono text-xs font-bold transition-colors ${
+                        timeLeft <= 10 && isQuizStarted
+                          ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-500/40 animate-pulse'
+                          : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span>⏱️ {timeLeft}s remaining</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Warning Message Popup if user tries to submit without starting */}
+            {showStartQuizWarning && !isQuizStarted && (
+              <div
+                id="start-quiz-warning-banner"
+                className="mb-4 p-3.5 sm:p-4 rounded-xl bg-amber-50/95 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-2xs animate-fadeIn"
+              >
+                <HelpCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Please click Start Quiz first to begin the quiz.</span>
+              </div>
+            )}
+
+            {/* Question Statement */}
+            <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-6 leading-snug break-words">
+              {currentQuestion.question}
+            </p>
+
+            {/* Answer Options */}
+            <div className="space-y-3">
+              {currentQuestion.options.map((opt, optIdx) => {
+                const isSelected = pendingSelection === optIdx;
+                let optStyle =
+                  'bg-white dark:bg-[#0F172A] border-slate-200 dark:border-blue-500/25 hover:border-[#2563EB] dark:hover:border-[#3B82F6] hover:bg-slate-50 dark:hover:bg-[#172033] text-slate-800 dark:text-slate-200';
+
+                if (isCurrentQuestionAnswered) {
+                  if (optIdx === currentQuestion.correctIndex) {
+                    optStyle =
+                      'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-200 font-bold ring-2 ring-emerald-400 dark:ring-emerald-500/40';
+                  } else if (isSelected && !currentAnswerRecord?.isCorrect) {
+                    optStyle = 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 text-rose-950 dark:text-rose-200 font-bold';
+                  } else {
+                    optStyle = 'bg-white dark:bg-[#0F172A] opacity-40 border-slate-200 dark:border-blue-500/20 text-slate-400 dark:text-slate-500';
+                  }
+                } else if (isSelected) {
+                  optStyle =
+                    'bg-[#EFF6FF]/80 dark:bg-blue-950/60 border-[#2563EB] dark:border-[#3B82F6] text-[#2563EB] dark:text-[#F8FAFC] font-semibold ring-2 ring-[#2563EB] dark:ring-blue-500/30';
+                }
+
+                return (
+                  <button
+                    key={optIdx}
+                    id={`quiz-q${currentQuestion.id}-opt${optIdx}`}
+                    onClick={() => handleSelectOption(optIdx)}
+                    disabled={isCurrentQuestionAnswered}
+                    style={{ animationDelay: `${(optIdx + 1) * 60}ms` }}
+                    className={`w-full p-4 text-left text-sm font-sans rounded-xl border transition-all flex items-start gap-3.5 cursor-pointer animate-chapter-switch ${optStyle}`}
+                  >
+                    <span
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border text-xs font-bold font-mono ${isSelected
+                        ? isCurrentQuestionAnswered
+                          ? optIdx === currentQuestion.correctIndex
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-rose-600 text-white border-rose-600'
+                          : 'bg-[#2563EB] dark:bg-[#3B82F6] text-white border-[#2563EB] dark:border-blue-500'
+                        : 'bg-slate-100 dark:bg-[#111827] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-blue-500/30'
+                        }`}
+                    >
+                      {String.fromCharCode(65 + optIdx)}
+                    </span>
+                    <span className="flex-1 pt-0.5 leading-relaxed break-words">{opt}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Answer Confirmation / Next Button Bar */}
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-blue-500/15 flex flex-wrap items-center justify-between gap-3">
+              <button
+                disabled={currentQuestionIndex === 0}
+                onClick={() => {
+                  soundManager.playNav();
+                  setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
+                }}
+                className={`btn-modern-secondary px-4 py-2 text-xs font-semibold flex items-center gap-1.5 transition-all ${currentQuestionIndex === 0 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'cursor-pointer'
+                  }`}
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+
+              {!isCurrentQuestionAnswered ? (
+                <button
+                  id="btn-confirm-answer"
+                  disabled={pendingSelection === null}
+                  onClick={handleConfirmAnswer}
+                  className={`btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${pendingSelection !== null ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed pointer-events-none'
+                    }`}
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Submit Answer</span>
+                </button>
+              ) : currentQuestionIndex < totalQuestions - 1 ? (
+                <button
+                  id="btn-next-question"
+                  onClick={() => {
+                    soundManager.playClick();
+                    setCurrentQuestionIndex((prev) => prev + 1);
+                  }}
+                  className="btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Next Question</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  id="btn-finish-quiz"
+                  onClick={handleSubmitExamination}
+                  className="btn-modern-primary px-6 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>Complete & Review</span>
+                </button>
+              )}
+            </div>
+
+            {/* Technical Explanation Panel (visible once answered) */}
+            {isCurrentQuestionAnswered && (
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-blue-500/15 bg-slate-50 dark:bg-[#0F172A] rounded-xl p-4 sm:p-5 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white mb-2">
+                  <HelpCircle className="w-4 h-4 text-[#2563EB] dark:text-[#3B82F6]" />
+                  <span>Technical Explanation:</span>
+                </div>
+                {currentAnswerRecord?.isTimedOut && (
+                  <div className="mb-3 p-2.5 rounded-lg bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Time expired without an answer. 0 points awarded. Correct answer is option {String.fromCharCode(65 + currentQuestion.correctIndex)}.</span>
+                  </div>
+                )}
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-3 font-normal text-sm">
+                  {currentQuestion.explanation}
+                </p>
+
+                {currentQuestion.exampleSnippet && (
+                  <div className="mb-3 p-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-blue-500/30 rounded-lg font-mono text-xs text-[#2563EB] dark:text-[#3B82F6] font-semibold">
+                    Example: {currentQuestion.exampleSnippet}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3 text-xs pt-1">
+                  {currentQuestion.targetChapterId && (
+                    <button
+                      onClick={() => {
+                        soundManager.playNav();
+                        onNavigateToTheory(currentQuestion.targetChapterId);
+                      }}
+                      className="text-[#2563EB] dark:text-[#3B82F6] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Review in Theory Guide →</span>
+                    </button>
+                  )}
+                  {currentQuestion.targetLevelId && (
+                    <button
+                      onClick={() => {
+                        soundManager.playNav();
+                        onNavigateToQuest(currentQuestion.targetLevelId);
+                      }}
+                      className="text-slate-700 dark:text-slate-300 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Gamepad2 className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
+                      <span>Practice in Quest Level {currentQuestion.targetLevelId} →</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW MODE 2: COMPREHENSIVE AUDIT REVIEW */}
+      {viewMode === 'FULL_REVIEW' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-blue-500/20">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ListOrdered className="w-4 h-4 text-[#2563EB] dark:text-[#3B82F6]" />
+              <span>Full Question-by-Question Review</span>
+            </h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold font-mono">
+              {score} of {totalQuestions} Correct
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {QUIZ_QUESTIONS.map((q, idx) => {
+              const rec = studentAnswers[q.id];
+              const isAnswered = rec !== undefined;
+              const isCorrect = rec?.isCorrect || false;
+
+              return (
+                <div
+                  key={q.id}
+                  id={`quiz-review-card-${q.id}`}
+                  className={`p-5 sm:p-6 border rounded-2xl transition-all bg-white dark:bg-[#111827] shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] scroll-mt-24 ${isAnswered
+                    ? isCorrect
+                      ? 'border-emerald-300 dark:border-emerald-500/40 ring-1 ring-emerald-200 dark:ring-emerald-500/30'
+                      : 'border-rose-300 dark:border-rose-500/40 ring-1 ring-rose-200 dark:ring-rose-500/30'
+                    : 'border-slate-200 dark:border-blue-500/20 opacity-75'
+                    }`}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-3 mb-3 pb-2 border-b border-slate-100 dark:border-blue-500/15">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 bg-[#2563EB] dark:bg-[#3B82F6] text-white rounded-md text-xs font-bold font-mono">
+                        Question {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                      </span>
+                      <span className="text-xs font-semibold text-[#2563EB] dark:text-[#3B82F6] font-mono">{q.techniqueCode}</span>
+                    </div>
+
+                    <div>
+                      {isAnswered ? (
+                        rec.isTimedOut ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-xs font-bold text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 rounded-md">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Timed Out (0 pts)
+                          </span>
+                        ) : isCorrect ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 rounded-md">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Correct (+{POINTS_CONFIG.QUIZ_CORRECT} pts)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 dark:bg-rose-950/60 text-xs font-bold text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 rounded-md">
+                            <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Wrong ({POINTS_CONFIG.QUIZ_WRONG} pts)
+                          </span>
+                        )
+                      ) : (
+                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-[#0F172A] rounded-md text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          Unanswered (0 pts)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Question Prompt */}
+                  <p className="text-base font-bold text-slate-900 dark:text-white mb-4 leading-snug">
+                    {q.question}
+                  </p>
+
+                  {/* Stored Comparison */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 text-xs font-mono">
+                    <div className={`p-3 rounded-xl border ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30 text-emerald-950 dark:text-emerald-200' : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-500/30 text-rose-950 dark:text-rose-200'}`}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-sans">
+                        Your Submission:
+                      </div>
+                      <div className="font-bold text-sm">
+                        {rec ? `${String.fromCharCode(65 + rec.selectedOptionIndex)}: ${rec.selectedAnswerText}` : 'No Answer Submitted'}
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border bg-slate-50 dark:bg-[#0F172A] border-slate-200 dark:border-blue-500/20 text-slate-900 dark:text-white">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1 font-sans">
+                        Correct Answer:
+                      </div>
+                      <div className="font-bold text-sm text-emerald-800 dark:text-emerald-300">
+                        {String.fromCharCode(65 + q.correctIndex)}: {q.correctAnswerText}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explanation */}
+                  <div className="bg-slate-50 dark:bg-[#0F172A] p-4 rounded-xl border border-slate-200 dark:border-blue-500/20 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white mb-1.5">
+                      <HelpCircle className="w-4 h-4 text-[#2563EB] dark:text-[#3B82F6]" />
+                      <span>Technical Explanation:</span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-2 font-normal text-sm">
+                      {q.explanation}
+                    </p>
+
+                    {q.exampleSnippet && (
+                      <div className="mb-2 p-2.5 bg-white dark:bg-[#111827] border border-slate-200 dark:border-blue-500/30 rounded-lg font-mono text-xs text-[#2563EB] dark:text-[#3B82F6] font-semibold">
+                        Example: {q.exampleSnippet}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs pt-1">
+                      {q.targetChapterId && (
+                        <button
+                          onClick={() => {
+                            soundManager.playNav();
+                            onNavigateToTheory(q.targetChapterId);
+                          }}
+                          className="text-[#2563EB] dark:text-[#3B82F6] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Review in Theory Guide →</span>
+                        </button>
+                      )}
+                      {q.targetLevelId && (
+                        <button
+                          onClick={() => {
+                            soundManager.playNav();
+                            onNavigateToQuest(q.targetLevelId);
+                          }}
+                          className="text-slate-700 dark:text-slate-300 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Gamepad2 className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
+                          <span>Practice in Quest Level {q.targetLevelId} →</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default QuizView;

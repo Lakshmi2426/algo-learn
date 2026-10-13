@@ -247,8 +247,20 @@ class PointsManager {
     try {
       this.data.userId = this.currentUserId;
       this.data.topicId = 'hashing';
+      const currentPts = this.getPoints();
       const storageKey = userManager.getPointsKey(this.currentUserId);
-      localStorage.setItem(storageKey, JSON.stringify(this.data));
+      const dataToSave = {
+        ...this.data,
+        totalPoints: Math.max(0, currentPts.totalPoints),
+        visualizePoints: currentPts.visualizePoints,
+        gamePoints: currentPts.gamePoints,
+        quizPoints: currentPts.quizPoints,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+      localStorage.setItem('hash_quest_points_system_v2', JSON.stringify({
+        totalPoints: Math.max(0, currentPts.totalPoints),
+      }));
+      localStorage.setItem('algolearn_topic_progress_hashing', String(Math.max(0, currentPts.totalPoints)));
     } catch {
       // Ignore storage errors
     }

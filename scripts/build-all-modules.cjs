@@ -13,12 +13,12 @@ const MODULES = [
   { id: 'dll', folder: 'Doubly Linked List (DLL)' },
   { id: 'cll', folder: 'Circular Linked List (CLL)' },
   { id: 'binary-search', folder: 'Binary Search' },
-  { id: 'linear-search', folder: 'Linear Search' },
+  { id: 'linear-search', folder: 'linearsearchf-main' },
   { id: 'trees', folder: 'Trees' },
   { id: 'bst', folder: 'Binary Search Tree' },
   { id: 'bfs', folder: 'Breadth-First Search (BFS)', isStatic: true },
   { id: 'sorting', folder: 'Sorting' },
-  { id: 'hashing', folder: 'Hashing-and-Collision-Resolution' },
+  { id: 'hashing', folder: 'hashing and collision resolution techniques' },
   { id: 'dsa-types', folder: 'Data Structure and Types' },
 ];
 

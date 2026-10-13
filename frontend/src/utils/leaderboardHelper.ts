@@ -55,7 +55,7 @@ export function buildAuthoritativeLeaderboard({
       xp,
       solvedCount,
       topicsCompleted: solvedCount,
-      topicsStarted: u.topicsStarted || 0,
+      topicsStarted: u.topicsStarted || (xp > 0 ? 1 : 0),
       overallProgress: u.overallProgress || 0,
       email: u.email || '',
       tier: getTierFromXP(xp),
@@ -71,6 +71,8 @@ export function buildAuthoritativeLeaderboard({
     const existing = map.get(key);
     const xp = Math.max(std.xp || 0, existing?.xp || 0);
     const solvedCount = Math.max(std.topicsCompleted || 0, existing?.solvedCount || 0);
+    const started = Math.max(std.topicsStarted || 0, existing?.topicsStarted || 0, xp > 0 ? 1 : 0);
+    const overallProgress = Math.max(std.overallProgress || 0, existing?.overallProgress || 0);
 
     map.set(key, {
       id: std.id,
@@ -87,8 +89,8 @@ export function buildAuthoritativeLeaderboard({
       countryCode: '🌐',
       solvedCount,
       topicsCompleted: solvedCount,
-      topicsStarted: std.topicsStarted || (xp > 0 ? 1 : 0),
-      overallProgress: std.overallProgress || existing?.overallProgress || 0,
+      topicsStarted: started,
+      overallProgress,
       badgeTitle: 'Algo Scholar',
       isCurrentUser: false,
     });
@@ -103,7 +105,8 @@ export function buildAuthoritativeLeaderboard({
 
     const userXp = Math.max(currentUser.xp || 0, topicSummary.totalXP, existing?.xp || 0);
     const userCompleted = Math.max(topicSummary.topicsMasteredCount, currentUser.topicsMastered || 0, currentUser.problemsSolved || 0, existing?.solvedCount || 0);
-    const userStarted = Math.max(topicSummary.topicsStartedCount, existing?.topicsStarted || 0);
+    const userStarted = Math.max(topicSummary.topicsStartedCount, existing?.topicsStarted || 0, userXp > 0 ? 1 : 0);
+    const userProgress = Math.max(topicSummary.overallPercentage || 0, existing?.overallProgress || 0);
 
     map.set(currKey, {
       id: currentUser.id || 'curr-user',
@@ -121,7 +124,7 @@ export function buildAuthoritativeLeaderboard({
       solvedCount: userCompleted,
       topicsCompleted: userCompleted,
       topicsStarted: userStarted,
-      overallProgress: topicSummary.overallPercentage || existing?.overallProgress || 0,
+      overallProgress: userProgress,
       badgeTitle: 'Algo Scholar',
       isCurrentUser: true,
     });
