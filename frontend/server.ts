@@ -656,6 +656,105 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
     res.status(404).send("Module asset not found");
   });
 
+  // Global route for assets requested at /assets/* (e.g. from Vite-bundled mini-modules)
+  app.get("/assets/*", (req, res, next) => {
+    const rawSubpath = req.params[0] || "";
+    const subpath = decodeURIComponent(rawSubpath);
+    const subpathLower = subpath.toLowerCase();
+
+    // 1. Check root dist/assets/
+    let p = path.join(projectRoot, "dist", "assets", subpath);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      return res.sendFile(p);
+    }
+
+    // 2. Check root public/assets/
+    p = path.join(projectRoot, "public", "assets", subpath);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      return res.sendFile(p);
+    }
+
+    // 3. Check public/videos/
+    p = path.join(projectRoot, "public", "videos", subpath);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      return res.sendFile(p);
+    }
+
+    // 4. Search in all pre-built module assets folders (public/dsa-modules/<modId>/assets/ and videos/)
+    const dsaModulesDir = path.join(projectRoot, "public", "dsa-modules");
+    if (fs.existsSync(dsaModulesDir)) {
+      try {
+        const modDirs = fs.readdirSync(dsaModulesDir);
+        for (const modId of modDirs) {
+          const modAsset = path.join(dsaModulesDir, modId, "assets", subpath);
+          if (fs.existsSync(modAsset) && fs.statSync(modAsset).isFile()) {
+            return res.sendFile(modAsset);
+          }
+          const modVideo = path.join(dsaModulesDir, modId, "videos", subpath);
+          if (fs.existsSync(modVideo) && fs.statSync(modVideo).isFile()) {
+            return res.sendFile(modVideo);
+          }
+        }
+      } catch (e) { }
+    }
+
+    // 5. Check across all DSA topic folders
+    for (const folder of Object.values(MODULE_FOLDER_MAP)) {
+      const candidates = [
+        path.join(projectRoot, "DSA topics", folder, "dist", "assets", subpath),
+        path.join(projectRoot, "DSA topics", folder, "public", "assets", subpath),
+        path.join(projectRoot, "DSA topics", folder, "public", "videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "public", "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "src", "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "src", "videos", subpath),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return res.sendFile(candidate);
+        }
+      }
+    }
+
+    // 6. If subpath is a video with hash, try finding by base name (e.g. "Stack Data Structure-CT_QvMmK.mp4" -> "Stack Data Structure.mp4")
+    const ext = path.extname(subpath);
+    if (ext.toLowerCase() === ".mp4" || ext.toLowerCase() === ".webm") {
+      const baseNameWithoutHash = path.basename(subpath, ext).replace(/-[A-Za-z0-9_-]{8,}$/, "") + ext;
+      const candidates = [
+        path.join(projectRoot, "public", "videos", baseNameWithoutHash),
+        path.join(projectRoot, "public", "videos", path.basename(subpath)),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return res.sendFile(candidate);
+        }
+      }
+
+      // Also check case-insensitive match in public/videos
+      const publicVideosDir = path.join(projectRoot, "public", "videos");
+      if (fs.existsSync(publicVideosDir)) {
+        try {
+          const vFiles = fs.readdirSync(publicVideosDir);
+          const cleanBase = baseNameWithoutHash.replace(/[^a-z0-9]/gi, "").toLowerCase();
+          for (const vf of vFiles) {
+            const cleanVf = vf.replace(/[^a-z0-9]/gi, "").toLowerCase();
+            if (cleanVf === cleanBase) {
+              return res.sendFile(path.join(publicVideosDir, vf));
+            }
+          }
+        } catch (e) { }
+      }
+    }
+
+    // If requesting a video or media asset that wasn't found, 404 rather than fall through to HTML
+    if (/\.(mp4|webm|mov|ogg|mp3|wav|png|jpg|jpeg|gif|svg|ico)$/i.test(subpath)) {
+      return res.status(404).send("Asset not found");
+    }
+
+    next();
+  });
+
   // Global fallback route for video files requested at /videos/* or /Videos/*
   app.get(["/videos/*", "/Videos/*"], (req, res, next) => {
     const rawSubpath = req.params[0] || "";
@@ -667,10 +766,22 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       return res.sendFile(p);
     }
 
-    // 2. Check public/dsa-modules/dsa-types/Videos/
-    p = path.join(projectRoot, "public", "dsa-modules", "dsa-types", "Videos", subpath);
-    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-      return res.sendFile(p);
+    // 2. Check public/dsa-modules/*/videos/ and assets/
+    const dsaModulesDir = path.join(projectRoot, "public", "dsa-modules");
+    if (fs.existsSync(dsaModulesDir)) {
+      try {
+        const modDirs = fs.readdirSync(dsaModulesDir);
+        for (const modId of modDirs) {
+          const modVid = path.join(dsaModulesDir, modId, "videos", subpath);
+          if (fs.existsSync(modVid) && fs.statSync(modVid).isFile()) {
+            return res.sendFile(modVid);
+          }
+          const modAsset = path.join(dsaModulesDir, modId, "assets", subpath);
+          if (fs.existsSync(modAsset) && fs.statSync(modAsset).isFile()) {
+            return res.sendFile(modAsset);
+          }
+        }
+      } catch (e) { }
     }
 
     // 3. Check across all DSA topic folders (public/videos, videos, Videos, src/Videos)
@@ -688,6 +799,25 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
           return res.sendFile(candidate);
         }
       }
+    }
+
+    // 4. Case-insensitive fallback in public/videos
+    const publicVideosDir = path.join(projectRoot, "public", "videos");
+    if (fs.existsSync(publicVideosDir)) {
+      try {
+        const vFiles = fs.readdirSync(publicVideosDir);
+        const cleanSub = subpath.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        for (const vf of vFiles) {
+          const cleanVf = vf.replace(/[^a-z0-9]/gi, "").toLowerCase();
+          if (cleanVf === cleanSub) {
+            return res.sendFile(path.join(publicVideosDir, vf));
+          }
+        }
+      } catch (e) { }
+    }
+
+    if (/\.(mp4|webm|mov|ogg|mp3|wav|png|jpg|jpeg|gif|svg|ico)$/i.test(subpath)) {
+      return res.status(404).send("Video asset not found");
     }
 
     next();
@@ -1563,9 +1693,16 @@ ${String(code)}
       url.startsWith("/DSA topics/") ||
       url.startsWith("/DSA%20topics/") ||
       url.startsWith("/@") ||
-      url.startsWith("/node_modules/")
+      url.startsWith("/node_modules/") ||
+      url.startsWith("/assets/") ||
+      url.startsWith("/videos/") ||
+      url.startsWith("/Videos/")
     ) {
       return next();
+    }
+
+    if (/\.(mp4|webm|mov|ogg|mp3|wav|png|jpg|jpeg|gif|svg|ico|css|js|map)$/i.test(req.path)) {
+      return res.status(404).send("File not found");
     }
 
     if (isProduction && hasDist) {

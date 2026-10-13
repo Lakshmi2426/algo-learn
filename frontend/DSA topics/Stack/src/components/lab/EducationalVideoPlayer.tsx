@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -66,8 +66,22 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine active video source
-  const effectiveVideoSrc = customVideoUrl || activeLesson.videoSrc;
+  // Multi-tier candidate URLs for bulletproof video playback
+  const fallbackCandidates = useMemo(() => {
+    if (customVideoUrl) return [customVideoUrl];
+    const defaultSrc = activeLesson.videoSrc || '';
+    const filename = activeLesson.filename || (activeLesson.id === 1 ? 'Stack Data Structure.mp4' : 'Stack Operations.mp4');
+    return [
+      defaultSrc,
+      `/videos/${filename}`,
+      `/Videos/${filename}`,
+      `/dsa-modules/stack/assets/${activeLesson.id === 1 ? 'Stack Data Structure-CT_QvMmK.mp4' : 'Stack Operations-EnJBJsw5.mp4'}`,
+      `./Videos/${filename}`,
+    ].filter(Boolean);
+  }, [customVideoUrl, activeLesson.videoSrc, activeLesson.filename, activeLesson.id]);
+
+  const [candidateIndex, setCandidateIndex] = useState<number>(0);
+  const effectiveVideoSrc = fallbackCandidates[Math.min(candidateIndex, fallbackCandidates.length - 1)];
   const isVideoMode = viewMode === 'video' && !!effectiveVideoSrc;
   const totalDuration = videoDuration > 0 ? videoDuration : activeLesson.duration;
 
@@ -77,12 +91,13 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
     setIsPlaying(false);
     currentSceneIdRef.current = -1;
     setVideoDuration(activeLesson.duration);
+    setCandidateIndex(0);
 
     if (nativeVideoRef.current) {
       nativeVideoRef.current.currentTime = 0;
       nativeVideoRef.current.playbackRate = playbackSpeed;
     }
-  }, [activeLesson.id]);
+  }, [activeLesson.id, customVideoUrl]);
 
   // Speech synthesis & web audio setup
   useEffect(() => {
@@ -661,6 +676,11 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
               onLoadedMetadata={handleLoadedMetadata}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
+              onError={() => {
+                if (candidateIndex < fallbackCandidates.length - 1) {
+                  setCandidateIndex((prev) => prev + 1);
+                }
+              }}
               onEnded={() => {
                 setIsPlaying(false);
                 if (onLessonComplete) onLessonComplete(activeLesson.id);

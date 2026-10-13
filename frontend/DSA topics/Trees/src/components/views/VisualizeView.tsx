@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getActiveUserId, removeUserItem } from '../../utils/userStorage';
 import {
   Play,
@@ -116,12 +116,46 @@ export const VisualizeView: React.FC<VisualizeViewProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const candidateUrls = useMemo(() => [
+    videoUrl || PUBLIC_LESSON_VIDEO_URL,
+    '/videos/lesson.mp4',
+    '/dsa-modules/trees/videos/lesson.mp4',
+    './videos/lesson.mp4',
+  ], [videoUrl]);
+
+  const [currentUrlIndex, setCurrentUrlIndex] = useState<number>(0);
+  const activeVideoUrl = candidateUrls[Math.min(currentUrlIndex, candidateUrls.length - 1)];
+
   // Play / Pause toggle
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused || videoRef.current.ended) {
-      videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+            setVideoError(false);
+          })
+          .catch((err) => {
+            console.warn('Autoplay unmuted blocked, falling back to muted play:', err);
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+              videoRef.current
+                .play()
+                .then(() => {
+                  setIsPlaying(true);
+                  setVideoError(false);
+                })
+                .catch(() => {
+                  setIsPlaying(false);
+                });
+            } else {
+              setIsPlaying(false);
+            }
+          });
+      }
     } else {
       videoRef.current.pause();
       setIsPlaying(false);
@@ -272,8 +306,17 @@ export const VisualizeView: React.FC<VisualizeViewProps> = ({
     document.body.style.overflow = 'hidden';
     setTimeout(() => {
       if (videoRef.current) {
-        videoRef.current.play().catch(() => {});
-        setIsPlaying(true);
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsPlaying(true);
+              setVideoError(false);
+            })
+            .catch(() => {
+              setIsPlaying(false);
+            });
+        }
       }
     }, 150);
   };
@@ -619,14 +662,20 @@ export const VisualizeView: React.FC<VisualizeViewProps> = ({
               }}
               onEnded={handleVideoEnded}
               onError={() => {
-                setVideoError(true);
-                setIsPlaying(false);
+                if (currentUrlIndex < candidateUrls.length - 1) {
+                  setCurrentUrlIndex((prev) => prev + 1);
+                } else {
+                  setVideoError(true);
+                  setIsPlaying(false);
+                }
               }}
               className={`max-w-full max-h-full transition-all duration-300 ${
                 fitMode === 'cover' ? 'w-full h-full object-cover' : 'object-contain'
               } cursor-pointer`}
             >
               <source src={activeVideoUrl} type="video/mp4" />
+              <source src="/videos/lesson.mp4" type="video/mp4" />
+              <source src="/dsa-modules/trees/videos/lesson.mp4" type="video/mp4" />
               Your browser does not support the video tag.
             </video>
 

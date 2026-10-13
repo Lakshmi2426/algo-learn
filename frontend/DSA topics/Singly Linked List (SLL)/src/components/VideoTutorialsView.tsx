@@ -99,14 +99,38 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
     return `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
+  const getCandidateUrls = useCallback((lessonId: string) => {
+    if (lessonId === 'lesson-01') {
+      return [
+        video1Src,
+        VIDEO_LESSONS[0].videoSrc,
+        '/assets/video1-C84j6pY_.mp4',
+        '/videos/video1.mp4',
+        '/dsa-modules/sll/assets/video1-C84j6pY_.mp4',
+        '/videos/introduction.mp4',
+      ].filter(Boolean) as string[];
+    }
+    return [
+      video2Src,
+      VIDEO_LESSONS[1].videoSrc,
+      '/assets/video2-COmAg5D-.mp4',
+      '/videos/video2.mp4',
+      '/dsa-modules/sll/assets/video2-COmAg5D-.mp4',
+      '/videos/collision.mp4',
+    ].filter(Boolean) as string[];
+  }, [video1Src, video2Src]);
+
+  const [candidateUrlIndex, setCandidateUrlIndex] = useState<number>(0);
+
   // Immediate, robust video loading when selected lesson changes
   useEffect(() => {
     if (!selectedLesson) return;
     const video = videoRef.current;
     if (!video) return;
 
+    const candidates = getCandidateUrls(selectedLesson.id);
+    const targetSrc = candidates[Math.min(candidateUrlIndex, candidates.length - 1)] || selectedLesson.videoSrc || '';
     const currentSrc = video.currentSrc || video.src || '';
-    const targetSrc = selectedLesson.videoSrc || '';
 
     // Only update src if it is genuinely different to avoid resetting video mid-play
     if (!currentSrc.includes(targetSrc) && currentSrc !== targetSrc) {
@@ -117,7 +141,7 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
       video.src = targetSrc;
       video.load();
     }
-  }, [selectedLesson?.id, selectedLesson?.videoSrc]);
+  }, [selectedLesson?.id, candidateUrlIndex, getCandidateUrls]);
 
   // Select lesson and trigger immediate load + play directly inside the user click gesture
   const handleSelectLesson = useCallback(
@@ -127,12 +151,14 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
       setActivePlayerMode('video');
       setSelectedLesson(lesson);
       setCurrentTime(0);
+      setCandidateUrlIndex(0);
 
       const video = videoRef.current;
       if (video) {
         // Set the exact video source directly in the click event
+        const candidates = getCandidateUrls(lesson.id);
+        const targetSrc = candidates[0] || lesson.videoSrc;
         const currentSrc = video.currentSrc || video.src || '';
-        const targetSrc = lesson.videoSrc;
 
         if (!currentSrc.includes(targetSrc) && currentSrc !== targetSrc) {
           video.src = targetSrc;
@@ -331,7 +357,9 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
     soundManager.playClick();
     setHasError(false);
     setIsLoading(true);
-    videoRef.current.src = selectedLesson.videoSrc;
+    setCandidateUrlIndex(0);
+    const candidates = getCandidateUrls(selectedLesson.id);
+    videoRef.current.src = candidates[0] || selectedLesson.videoSrc;
     videoRef.current.load();
     const playPromise = videoRef.current.play();
     if (playPromise !== undefined) {
@@ -389,6 +417,17 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
   };
 
   const handleError = () => {
+    if (selectedLesson && videoRef.current) {
+      const candidates = getCandidateUrls(selectedLesson.id);
+      if (candidateUrlIndex < candidates.length - 1) {
+        const nextIdx = candidateUrlIndex + 1;
+        setCandidateUrlIndex(nextIdx);
+        videoRef.current.src = candidates[nextIdx];
+        videoRef.current.load();
+        videoRef.current.play().catch(() => {});
+        return;
+      }
+    }
     setIsLoading(false);
     setIsPlaying(false);
     setHasError(true);
