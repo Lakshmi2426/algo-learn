@@ -30,11 +30,10 @@ export const calculateTopicScoring = (
     }
   }
 
-  // Authoritative: Overall Topic Score = Visualization Points Earned + max(0, Quiz Points Earned)
-  // Capped at 100, minimum 0
+  // Authoritative: Overall Topic Score = Visualization Points Earned + Quiz Points Earned
   const overallTopicScore = Math.min(
     100,
-    Math.max(0, visualizationPoints + Math.max(0, quizScore))
+    visualizationPoints + quizScore
   );
 
   // Authoritative: Completion Percentage = (Number of Completed Videos + Number of Answered or Timed-Out Quiz Questions) / 12 × 100
@@ -316,8 +315,18 @@ export const recordVideoCompletion = (
 
   const updated: UserProgress = {
     ...current,
+    xp: (current.xp || 0) + 25,
     completedLabs: updatedLabs,
     topicData: recalculatedTopic,
+    history: [
+      {
+        title: `Completed ${videoId === 1 ? 'Data Structures & Types' : 'Linear and Non-Linear Structures'} Video`,
+        description: `Watched full educational video lesson (+25 pts)`,
+        xpEarned: 25,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+      ...(current.history || []).slice(0, 19),
+    ],
   };
 
   saveProgress(updated);
@@ -378,6 +387,47 @@ export const saveProgress = (progress: UserProgress): void => {
       return;
     }
     localStorage.setItem(STORAGE_KEY, serialized);
+
+    // Synchronize authoritative topic score with main application & leaderboard
+    const score = progress.topicData?.overallTopicScore ?? 0;
+    try {
+      localStorage.setItem('algolearn_topic_progress_dsa-types', String(score));
+      const topicsMapRaw = localStorage.getItem('algolearn_topics_progress');
+      const topicsMap = topicsMapRaw ? JSON.parse(topicsMapRaw) : {};
+      topicsMap['dsa-types'] = Math.max(topicsMap['dsa-types'] || 0, score);
+      localStorage.setItem('algolearn_topics_progress', JSON.stringify(topicsMap));
+    } catch {}
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('algolearn_topic_progress_updated', {
+          detail: { moduleId: 'dsa-types', score },
+        })
+      );
+    } catch {}
+
+    try {
+      window.postMessage(
+        {
+          type: 'ALGOLEARN_TOPIC_PROGRESS_UPDATE',
+          moduleId: 'dsa-types',
+          score,
+          progress: score,
+        },
+        '*'
+      );
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: 'ALGOLEARN_TOPIC_PROGRESS_UPDATE',
+            moduleId: 'dsa-types',
+            score,
+            progress: score,
+          },
+          '*'
+        );
+      }
+    } catch {}
   } catch (e) {
     console.error('Failed to save user progress:', e);
   }

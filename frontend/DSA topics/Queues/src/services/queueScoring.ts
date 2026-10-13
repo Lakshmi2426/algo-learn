@@ -53,13 +53,10 @@ export const getQueueScoreBreakdown = (progress: UserProgress): QueueScoreBreakd
   const deductions = Math.max(0, data.queueDeductions || 0);
   const game = Math.max(0, completedGamePoints - deductions);
   const results = Object.values(data.quizQuestionResults || {});
-  const quiz = Math.max(
-    0,
-    Math.min(
-      QUEUE_SCORING.quiz.total,
-      results.filter((result) => result === 'correct').length * QUEUE_SCORING.quiz.pointsPerCorrect +
-        results.filter((result) => result === 'incorrect').length * QUEUE_SCORING.quiz.pointsPerIncorrect
-    )
+  const quiz = Math.min(
+    QUEUE_SCORING.quiz.total,
+    results.filter((result) => result === 'correct').length * QUEUE_SCORING.quiz.pointsPerCorrect +
+      results.filter((result) => result === 'incorrect' || (result as any) === 'timeout').length * QUEUE_SCORING.quiz.pointsPerIncorrect
   );
   return {
     learn,
@@ -67,11 +64,15 @@ export const getQueueScoreBreakdown = (progress: UserProgress): QueueScoreBreakd
     game,
     quiz,
     deductions,
-    overall: Math.max(0, Math.min(QUEUE_SCORING.total, learn + visualize + game + quiz)),
+    overall: Math.min(QUEUE_SCORING.total, learn + visualize + game + quiz),
   };
 };
 
-export const syncQueueScore = (progress: UserProgress): UserProgress => ({
-  ...progress,
-  queueScore: getQueueScoreBreakdown(progress).overall,
-});
+export const syncQueueScore = (progress: UserProgress): UserProgress => {
+  const breakdown = getQueueScoreBreakdown(progress);
+  const currentScore = breakdown.overall;
+  return {
+    ...progress,
+    queueScore: currentScore,
+  };
+};

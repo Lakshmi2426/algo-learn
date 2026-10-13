@@ -51,14 +51,14 @@ export const MyProgressView: React.FC<MyProgressViewProps> = ({ onNavigateToTab 
   // Quiz: 30 max (30%)
   const qScore = Math.min(
     30,
-    Math.max(0, progressManager.getCategoryScore('quiz'))
+    progressManager.getCategoryScore('quiz')
   );
-  const quizPercent = Math.min(100, Math.round((qScore / 30) * 100));
+  const quizPercent = Math.min(100, Math.round((Math.max(0, qScore) / 30) * 100));
 
   // Overall Score & Percentage (Visualise + Game + Quiz only = 100 max)
   const totalPoints = Math.min(
     100,
-    Math.max(0, typeof centralState.totalPoints === 'number' ? centralState.totalPoints : progressManager.getTotalPoints())
+    typeof centralState.totalPoints === 'number' ? centralState.totalPoints : progressManager.getTotalPoints()
   );
   const overallPercentage = Math.min(100, Math.max(0, Math.round((totalPoints / 100) * 100)));
 

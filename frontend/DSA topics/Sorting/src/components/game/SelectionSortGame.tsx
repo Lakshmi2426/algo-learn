@@ -6,7 +6,6 @@ import {
   Check,
   AlertTriangle,
   RotateCcw,
-  Clock,
   Trophy,
   HelpCircle,
   ArrowRight,
@@ -80,13 +79,10 @@ export const SelectionSortGame: React.FC<SelectionSortGameProps> = ({
   const [showHintModal, setShowHintModal] = useState<boolean>(false);
 
   const computeFinalScore = useCallback(
-    (currentRawScore: number, timeSec: number): number => {
-      const targetSeconds = Math.max(15, level.initialArray.length * 6);
-      const timeBonus = timeSec <= targetSeconds ? (targetSeconds - timeSec) * 5 : 0;
-      const timePenalty = timeSec > targetSeconds ? (timeSec - targetSeconds) * 4 : 0;
-      return Math.max(0, currentRawScore + timeBonus - timePenalty);
+    (currentRawScore: number, _timeSec: number): number => {
+      return Math.max(0, currentRawScore);
     },
-    [level.initialArray.length]
+    []
   );
 
   // Contextual feedback
@@ -523,11 +519,6 @@ export const SelectionSortGame: React.FC<SelectionSortGameProps> = ({
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <span>{elapsedSeconds}s</span>
-            </div>
-            <span className="text-slate-300 dark:text-slate-600">•</span>
             <div className="text-slate-700 dark:text-slate-300">
               Swaps: <span className="font-mono text-slate-900 dark:text-white">{moves}</span>
             </div>

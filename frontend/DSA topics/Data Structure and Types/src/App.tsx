@@ -13,8 +13,24 @@ import { ChatbotLogo } from './components/common/ChatbotLogo';
 import { CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const DSA_TYPES_ACTIVE_TAB_KEY = 'algo_ds_types_active_tab';
+
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<TabType>('home');
+  const [currentTab, setCurrentTab] = useState<TabType>(() => {
+    try {
+      const saved = localStorage.getItem(DSA_TYPES_ACTIVE_TAB_KEY);
+      if (saved && ['home', 'theory', 'lab', 'quiz', 'progress'].includes(saved)) {
+        return saved as TabType;
+      }
+    } catch {}
+    return 'home';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DSA_TYPES_ACTIVE_TAB_KEY, currentTab);
+    } catch {}
+  }, [currentTab]);
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
   const [toastMessage, setToastMessage] = useState<string | null>(null);

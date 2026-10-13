@@ -79,7 +79,7 @@ export const normalizePointsLedger = (raw?: Partial<PointsLedger>): PointsLedger
   // Total base positive points across the 100-point structure (Game 45 + Quiz 40 + Visualize 15 = 100 max)
   const totalEarned = Math.min(100, gamePoints + quizPoints + visualizationPoints);
   const totalDeducted = hintDeductions + guidedSolveDeductions + wrongQuizDeductions;
-  const totalPoints = Math.max(0, totalEarned - totalDeducted);
+  const totalPoints = Math.min(100, totalEarned - totalDeducted);
 
   return {
     totalPoints,
@@ -175,7 +175,7 @@ export const applyPointsEvent = (
 
   const nextEarned = Math.min(100, nextGamePoints + nextQuizPoints + nextVisualizationPoints);
   const nextDeducted = nextHintDeductions + nextGuidedSolveDeductions + nextWrongQuizDeductions;
-  const nextTotal = Math.max(0, nextEarned - nextDeducted);
+  const nextTotal = Math.min(100, nextEarned - nextDeducted);
 
   const nextLedger: PointsLedger = {
     ...ledger,

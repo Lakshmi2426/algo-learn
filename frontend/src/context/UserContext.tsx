@@ -261,7 +261,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isCurrent && s.progress && typeof s.progress === 'object') {
               Object.entries(s.progress).forEach(([tKey, scoreVal]) => {
                 const num = Number(scoreVal);
-                if (!isNaN(num) && num > 0) {
+                if (!isNaN(num)) {
                   const curScore = getTopicScore(tKey, activeKey);
                   if (num > curScore) {
                     setTopicScore(tKey, num, activeKey);
@@ -270,10 +270,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               });
             }
 
-            const userXp = isCurrent ? Math.max(s.xp || 0, allProg.totalXP) : (s.xp || 0);
-            const userMastered = isCurrent ? Math.max(s.topicsCompleted || 0, allProg.topicsMasteredCount) : (s.topicsCompleted || 0);
-            const userStarted = isCurrent ? Math.max(s.topicsStarted || 0, allProg.topicsStartedCount) : (s.topicsStarted || 0);
-            const userProgress = isCurrent ? Math.max(s.overallProgress || 0, allProg.overallPercentage) : (s.overallProgress || 0);
+            // Sum actual topic points from s.progress
+            let serverTopicSum = 0;
+            if (s.progress && typeof s.progress === 'object') {
+              Object.values(s.progress).forEach((sc: any) => {
+                const n = Number(sc);
+                if (!isNaN(n)) serverTopicSum += Math.round(n);
+              });
+            }
+
+            const freshProg = isCurrent ? getAllTopicsProgress(activeKey || undefined) : null;
+            const userXp = isCurrent ? freshProg!.totalXP : (serverTopicSum > 0 ? serverTopicSum : (s.xp || 0));
+            const userMastered = isCurrent ? freshProg!.topicsMasteredCount : (s.topicsCompleted || 0);
+            const userStarted = isCurrent ? freshProg!.topicsStartedCount : (s.topicsStarted || (userXp > 0 ? 1 : 0));
+            const userProgress = userXp;
 
             return {
               id: s.id || s._id,
@@ -358,8 +368,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 name: student.name,
                 branch: student.branch,
                 regdNo: student.regdNo,
-                xp: Math.max(prev.xp || 0, student.xp || 0, latestProg.totalXP),
-                topicsMastered: Math.max(prev.topicsMastered || 0, student.topicsCompleted || 0, latestProg.topicsMasteredCount),
+                xp: (student.xp !== undefined && student.xp !== null) ? student.xp : latestProg.totalXP,
+                topicsMastered: latestProg.topicsMasteredCount,
               };
               const synced = syncUserProfileWithTopicProgress(updated);
               try {
@@ -422,11 +432,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const payload = {
               studentName: synced.name,
               regdNo: synced.regdNo,
-              xp: Math.max(synced.xp || 0, allProg.totalXP),
+              xp: allProg.totalXP,
               progress: allProg.topicScores,
-              topicsCompleted: Math.max(synced.topicsMastered || 0, allProg.topicsMasteredCount),
+              topicsCompleted: allProg.topicsMasteredCount,
               topicsStarted: allProg.topicsStartedCount,
-              overallProgress: allProg.overallPercentage,
+              overallProgress: allProg.totalXP,
             };
 
             const token = localStorage.getItem('algolearn_token');
@@ -467,10 +477,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ) {
             return {
               ...s,
-              xp: Math.max(s.xp || 0, allProg.totalXP),
-              topicsCompleted: Math.max(s.topicsCompleted || 0, allProg.topicsMasteredCount),
-              topicsStarted: Math.max(s.topicsStarted || 0, allProg.topicsStartedCount),
-              overallProgress: Math.max(s.overallProgress || 0, allProg.overallPercentage),
+              xp: allProg.totalXP,
+              topicsCompleted: allProg.topicsMasteredCount,
+              topicsStarted: allProg.topicsStartedCount,
+              overallProgress: allProg.totalXP,
               lastActive: 'Just now',
             };
           }
@@ -609,7 +619,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 xp: newXp,
                 streak: updatedUser.streak,
                 topicsCompleted: updatedUser.topicsMastered || s.topicsCompleted,
-                overallProgress: Math.min(100, Math.round(((updatedUser.topicsMastered || s.topicsCompleted) / 18) * 100)),
+                overallProgress: newXp,
                 lastActive: 'Just now',
               };
             }
@@ -706,7 +716,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (student.progress && typeof student.progress === 'object') {
           Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
             const num = Number(scoreVal);
-            if (!isNaN(num) && num > 0) {
+            if (!isNaN(num)) {
               setTopicScore(tKey, num, studentKey);
             }
           });
@@ -723,7 +733,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           regdNo: student.regdNo,
           username: student.regdNo.toLowerCase(),
           email: `${student.regdNo.toLowerCase()}@algolearn.edu`,
-          xp: student.xp || 0,
+          xp: student.xp !== undefined && student.xp !== null ? student.xp : 0,
         });
 
         setUser(updatedUser);
@@ -740,7 +750,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             body: JSON.stringify({
               studentName: student.name,
               regdNo: student.regdNo,
-              xp: allProg.totalXP || student.xp || 0,
+              xp: allProg.totalXP,
             }),
           }).catch(() => {});
         }

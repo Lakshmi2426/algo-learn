@@ -31,7 +31,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
   const visualizeEarned = Math.min(10, tp.visualizeEarned || 0);
   const gameEarned = Math.min(60, tp.gameEarned || 0);
   const quizEarned = Math.min(30, tp.quizEarned || 0);
-  const totalTopicPoints = Math.min(100, Math.max(0, visualizeEarned + gameEarned + quizEarned));
+  const totalTopicPoints = Math.min(100, visualizeEarned + gameEarned + quizEarned);
 
   // Module completion counters
   const completedVideos = progress.completedLabs?.length || tp.completedVideos?.length || 0;

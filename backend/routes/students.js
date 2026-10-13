@@ -8,24 +8,28 @@ const Student = require('../models/Student');
 router.get('/', async (_req, res) => {
   try {
     const students = await Student.find({}, '-password').sort({ createdAt: -1 });
-    const formatted = students.map((s) => ({
-      id: s._id.toString(),
-      name: s.name,
-      branch: s.branch,
-      regdNo: s.regdNo,
-      email: `${s.regdNo.toLowerCase()}@algolearn.edu`,
-      avatar: '',
-      role: s.role || 'student',
-      xp: s.xp || 0,
-      topicsStarted: s.topicsStarted || 0,
-      topicsCompleted: s.topicsCompleted || 0,
-      overallProgress: s.overallProgress || 0,
-      progress: s.progress || {},
-      streak: 1,
-      lastActive: 'Active recently',
-      currentStage: s.overallProgress > 50 ? 'Phase 2: Data Structures' : 'Phase 1: Foundations',
-      createdAt: s.createdAt,
-    }));
+    const formatted = students.map((s) => {
+      const topicSum = sumTopicPoints(s.progress);
+      const totalPoints = Math.max(s.xp || 0, topicSum);
+      return {
+        id: s._id.toString(),
+        name: s.name,
+        branch: s.branch,
+        regdNo: s.regdNo,
+        email: `${s.regdNo.toLowerCase()}@algolearn.edu`,
+        avatar: '',
+        role: s.role || 'student',
+        xp: totalPoints,
+        topicsStarted: s.topicsStarted || 0,
+        topicsCompleted: s.topicsCompleted || 0,
+        overallProgress: totalPoints,
+        progress: s.progress || {},
+        streak: 1,
+        lastActive: 'Active recently',
+        currentStage: totalPoints > 400 ? 'Phase 2: Data Structures' : 'Phase 1: Foundations',
+        createdAt: s.createdAt,
+      };
+    });
     return res.json({ students: formatted });
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -55,11 +59,11 @@ function sumTopicPoints(progressMap) {
   let sum = 0;
   for (const [key, val] of Object.entries(progressMap)) {
     if (typeof val === 'number') {
-      sum += Math.max(0, Math.round(val));
+      sum += Math.round(val);
     } else if (val && typeof val.points === 'number') {
-      sum += Math.max(0, Math.round(val.points));
+      sum += Math.round(val.points);
     } else if (val && typeof val.score === 'number') {
-      sum += Math.max(0, Math.round(val.score));
+      sum += Math.round(val.score);
     }
   }
   return sum;
@@ -82,13 +86,13 @@ const handleProgressUpdate = async (req, res) => {
       student.progress = { ...(student.progress || {}), ...progress };
     }
 
-    // Leaderboard XP = sum of points across all topics
+    // Leaderboard XP & Overall Progress = exact sum of points across all topics
     const calculatedSum = sumTopicPoints(student.progress);
     student.xp = calculatedSum;
+    student.overallProgress = calculatedSum;
 
     if (topicsStarted !== undefined) student.topicsStarted = topicsStarted;
     if (topicsCompleted !== undefined) student.topicsCompleted = topicsCompleted;
-    if (overallProgress !== undefined) student.overallProgress = overallProgress;
 
     await student.save();
     return res.json({

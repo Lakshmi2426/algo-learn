@@ -16,8 +16,24 @@ import { CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { syncQueueScore } from './services/queueScoring';
 
+const QUEUE_ACTIVE_TAB_KEY = 'queue_active_tab';
+
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<TabType>('home');
+  const [currentTab, setCurrentTab] = useState<TabType>(() => {
+    try {
+      const saved = localStorage.getItem(QUEUE_ACTIVE_TAB_KEY);
+      if (saved && ['home', 'theory', 'lab', 'game', 'quiz', 'progress'].includes(saved)) {
+        return saved as TabType;
+      }
+    } catch {}
+    return 'home';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUEUE_ACTIVE_TAB_KEY, currentTab);
+    } catch {}
+  }, [currentTab]);
   const [activeGameLevelId, setActiveGameLevelId] = useState<number>(1);
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
@@ -33,6 +49,11 @@ export default function App() {
     }, 4000);
     return () => clearTimeout(timer);
   }, [toastMessage]);
+
+  // Synchronize score and progress with parent website and leaderboard on initial mount
+  useEffect(() => {
+    saveProgress(progress);
+  }, []);
 
   // Toggle navigation drawer
   const handleToggleNav = () => {

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
-import { getTopicScore, normalizeToModuleId } from '../../utils/topicProgress';
+import { getTopicCompletion, normalizeToModuleId } from '../../utils/topicProgress';
 import { navigateAlgoLearn } from '../../utils/navigation';
 
 import { useUser } from '../../context/UserContext';
@@ -137,24 +137,31 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
   // Use algorithms[] for CONCEPTS COVERED — show up to 4
   const concepts = topic.algorithms.slice(0, 4);
 
-  const [liveScore, setLiveScore] = React.useState<number>(() => (isAuthenticated ? getTopicScore(topic.id) : 0));
+  const [liveCompletion, setLiveCompletion] = React.useState<number>(() => (isAuthenticated ? getTopicCompletion(topic.id) : 0));
 
   React.useEffect(() => {
-    setLiveScore(isAuthenticated ? getTopicScore(topic.id) : 0);
+    setLiveCompletion(isAuthenticated ? getTopicCompletion(topic.id) : 0);
 
     const handleUpdate = (e: Event) => {
       if (!isAuthenticated) {
-        setLiveScore(0);
+        setLiveCompletion(0);
         return;
       }
       const targetMod = normalizeToModuleId(topic.id);
       if (e instanceof CustomEvent) {
         if (!e.detail || !e.detail.moduleId || e.detail.moduleId === targetMod) {
-          setLiveScore(getTopicScore(topic.id));
+          setLiveCompletion(getTopicCompletion(topic.id));
         }
       } else if (e instanceof StorageEvent) {
-        if (!e.key || (targetMod && e.key.includes(targetMod)) || e.key.includes('algolearn_topics_progress')) {
-          setLiveScore(getTopicScore(topic.id));
+        if (
+          !e.key ||
+          (targetMod && e.key.includes(targetMod)) ||
+          e.key.includes('algolearn_topics_completions') ||
+          e.key.includes('algolearn_topic_completion_') ||
+          e.key.includes('algolearn_student_progress_') ||
+          e.key.includes('algolearn_user')
+        ) {
+          setLiveCompletion(getTopicCompletion(topic.id));
         }
       }
     };
@@ -171,18 +178,18 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
   const userTopic = user.exploredTopics?.find(
     (t) => t.id === topic.id || t.title.toLowerCase() === topic.title.toLowerCase()
   );
-  const currentFallback = isAuthenticated ? getTopicScore(topic.id) : 0;
-  const progressPercent = isAuthenticated
-    ? Math.max(userTopic?.progress || 0, liveScore, currentFallback)
-    : 0;
+  const currentFallback = isAuthenticated ? getTopicCompletion(topic.id) : 0;
+  const rawCompletion = liveCompletion !== 0 ? liveCompletion : (currentFallback !== 0 ? currentFallback : (userTopic?.progress ?? 0));
+  const progressPercent = isAuthenticated ? Math.max(0, Math.min(100, Math.round(rawCompletion))) : 0;
+  const clampedProgressForSvg = progressPercent;
 
   // Mastered concept count derived from real progress %
-  const masteredConcepts = Math.round((progressPercent / 100) * topic.conceptsCount);
+  const masteredConcepts = Math.max(0, Math.round((clampedProgressForSvg / 100) * topic.conceptsCount));
 
   // Circular progress ring geometry (radius 16)
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
+  const strokeDashoffset = circumference - (clampedProgressForSvg / 100) * circumference;
 
   const categoryLabel = getCategoryLabel(topic.category);
   const integratedModule = getIntegratedModuleForTopic(topic.id) || getIntegratedModuleForTopic(topic.title);

@@ -162,7 +162,7 @@ export const calculateQuizPoints = (progress: UserProgress): QuizPointsBreakdown
 
   const totalAnswered = correctCount + incorrectCount;
   const rawScore = correctCount * 3 - incorrectCount * 1;
-  const points = Math.min(20, Math.max(0, rawScore));
+  const points = Math.min(20, rawScore);
 
   return {
     correctCount,
@@ -278,7 +278,7 @@ export const calculateTotalPoints = (progress: UserProgress): TotalPointsSummary
   const game = calculateGamePoints(progress);
 
   const rawTotal = theory.points + quiz.points + visualizations.points + game.points;
-  const totalPoints = Math.min(100, Math.max(0, rawTotal));
+  const totalPoints = Math.min(100, rawTotal);
   const percentage = Math.round((totalPoints / 100) * 100);
 
   return {

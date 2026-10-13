@@ -40,7 +40,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
 
   const overallTopicScore = Math.min(
     100,
-    Math.max(0, topicData.overallTopicScore ?? (visualizationPoints + Math.max(0, quizScore)))
+    topicData.overallTopicScore ?? (visualizationPoints + quizScore)
   );
 
   return (

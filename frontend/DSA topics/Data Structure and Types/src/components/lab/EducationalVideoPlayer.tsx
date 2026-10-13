@@ -51,7 +51,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
-  const [renderMode, setRenderMode] = useState<'studio' | 'video'>('studio');
+  const [renderMode, setRenderMode] = useState<'studio' | 'video'>('video');
   const [forwardBlockedNotice, setForwardBlockedNotice] = useState<boolean>(false);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Highest timestamp reached in the current session (forward seeking beyond this is strictly disabled)
@@ -114,7 +114,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
     setIsPlaying(false);
     setDuration(activeLesson.duration || 57);
     watchedSecondsSetRef.current = new Set();
-    setRenderMode('studio');
+    setRenderMode('video');
 
     if (audioRef.current) {
       audioRef.current.pause();
@@ -799,7 +799,8 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
         ) : (
           <video
             ref={nativeVideoRef}
-            key={videoSourceUrl}
+            key={`${activeLesson.id}-${videoSourceUrl}`}
+            src={videoSourceUrl}
             preload="auto"
             playsInline
             onLoadedMetadata={() => {
@@ -815,9 +816,9 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
             onTimeUpdate={() => {
               if (nativeVideoRef.current) {
                 const vTime = nativeVideoRef.current.currentTime;
-                // If browser or native controls try to seek forward beyond max allowed, clamp back
                 const allowedMax = Math.max(currentTime, maxReachedTimeRef.current);
-                if (vTime > allowedMax + 1.0) {
+                const totalDur = activeLesson.duration || duration || 57;
+                if (vTime > allowedMax + 3.0 && vTime < totalDur - 1.0) {
                   nativeVideoRef.current.currentTime = allowedMax;
                   setCurrentTime(allowedMax);
                   triggerForwardBlockedNotice();
@@ -826,6 +827,9 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
                 setCurrentTime(vTime);
                 if (vTime > maxReachedTimeRef.current) {
                   maxReachedTimeRef.current = vTime;
+                }
+                if (vTime >= totalDur - 0.5) {
+                  if (onLessonComplete) onLessonComplete(activeLesson.id);
                 }
               }
             }}
@@ -839,6 +843,9 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
             className="w-full h-full object-contain bg-black cursor-pointer"
           >
             <source src={videoSourceUrl} type="video/mp4" />
+            <source src={`/dsa-modules/dsa-types/Videos/${encodeURIComponent(activeLesson.filename)}`} type="video/mp4" />
+            <source src={`/videos/${encodeURIComponent(activeLesson.filename)}`} type="video/mp4" />
+            <source src={`./Videos/${encodeURIComponent(activeLesson.filename)}`} type="video/mp4" />
             {publicVideoUrl !== videoSourceUrl && <source src={publicVideoUrl} type="video/mp4" />}
             {encodedPublicVideoUrl !== videoSourceUrl && (
               <source src={encodedPublicVideoUrl} type="video/mp4" />

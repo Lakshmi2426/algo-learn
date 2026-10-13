@@ -112,7 +112,7 @@ export const calculateTotalQuizPoints = (
   QUIZ_QUESTIONS.forEach((q) => {
     total += calculateQuestionPoints(q.id, confirmedQuestions, questionTimeouts, userAnswers);
   });
-  return Math.max(0, Math.min(MAX_QUIZ_POINTS, total));
+  return Math.min(MAX_QUIZ_POINTS, total);
 };
 
 interface QuizViewProps {

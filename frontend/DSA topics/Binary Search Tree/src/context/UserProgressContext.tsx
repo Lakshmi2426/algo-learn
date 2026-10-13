@@ -691,14 +691,11 @@ export const UserProgressProvider: React.FC<{
   const rawQuizPoints = Object.values(quizQuestionScores).reduce((sum, val) => sum + val, 0);
   const quizPoints = Math.min(
     30,
-    Math.max(
-      0,
-      Object.keys(quizQuestionScores).length > 0
-        ? rawQuizPoints
-        : (stats.quizScores?.mainQuiz ? Math.round((stats.quizScores.mainQuiz / 100) * 30) : 0)
-    )
+    Object.keys(quizQuestionScores).length > 0
+      ? rawQuizPoints
+      : (stats.quizScores?.mainQuiz ? Math.round((stats.quizScores.mainQuiz / 100) * 30) : 0)
   );
-  const totalTopicPoints = Math.min(100, Math.max(0, visualizationPoints + gamePoints + quizPoints));
+  const totalTopicPoints = Math.min(100, visualizationPoints + gamePoints + quizPoints);
   const totalTopicCompletionPercentage = overallCompletionPercentage;
 
   const completeVideo = (videoId: string) => {

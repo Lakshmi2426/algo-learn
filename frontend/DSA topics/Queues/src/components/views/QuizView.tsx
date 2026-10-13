@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   HelpCircle,
@@ -39,6 +39,10 @@ interface QuestionAnswerState {
   isCorrect: boolean;
 }
 
+const QUIZ_STORAGE_ANSWERS_KEY = 'queue_quiz_answers_v1';
+const QUIZ_STORAGE_SUBMITTED_KEY = 'queue_quiz_submitted_v1';
+const QUIZ_STORAGE_STARTED_KEY = 'queue_quiz_started_v1';
+const QUIZ_STORAGE_CURRENT_INDEX_KEY = 'queue_quiz_current_index_v1';
 const QUEUE_QUIZ_SESSION_KEY = 'queue_quiz_session_state';
 
 export const QuizView: React.FC<QuizViewProps> = ({
@@ -46,63 +50,133 @@ export const QuizView: React.FC<QuizViewProps> = ({
   onUpdateProgress,
   onNavigateHome,
 }) => {
-  const [currentIdx, setCurrentIdx] = useState<number>(() => {
+  const getInitialSession = () => {
     try {
       const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.currentIdx === 'number' && parsed.currentIdx >= 0 && parsed.currentIdx < QUIZ_QUESTIONS.length) {
-          return parsed.currentIdx;
+        return JSON.parse(saved);
+      }
+    } catch {}
+    if (progress.quizSession) {
+      return progress.quizSession;
+    }
+    return null;
+  };
+
+  const initialSession = getInitialSession();
+
+  const [answers, setAnswers] = useState<Record<number, QuestionAnswerState>>(() => {
+    try {
+      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+    if (initialSession?.answers && typeof initialSession.answers === 'object') {
+      return initialSession.answers;
+    }
+    return {};
+  });
+
+  const [currentIdx, setCurrentIdx] = useState<number>(() => {
+    try {
+      const storedIdx = localStorage.getItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
+      if (storedIdx !== null) {
+        const parsed = parseInt(storedIdx, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed < QUIZ_QUESTIONS.length) {
+          return parsed;
         }
+      }
+      if (
+        initialSession &&
+        typeof initialSession.currentIdx === 'number' &&
+        initialSession.currentIdx >= 0 &&
+        initialSession.currentIdx < QUIZ_QUESTIONS.length
+      ) {
+        return initialSession.currentIdx;
+      }
+      const storedAnswers = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      const ansObj = storedAnswers ? JSON.parse(storedAnswers) : initialSession?.answers;
+      if (ansObj && typeof ansObj === 'object') {
+        const firstUnanswered = QUIZ_QUESTIONS.findIndex((_, idx) => ansObj[idx] === undefined || !ansObj[idx]?.isSubmitted);
+        if (firstUnanswered >= 0) return firstUnanswered;
       }
     } catch {}
     return 0;
   });
 
-  const [answers, setAnswers] = useState<Record<number, QuestionAnswerState>>(() => {
-    try {
-      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.answers && typeof parsed.answers === 'object') {
-          return parsed.answers;
-        }
-      }
-    } catch {}
-    return {};
-  });
-
   const [quizFinished, setQuizFinished] = useState<boolean>(() => {
     if (progress.quizCompleted) return true;
     try {
-      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.quizFinished === 'boolean') {
-          return parsed.quizFinished;
-        }
-      }
+      const storedSub = localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY);
+      if (storedSub !== null) return storedSub === 'true';
     } catch {}
+    if (typeof initialSession?.quizFinished === 'boolean') {
+      return initialSession.quizFinished;
+    }
     return false;
   });
 
   const [reviewQuestionIdx, setReviewQuestionIdx] = useState<number | null>(null);
   const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
-  const [timeRemaining, setTimeRemaining] = useState<number>(QUEUE_SCORING.quiz.timeLimitSeconds);
+  const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+    if (
+      typeof initialSession?.timeRemaining === 'number' &&
+      initialSession.timeRemaining >= 0 &&
+      initialSession.timeRemaining <= QUEUE_SCORING.quiz.timeLimitSeconds
+    ) {
+      return initialSession.timeRemaining;
+    }
+    return QUEUE_SCORING.quiz.timeLimitSeconds;
+  });
+
+  const [selectedSwapIdx, setSelectedSwapIdx] = useState<number | null>(null);
 
   const [quizStarted, setQuizStarted] = useState<boolean>(() => {
     if (progress.quizCompleted) return true;
     try {
-      const saved = localStorage.getItem(QUEUE_QUIZ_SESSION_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.quizStarted === 'boolean') {
-          return parsed.quizStarted;
-        }
-      }
+      const stored = localStorage.getItem(QUIZ_STORAGE_STARTED_KEY);
+      if (stored === 'true') return true;
     } catch {}
+    if (typeof initialSession?.quizStarted === 'boolean') {
+      return initialSession.quizStarted;
+    }
+    if (typeof initialSession?.currentIdx === 'number' && initialSession.currentIdx > 0) return true;
+    if (initialSession?.answers && Object.keys(initialSession.answers).length > 0) return true;
     return false;
   });
+
+  const persistSession = (override?: {
+    currentIdx?: number;
+    answers?: Record<number, QuestionAnswerState>;
+    quizFinished?: boolean;
+    quizStarted?: boolean;
+    timeRemaining?: number;
+  }) => {
+    const data = {
+      currentIdx: override?.currentIdx !== undefined ? override.currentIdx : currentIdx,
+      answers: override?.answers !== undefined ? override.answers : answers,
+      quizFinished: override?.quizFinished !== undefined ? override.quizFinished : quizFinished,
+      quizStarted: override?.quizStarted !== undefined ? override.quizStarted : quizStarted,
+      timeRemaining: override?.timeRemaining !== undefined ? override.timeRemaining : timeRemaining,
+    };
+    try {
+      localStorage.setItem(QUEUE_QUIZ_SESSION_KEY, JSON.stringify(data));
+      localStorage.setItem(QUIZ_STORAGE_CURRENT_INDEX_KEY, data.currentIdx.toString());
+      if (Object.keys(data.answers).length > 0) {
+        localStorage.setItem(QUIZ_STORAGE_ANSWERS_KEY, JSON.stringify(data.answers));
+      }
+      localStorage.setItem(QUIZ_STORAGE_STARTED_KEY, data.quizStarted ? 'true' : 'false');
+      localStorage.setItem(QUIZ_STORAGE_SUBMITTED_KEY, data.quizFinished ? 'true' : 'false');
+    } catch {}
+    try {
+      onUpdateProgress((prev) => ({
+        ...prev,
+        quizSession: data,
+      }));
+    } catch {}
+  };
 
   // Reconstruct answers if quiz completed previously but local answers cache was empty
   useEffect(() => {
@@ -127,20 +201,21 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
   }, [progress.quizCompleted, progress.quizQuestionResults]);
 
-  // Save session state to localStorage
+  // Save session state to localStorage on any state changes & unmount
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        QUEUE_QUIZ_SESSION_KEY,
-        JSON.stringify({
-          answers,
-          currentIdx,
-          quizFinished,
-          quizStarted,
-        })
-      );
-    } catch {}
-  }, [answers, currentIdx, quizFinished, quizStarted]);
+    persistSession();
+  }, [answers, currentIdx, quizFinished, quizStarted, timeRemaining]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      persistSession();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      persistSession();
+    };
+  }, [answers, currentIdx, quizFinished, quizStarted, timeRemaining]);
 
   const currentQ: QuizQuestion = QUIZ_QUESTIONS[currentIdx];
   const currentAnswerState = answers[currentIdx] || {
@@ -165,15 +240,22 @@ export const QuizView: React.FC<QuizViewProps> = ({
       if (prev.quizQuestionResults?.[currentQ.id]) return prev;
       return {
         ...prev,
-        quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'timeout' },
+        quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'incorrect' },
         quizTotalQuestionsAnswered: (prev.quizTotalQuestionsAnswered || 0) + 1,
       };
     });
   };
 
+  const lastIdxRef = useRef<number>(currentIdx);
+
   useEffect(() => {
-    setTimeRemaining(QUEUE_SCORING.quiz.timeLimitSeconds);
-    if (currentAnswerState.isSubmitted) return;
+    if (lastIdxRef.current !== currentIdx) {
+      lastIdxRef.current = currentIdx;
+      setTimeRemaining(QUEUE_SCORING.quiz.timeLimitSeconds);
+      setSelectedSwapIdx(null);
+    }
+
+    if (!quizStarted || currentAnswerState.isSubmitted) return;
     const timer = window.setInterval(() => {
       setTimeRemaining((remaining) => {
         if (remaining <= 1) {
@@ -191,13 +273,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
   useEffect(() => {
     if (!answers[currentIdx]) {
       if (currentQ.type === 'drag-order' && Array.isArray(currentQ.options)) {
-        // Scramble options
-        const shuffled = [...currentQ.options].sort(() => Math.random() - 0.5);
+        // Scramble options initially so student can arrange them
+        const initialOrder = [
+          currentQ.options[2] || currentQ.options[0],
+          currentQ.options[0] || currentQ.options[1],
+          currentQ.options[3] || currentQ.options[2],
+          currentQ.options[1] || currentQ.options[3],
+        ];
         setAnswers((prev) => ({
           ...prev,
           [currentIdx]: {
             selectedOption: null,
-            draggedOrder: shuffled,
+            draggedOrder: initialOrder,
             isSubmitted: false,
             isCorrect: false,
           },
@@ -213,8 +300,26 @@ export const QuizView: React.FC<QuizViewProps> = ({
           },
         }));
       }
+    } else if (
+      currentQ.type === 'drag-order' &&
+      Array.isArray(currentQ.options) &&
+      (!answers[currentIdx].draggedOrder || answers[currentIdx].draggedOrder.length === 0)
+    ) {
+      const initialOrder = [
+        currentQ.options[2] || currentQ.options[0],
+        currentQ.options[0] || currentQ.options[1],
+        currentQ.options[3] || currentQ.options[2],
+        currentQ.options[1] || currentQ.options[3],
+      ];
+      setAnswers((prev) => ({
+        ...prev,
+        [currentIdx]: {
+          ...(prev[currentIdx] || { selectedOption: null, isSubmitted: false, isCorrect: false }),
+          draggedOrder: initialOrder,
+        },
+      }));
     }
-  }, [currentIdx, currentQ]);
+  }, [currentIdx, currentQ, answers]);
 
   const handleSelectOption = (opt: string) => {
     if (!quizStarted || currentAnswerState.isSubmitted) return;
@@ -234,10 +339,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   const handleDragReorder = (sourceIdx: number, targetIdx: number) => {
     if (!quizStarted || currentAnswerState.isSubmitted) return;
+    if (sourceIdx === targetIdx || sourceIdx < 0 || targetIdx < 0) return;
+    soundEffects.playClick();
     const currentList =
-      currentAnswerState.draggedOrder.length > 0
+      currentAnswerState.draggedOrder && currentAnswerState.draggedOrder.length > 0
         ? [...currentAnswerState.draggedOrder]
         : [...(currentQ.options || [])];
+    if (sourceIdx >= currentList.length || targetIdx >= currentList.length) return;
     const [moved] = currentList.splice(sourceIdx, 1);
     currentList.splice(targetIdx, 0, moved);
 
@@ -259,12 +367,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
     soundEffects.playClick();
 
     let isCorrect = false;
+    let finalOrder: string[] = [];
     if (currentQ.type === 'drag-order') {
       const correctArr = currentQ.correctAnswer as string[];
-      const order = currentAnswerState.draggedOrder;
+      finalOrder =
+        currentAnswerState.draggedOrder && currentAnswerState.draggedOrder.length > 0
+          ? currentAnswerState.draggedOrder
+          : (currentQ.options || []);
       isCorrect =
-        order.length === correctArr.length &&
-        order.every((val, idx) => val === correctArr[idx]);
+        finalOrder.length === correctArr.length &&
+        finalOrder.every((val, idx) => val === correctArr[idx]);
     } else {
       isCorrect = currentAnswerState.selectedOption === currentQ.correctAnswer;
     }
@@ -292,8 +404,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
       [currentIdx]: {
         ...(prev[currentIdx] || {
           selectedOption: null,
-          draggedOrder: [],
         }),
+        draggedOrder: currentQ.type === 'drag-order' ? finalOrder : (prev[currentIdx]?.draggedOrder || []),
         isSubmitted: true,
         isCorrect,
       },
@@ -346,7 +458,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     onUpdateProgress((prev) => ({
       ...prev,
       quizCompleted: true,
-      quizHighScore: Math.max(prev.quizHighScore, totalScorePercent),
+      quizHighScore: Math.max(prev.quizHighScore || 0, totalScorePercent),
     }));
   };
 
@@ -356,11 +468,21 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setAnswers({});
     setQuizFinished(false);
     setQuizStarted(false);
+    setTimeRemaining(QUEUE_SCORING.quiz.timeLimitSeconds);
+    setSelectedSwapIdx(null);
     setReviewQuestionIdx(null);
     setExpandedQuestions({});
     try {
       localStorage.removeItem(QUEUE_QUIZ_SESSION_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_STARTED_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
     } catch {}
+    onUpdateProgress((prev) => ({
+      ...prev,
+      quizSession: undefined,
+    }));
   };
 
   const allAreExpanded = QUIZ_QUESTIONS.every(
@@ -590,47 +712,124 @@ export const QuizView: React.FC<QuizViewProps> = ({
           )}
 
           {/* Drag and Drop Chronological Order */}
+          {/* Drag and Drop Chronological Order */}
           {currentQ.type === 'drag-order' && (
             <div className="space-y-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Drag cards to rearrange them into the correct chronological sequence:
-              </p>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Arrange print jobs in chronological FIFO order (earliest arrival to latest arrival):
+                </p>
+                {!currentAnswerState.isSubmitted && (
+                  <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                    Click card to select &amp; swap, use arrows, or drag cards
+                  </span>
+                )}
+              </div>
 
               <div className="space-y-2">
-                {(currentAnswerState.draggedOrder.length > 0
+                {(currentAnswerState.draggedOrder && currentAnswerState.draggedOrder.length > 0
                   ? currentAnswerState.draggedOrder
                   : currentQ.options || []
-                ).map((item, idx) => (
-                  <div
-                    key={item}
-                    draggable={quizStarted && !currentAnswerState.isSubmitted}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', String(idx));
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const sourceIdx = Number(
-                        e.dataTransfer.getData('text/plain')
-                      );
-                      handleDragReorder(sourceIdx, idx);
-                    }}
-                    className={`p-3.5 rounded-xl border-2 text-xs font-semibold flex items-center justify-between ${
-                      currentAnswerState.isSubmitted
-                        ? currentAnswerState.isCorrect
-                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-grab active:cursor-grabbing'
-                    }`}
-                  >
-                    <span>
-                      {idx + 1}. {item}
-                    </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-                      {currentAnswerState.isSubmitted
-                        ? 'Submitted'
-                        : 'Drag to reorder'}
-                    </span>
-                  </div>
-                ))}
+                ).map((item, idx) => {
+                  const listLen = (currentAnswerState.draggedOrder && currentAnswerState.draggedOrder.length > 0
+                    ? currentAnswerState.draggedOrder
+                    : currentQ.options || []).length;
+                  const isSelectedForSwap = selectedSwapIdx === idx;
+
+                  let cardClass =
+                    'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-blue-300 dark:hover:border-blue-600';
+                  if (currentAnswerState.isSubmitted) {
+                    if (currentAnswerState.isCorrect) {
+                      cardClass =
+                        'border-emerald-500 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-950 dark:text-emerald-100 font-bold ring-2 ring-emerald-200 dark:ring-emerald-900/50';
+                    } else {
+                      cardClass =
+                        'border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-950/70 text-red-950 dark:text-red-100 ring-2 ring-red-200 dark:ring-red-900/50';
+                    }
+                  } else if (isSelectedForSwap) {
+                    cardClass =
+                      'border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-950/70 text-blue-900 dark:text-blue-200 font-bold ring-2 ring-blue-300 dark:ring-blue-800 shadow-sm';
+                  }
+
+                  return (
+                    <div
+                      key={item}
+                      draggable={quizStarted && !currentAnswerState.isSubmitted}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', String(idx));
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceIdx = Number(
+                          e.dataTransfer.getData('text/plain')
+                        );
+                        handleDragReorder(sourceIdx, idx);
+                      }}
+                      onClick={() => {
+                        if (!quizStarted || currentAnswerState.isSubmitted) return;
+                        if (selectedSwapIdx === null) {
+                          setSelectedSwapIdx(idx);
+                        } else if (selectedSwapIdx === idx) {
+                          setSelectedSwapIdx(null);
+                        } else {
+                          handleDragReorder(selectedSwapIdx, idx);
+                          setSelectedSwapIdx(null);
+                        }
+                      }}
+                      className={`p-3.5 rounded-xl border-2 text-xs font-semibold flex items-center justify-between gap-3 transition-all select-none cursor-pointer ${cardClass}`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700/80 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-600">
+                          {idx + 1}
+                        </span>
+                        <span className="truncate">{item}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!currentAnswerState.isSubmitted && quizStarted && (
+                          <div className="flex items-center gap-1 mr-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (idx > 0) handleDragReorder(idx, idx - 1);
+                              }}
+                              disabled={idx === 0}
+                              className="p-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900 text-slate-600 dark:text-slate-300 disabled:opacity-30 cursor-pointer transition-colors"
+                              title="Move Up"
+                              aria-label="Move Up"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (idx < listLen - 1) handleDragReorder(idx, idx + 1);
+                              }}
+                              disabled={idx === listLen - 1}
+                              className="p-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900 text-slate-600 dark:text-slate-300 disabled:opacity-30 cursor-pointer transition-colors"
+                              title="Move Down"
+                              aria-label="Move Down"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                          {currentAnswerState.isSubmitted
+                            ? currentAnswerState.isCorrect
+                              ? 'Correct'
+                              : 'Incorrect'
+                            : isSelectedForSwap
+                            ? 'Selected (click target to swap)'
+                            : 'Click / Drag'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -665,9 +864,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
               {!currentAnswerState.isSubmitted ? (
                 <button
                   onClick={handleSubmitAnswer}
-                  disabled={!quizStarted ||
-                    currentQ.type !== 'drag-order' &&
-                    !currentAnswerState.selectedOption
+                  disabled={
+                    !quizStarted ||
+                    (currentQ.type !== 'drag-order' &&
+                      !currentAnswerState.selectedOption)
                   }
                   className="px-6 py-2.5 bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-500 hover:from-blue-800 hover:via-blue-700 hover:to-indigo-600 disabled:opacity-40 disabled:pointer-events-none text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
                 >
@@ -796,7 +996,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] font-mono text-slate-400 uppercase block">Quiz Points</span>
                   <span className="text-xl font-mono font-black text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
-                    <Sparkles className="w-4 h-4" /> {totalCorrect * QUEUE_SCORING.quiz.pointsPerCorrect + totalIncorrect * QUEUE_SCORING.quiz.pointsPerIncorrect}
+                    <Sparkles className="w-4 h-4" /> {Math.min(QUEUE_SCORING.quiz.total, totalCorrect * QUEUE_SCORING.quiz.pointsPerCorrect + totalIncorrect * QUEUE_SCORING.quiz.pointsPerIncorrect)}
                   </span>
                 </div>
 

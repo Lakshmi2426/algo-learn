@@ -599,22 +599,71 @@ class AppController {
   /* ─── Theme Toggle (Icon Only ☀️ / 🌙) ───────────────────────── */
 
   initTheme() {
-    document.documentElement.setAttribute("data-theme", this.currentTheme);
-    document.body.classList.toggle("dark-theme", this.currentTheme === "dark");
-    this._updateThemeIcon();
+    if (
+      document.documentElement.classList.contains("dark") ||
+      document.body.classList.contains("dark") ||
+      document.documentElement.getAttribute("data-theme") === "dark"
+    ) {
+      this.currentTheme = "dark";
+    } else {
+      this.currentTheme = localStorage.getItem("algolearn_theme") || "light";
+    }
+    this.applyTheme(this.currentTheme);
+
+    window.addEventListener("message", (e) => {
+      if (
+        e.data &&
+        e.data.type === "ALGOLEARN_THEME_CHANGE" &&
+        (e.data.theme === "dark" || e.data.theme === "light")
+      ) {
+        this.applyTheme(e.data.theme);
+      }
+    });
   }
 
-  toggleTheme() {
-    this.currentTheme = this.currentTheme === "dark" ? "light" : "dark";
-    localStorage.setItem("algolearn_theme", this.currentTheme);
-    document.documentElement.setAttribute("data-theme", this.currentTheme);
-    document.body.classList.toggle("dark-theme", this.currentTheme === "dark");
+  applyTheme(theme) {
+    this.currentTheme = theme;
+    const isDark = theme === "dark";
+    const root = document.documentElement;
+    const body = document.body;
+
+    root.setAttribute("data-theme", theme);
+    root.style.colorScheme = theme;
+    if (isDark) {
+      root.classList.add("dark", "dark-theme");
+      body.classList.add("dark", "dark-theme");
+      body.setAttribute("data-theme", "dark");
+    } else {
+      root.classList.remove("dark", "dark-theme");
+      body.classList.remove("dark", "dark-theme");
+      body.setAttribute("data-theme", "light");
+    }
     this._updateThemeIcon();
-    
-    // Re-render Graph Canvas and Spanning Tree with theme-specific lighting & gradients
+
     if (window.game) {
       window.game.render();
       window.game.renderSpanningTree();
+    }
+  }
+
+  toggleTheme() {
+    const isCurrentlyDark =
+      document.documentElement.classList.contains("dark") ||
+      document.body.classList.contains("dark") ||
+      document.body.classList.contains("dark-theme") ||
+      this.currentTheme === "dark";
+    const nextTheme = isCurrentlyDark ? "light" : "dark";
+    this.currentTheme = nextTheme;
+    localStorage.setItem("algolearn_theme", nextTheme);
+    this.applyTheme(nextTheme);
+
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage(
+          { type: "ALGOLEARN_MODULE_THEME_CHANGED", theme: nextTheme },
+          "*"
+        );
+      } catch (e) {}
     }
 
     this.playSound("pop");
@@ -2495,7 +2544,7 @@ class AppController {
     const penaltyPerIncorrect = (BFS_SCORING.quiz && BFS_SCORING.quiz.penaltyPerIncorrectAnswer) || 1;
     const quizPositiveMarks = Math.min(quizMax, quizCorrect * marksPerCorrect);
     const quizPenalties = quizIncorrect * penaltyPerIncorrect;
-    const quizRawScore = Math.max(0, Math.min(quizMax, quizPositiveMarks - quizPenalties));
+    const quizRawScore = Math.min(quizMax, quizPositiveMarks - quizPenalties);
 
     // 4. CENTRAL OVERALL CALCULATION: Total dynamically derived from remaining modules (16 + 64 + 20 = 100)
     const maxAvailable = visualMax + gameMax + quizMax;

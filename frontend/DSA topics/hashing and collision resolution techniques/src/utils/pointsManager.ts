@@ -251,16 +251,16 @@ class PointsManager {
       const storageKey = userManager.getPointsKey(this.currentUserId);
       const dataToSave = {
         ...this.data,
-        totalPoints: Math.max(0, currentPts.totalPoints),
+        totalPoints: currentPts.totalPoints,
         visualizePoints: currentPts.visualizePoints,
         gamePoints: currentPts.gamePoints,
         quizPoints: currentPts.quizPoints,
       };
       localStorage.setItem(storageKey, JSON.stringify(dataToSave));
       localStorage.setItem('hash_quest_points_system_v2', JSON.stringify({
-        totalPoints: Math.max(0, currentPts.totalPoints),
+        totalPoints: currentPts.totalPoints,
       }));
-      localStorage.setItem('algolearn_topic_progress_hashing', String(Math.max(0, currentPts.totalPoints)));
+      localStorage.setItem('algolearn_topic_progress_hashing', String(currentPts.totalPoints));
     } catch {
       // Ignore storage errors
     }

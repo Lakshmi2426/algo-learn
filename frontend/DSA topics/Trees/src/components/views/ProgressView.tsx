@@ -76,7 +76,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
         } catch {}
         return 0;
       })());
-  const totalScoreEarned = Math.min(100, Math.max(0, totalVizPointsEarned + totalQuizPointsEarned));
+  const totalScoreEarned = Math.min(100, totalVizPointsEarned + totalQuizPointsEarned);
 
   const vizPercent = isVideoCompleted ? 100 : 0;
 

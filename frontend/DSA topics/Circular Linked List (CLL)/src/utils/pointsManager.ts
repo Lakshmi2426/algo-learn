@@ -172,6 +172,7 @@ class PointsManager {
     if (typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      localStorage.setItem('algolearn_topic_progress_cll', String(this.state.totalPoints));
     } catch {
       // Ignore storage quota errors
     }

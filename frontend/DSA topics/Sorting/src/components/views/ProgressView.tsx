@@ -10,10 +10,10 @@ import { SortGameId, UserProgress } from '../../types';
 import { normalizePointsLedger } from '../../services/storage';
 
 const FIVE_GAME_CARD_IDS: { id: SortGameId; totalLevels: number }[] = [
-  { id: 'bubble-sort', totalLevels: 5 },
-  { id: 'selection-sort', totalLevels: 5 },
-  { id: 'insertion-sort', totalLevels: 5 },
-  { id: 'sorting-battle', totalLevels: 5 },
+  { id: 'bubble-sort', totalLevels: 2 },
+  { id: 'selection-sort', totalLevels: 2 },
+  { id: 'insertion-sort', totalLevels: 2 },
+  { id: 'sorting-battle', totalLevels: 2 },
   { id: 'fix-algorithm', totalLevels: 5 },
 ];
 
@@ -104,11 +104,11 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
   // Quiz: 10 questions × 4 points = 40 max, minus Wrong Answer (-1) deductions
   const quizBasePoints = Math.min(40, ledger.quizPoints);
   const quizDeductions = ledger.wrongQuizDeductions;
-  const quizScore = Math.min(40, Math.max(0, quizBasePoints - quizDeductions));
-  const quizScorePct = Math.min(100, Math.round((quizScore / 40) * 100));
+  const quizScore = Math.min(40, quizBasePoints - quizDeductions);
+  const quizScorePct = Math.min(100, Math.round((Math.max(0, quizScore) / 40) * 100));
 
   // Total Points dynamically calculated by adding Visualize, Game, and Quiz scores
-  const totalPoints = Math.min(100, Math.max(0, visualizeScore + gameScore + quizScore));
+  const totalPoints = Math.min(100, visualizeScore + gameScore + quizScore);
 
   return (
     <div className="space-y-6 pb-12 max-w-5xl mx-auto">

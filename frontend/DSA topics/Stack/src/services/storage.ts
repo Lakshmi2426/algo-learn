@@ -246,11 +246,11 @@ export const getTopicPointsBreakdown = (progress: UserProgress): TopicPointsBrea
     quizSum += sc;
     if (sc === 4) quizCorrectCount++;
   });
-  const quizPoints = Math.min(40, Math.max(0, quizSum));
+  const quizPoints = Math.min(40, quizSum);
   const quizQuestionsAnsweredCount = Math.min(10, Object.keys(quizScores).length);
 
   // Total Topic Points: must equal 100 max
-  const totalTopicPoints = Math.min(100, Math.max(0, visualizationPoints + gamePoints + quizPoints));
+  const totalTopicPoints = Math.min(100, visualizationPoints + gamePoints + quizPoints);
 
   // Overall modules completed out of 27:
   // 12 Theory + 2 Videos + 2 Games + 10 Quiz Questions + 1 Final Mastered status = 27 modules

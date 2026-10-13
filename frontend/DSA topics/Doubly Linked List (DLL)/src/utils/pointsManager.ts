@@ -334,9 +334,9 @@ class PointsManager {
     const theoryPoints = 0;
     const videoPoints = Math.min(16, videoCompleted.length * 8);
     const gamePoints = Math.min(54, gameCompleted.length * 6);
-    const quizPoints = Math.max(0, Math.min(30, quizCorrect * 3 - quizWrong * 1));
+    const quizPoints = Math.min(30, quizCorrect * 3 - quizWrong * 1);
     const penaltyPoints = 0;
-    const totalPoints = Math.min(100, Math.max(0, theoryPoints + videoPoints + gamePoints + quizPoints + penaltyPoints));
+    const totalPoints = Math.min(100, theoryPoints + videoPoints + gamePoints + quizPoints + penaltyPoints);
 
     return {
       theoryPoints,

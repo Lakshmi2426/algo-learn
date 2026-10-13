@@ -173,7 +173,7 @@ class PointsManager {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(POINTS_STORAGE_KEY, JSON.stringify(this.state));
-      localStorage.setItem('algolearn_topic_progress_linear-search', String(Math.max(0, this.state.totalPoints)));
+      localStorage.setItem('algolearn_topic_progress_linear-search', String(this.state.totalPoints));
       this.notifyListeners();
     } catch {
       // Ignore write errors

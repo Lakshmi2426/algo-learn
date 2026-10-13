@@ -64,6 +64,13 @@ export interface UserProgress {
   quizTotalQuestionsAnswered: number;
   completedLabs?: number[];
   quizQuestionResults?: Record<number, 'correct' | 'incorrect' | 'timeout'>;
+  quizSession?: {
+    currentIdx: number;
+    answers: Record<number, any>;
+    quizStarted: boolean;
+    quizFinished: boolean;
+    timeRemaining: number;
+  };
   queueDeductions?: number;
   totalPushes: number;
   totalPops: number;

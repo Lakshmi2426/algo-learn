@@ -360,7 +360,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
       totalScoreSum += s;
       if (s === 4) totalCorrectCount++;
     });
-    const finalPoints = Math.min(40, Math.max(0, totalScoreSum));
+    const finalPoints = Math.min(40, totalScoreSum);
     const totalScorePercent = Math.round((totalCorrectCount / QUIZ_QUESTIONS.length) * 100);
 
     setQuizFinished(true);
@@ -431,7 +431,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
   });
 
-  const currentQuizPoints = Math.min(40, Math.max(0, liveQuizSum));
+  const currentQuizPoints = Math.min(40, liveQuizSum);
   const totalAnswered = Object.keys(quizScores).length;
   const finalScorePercent = Math.round((totalCorrect / QUIZ_QUESTIONS.length) * 100);
 
@@ -930,7 +930,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] font-mono text-slate-400 uppercase block">Quiz Points</span>
                   <span className="text-xl font-mono font-black text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
-                    <Sparkles className="w-4 h-4" /> +{currentQuizPoints} PTS
+                    <Sparkles className="w-4 h-4" /> {currentQuizPoints >= 0 ? `+${currentQuizPoints}` : currentQuizPoints} PTS
                   </span>
                 </div>
 

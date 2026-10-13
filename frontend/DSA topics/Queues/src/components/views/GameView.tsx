@@ -251,20 +251,23 @@ export const GameView: React.FC<GameViewProps> = ({
     }
 
     const rewardPoints = getGameLevelPoints(currentLevel.id);
+    const isAlreadyCompleted = progress.completedGameLevels.includes(currentLevel.id);
 
-    const { updated } = awardXP(
-      progress,
-      rewardPoints,
-      `game_level_${currentLevel.id}_completed`,
-      `Completed Level ${currentLevel.levelNumber || currentLevel.id}`,
-      currentLevel.title
-    );
+    if (!isAlreadyCompleted) {
+      const { updated } = awardXP(
+        progress,
+        rewardPoints,
+        `game_level_${currentLevel.id}_completed`,
+        `Completed Level ${currentLevel.levelNumber || currentLevel.id}`,
+        currentLevel.title
+      );
 
-    const completed = Array.from(new Set([...updated.completedGameLevels, currentLevel.id]));
-    onUpdateProgress({
-      ...updated,
-      completedGameLevels: completed,
-    });
+      const completed = Array.from(new Set([...updated.completedGameLevels, currentLevel.id]));
+      onUpdateProgress({
+        ...updated,
+        completedGameLevels: completed,
+      });
+    }
 
     setLevelCompletedModalOpen(true);
   };
@@ -790,12 +793,14 @@ export const GameView: React.FC<GameViewProps> = ({
       (targetLevelConfig.challenges && targetLevelConfig.challenges[targetChallengeIndex]) ||
       targetLevelConfig.challenges?.[0];
 
-    if (targetChallenge) {
+    const isLevelAlreadyCompleted = progress.completedGameLevels.includes(targetLvl);
+    if (targetChallenge && !isLevelAlreadyCompleted) {
       const configuredDeduction = Math.abs(QUEUE_SCORING.game.guidedSolveDeduction);
       const eventKey = `guided_solve_${targetLvl}_${targetChallenge.id}`;
       let isNewlyApplied = false;
 
       onUpdateProgress((prev) => {
+        if (prev.completedGameLevels.includes(targetLvl)) return prev;
         const { updated, applied } = applyQueueDeduction(
           prev,
           configuredDeduction,
@@ -1031,7 +1036,7 @@ export const GameView: React.FC<GameViewProps> = ({
         progress={progress}
         mistakes={mistakes}
         maxMistakes={3}
-        isLabActive={viewMode === 'lab'}
+        isLabActive={false}
         onOpenLab={() => {
           soundEffects.playClick();
           setViewMode('lab');
@@ -1054,7 +1059,13 @@ export const GameView: React.FC<GameViewProps> = ({
           onOpenGuidedSolve={() => handleOpenGuidedSolve(activeLevelId)}
           onUseHint={() => {
             if (currentChallenge) {
+              if (progress.completedGameLevels.includes(activeLevelId)) {
+                return;
+              }
               onUpdateProgress((prev) => {
+                if (prev.completedGameLevels.includes(activeLevelId)) {
+                  return prev;
+                }
                 const { updated } = applyQueueDeduction(
                   prev,
                   QUEUE_SCORING.game.hintDeduction,

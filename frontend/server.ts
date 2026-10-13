@@ -656,8 +656,8 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
     res.status(404).send("Module asset not found");
   });
 
-  // Global fallback route for video files requested at /videos/*
-  app.get("/videos/*", (req, res, next) => {
+  // Global fallback route for video files requested at /videos/* or /Videos/*
+  app.get(["/videos/*", "/Videos/*"], (req, res, next) => {
     const rawSubpath = req.params[0] || "";
     const subpath = decodeURIComponent(rawSubpath);
 
@@ -667,16 +667,26 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       return res.sendFile(p);
     }
 
-    // 2. Check across all DSA topic folders (public/videos and videos)
-    for (const folder of Object.values(MODULE_FOLDER_MAP)) {
-      p = path.join(projectRoot, "DSA topics", folder, "public", "videos", subpath);
-      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-        return res.sendFile(p);
-      }
+    // 2. Check public/dsa-modules/dsa-types/Videos/
+    p = path.join(projectRoot, "public", "dsa-modules", "dsa-types", "Videos", subpath);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      return res.sendFile(p);
+    }
 
-      p = path.join(projectRoot, "DSA topics", folder, "videos", subpath);
-      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-        return res.sendFile(p);
+    // 3. Check across all DSA topic folders (public/videos, videos, Videos, src/Videos)
+    for (const folder of Object.values(MODULE_FOLDER_MAP)) {
+      const candidates = [
+        path.join(projectRoot, "DSA topics", folder, "public", "videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "public", "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "src", "Videos", subpath),
+        path.join(projectRoot, "DSA topics", folder, "src", "videos", subpath),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return res.sendFile(candidate);
+        }
       }
     }
 

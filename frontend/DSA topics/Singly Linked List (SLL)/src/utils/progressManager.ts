@@ -491,7 +491,7 @@ class ProgressManager {
   // =========================================================================
 
   public getTotalPoints(): number {
-    return Math.min(100, Math.max(0, this.state.totalPoints));
+    return Math.min(100, this.state.totalPoints);
   }
 
   public getCategoryScore(category: SLLActivityCategory): number {
@@ -503,7 +503,7 @@ class ProgressManager {
       case 'game':
         return Math.min(CATEGORY_MAX.game, Math.max(0, this.state.gameScore));
       case 'quiz':
-        return Math.min(CATEGORY_MAX.quiz, Math.max(0, this.state.quizScore));
+        return Math.min(CATEGORY_MAX.quiz, this.state.quizScore);
       default:
         return 0;
     }
@@ -559,7 +559,7 @@ class ProgressManager {
       Object.values(this.state.quizQuestions).forEach((qRec) => {
         qPointsSum += qRec.points;
       });
-      quiz = Math.min(CATEGORY_MAX.quiz, Math.max(0, qPointsSum));
+      quiz = Math.min(CATEGORY_MAX.quiz, qPointsSum);
     }
 
     // Live ongoing penalties (Guided Solve and Hint) on active (uncompleted) tasks
@@ -576,10 +576,10 @@ class ProgressManager {
     this.state.learnScore = 0; // Strictly zero points for Learn/Theory
     this.state.visualizeScore = Math.min(CATEGORY_MAX.visualize, Math.max(0, visualize));
     this.state.gameScore = Math.min(CATEGORY_MAX.game, Math.max(0, game - ongoingGamePenalties));
-    this.state.quizScore = Math.min(CATEGORY_MAX.quiz, Math.max(0, quiz));
+    this.state.quizScore = Math.min(CATEGORY_MAX.quiz, quiz);
     this.state.totalPoints = Math.min(
       100,
-      Math.max(0, this.state.visualizeScore + this.state.gameScore + this.state.quizScore)
+      this.state.visualizeScore + this.state.gameScore + this.state.quizScore
     );
     this.state.totalScore = this.state.totalPoints;
   }
@@ -1049,7 +1049,7 @@ class ProgressManager {
       Object.values(this.state.quizQuestions).forEach((q) => {
         sum += q.points;
       });
-      calculatedPoints = Math.min(30, Math.max(0, sum));
+      calculatedPoints = Math.min(30, sum);
     } else {
       // Fallback calculation
       calculatedPoints = Math.min(30, Math.max(0, correctCount * 3));

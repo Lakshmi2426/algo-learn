@@ -4,7 +4,6 @@ import {
   Wrench,
   Check,
   AlertTriangle,
-  Clock,
   Trophy,
   HelpCircle,
   ArrowRight,
@@ -675,13 +674,6 @@ export const FixAlgorithmGame: React.FC<FixAlgorithmGameProps> = ({
               <Lightbulb className="w-3.5 h-3.5" />
               <span>{isGuidedMode ? 'OFF' : 'Guided Solve'}</span>
             </button>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <span>{elapsedSeconds}s</span>
-            </div>
           </div>
         </div>
       </div>

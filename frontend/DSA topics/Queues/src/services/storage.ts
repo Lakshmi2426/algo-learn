@@ -1,4 +1,5 @@
 import { UserProgress, Achievement } from '../types';
+import { syncQueueScore, getQueueScoreBreakdown } from './queueScoring';
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   {
@@ -171,7 +172,7 @@ export const loadProgress = (): UserProgress => {
 
     // Ensure fields exist
     data.xp = Math.max(0, typeof data.xp === 'number' && !isNaN(data.xp) ? data.xp : 0);
-    data.queueScore = Math.max(0, typeof data.queueScore === 'number' && !isNaN(data.queueScore) ? data.queueScore : 0);
+    data.queueScore = typeof data.queueScore === 'number' && !isNaN(data.queueScore) ? data.queueScore : 0;
     data.level = Math.floor(data.xp / 250) + 1;
     data.completedGameLevels = Array.isArray(data.completedGameLevels)
       ? data.completedGameLevels.filter((lvl) => typeof lvl === 'number' && lvl >= 1 && lvl <= 3)
@@ -186,7 +187,7 @@ export const loadProgress = (): UserProgress => {
       ? data.quizQuestionResults
       : {};
 
-    return data;
+    return syncQueueScore(data);
   } catch (e) {
     console.error('Failed to load user progress:', e);
     return getInitialProgress();
@@ -204,6 +205,50 @@ export const saveProgress = (progress: UserProgress): void => {
       return;
     }
     localStorage.setItem(STORAGE_KEY, serialized);
+
+    // Synchronize score with parent application and leaderboard
+    const score = typeof progress.queueScore === 'number'
+      ? Math.min(100, progress.queueScore)
+      : getQueueScoreBreakdown(progress).overall;
+
+    try {
+      localStorage.setItem('algolearn_topic_progress_queue', String(score));
+      const topicsMapRaw = localStorage.getItem('algolearn_topics_progress');
+      const topicsMap = topicsMapRaw ? JSON.parse(topicsMapRaw) : {};
+      topicsMap['queue'] = score;
+      localStorage.setItem('algolearn_topics_progress', JSON.stringify(topicsMap));
+    } catch {}
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('algolearn_topic_progress_updated', {
+          detail: { moduleId: 'queue', score },
+        })
+      );
+    } catch {}
+
+    try {
+      window.postMessage(
+        {
+          type: 'ALGOLEARN_TOPIC_PROGRESS_UPDATE',
+          moduleId: 'queue',
+          score,
+          progress: score,
+        },
+        '*'
+      );
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: 'ALGOLEARN_TOPIC_PROGRESS_UPDATE',
+            moduleId: 'queue',
+            score,
+            progress: score,
+          },
+          '*'
+        );
+      }
+    } catch {}
   } catch (e) {
     console.error('Failed to save user progress:', e);
   }

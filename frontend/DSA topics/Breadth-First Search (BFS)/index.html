@@ -12,6 +12,83 @@
     content="Interactive Breadth First Search (BFS) Traversal Engine and DSA learning platform with visualizations, games, and quizzes.">
   <link rel="stylesheet" href="css/styles.css?v=20261009-3">
   <link rel="stylesheet" href="css/extra-styles.css?v=20261010-1">
+  <script>
+    (function() {
+      var currentTheme = 'dark';
+      function applyCurrentTheme(th) {
+        try {
+          var isDark = th === 'dark';
+          var root = document.documentElement;
+          if (isDark) {
+            root.classList.add('dark', 'dark-theme');
+            root.setAttribute('data-theme', 'dark');
+            root.style.colorScheme = 'dark';
+            if (document.body) {
+              document.body.classList.add('dark', 'dark-theme');
+              document.body.setAttribute('data-theme', 'dark');
+            }
+          } else {
+            root.classList.remove('dark', 'dark-theme');
+            root.setAttribute('data-theme', 'light');
+            root.style.colorScheme = 'light';
+            if (document.body) {
+              document.body.classList.remove('dark', 'dark-theme');
+              document.body.setAttribute('data-theme', 'light');
+            }
+          }
+          try {
+            localStorage.setItem('algolearn_theme', th);
+          } catch(e) {}
+          if (window.app && typeof window.app.applyTheme === 'function') {
+            window.app.applyTheme(th);
+          }
+        } catch(e) {}
+      }
+
+      var initialTheme = 'dark';
+      try {
+        if (window.parent && window.parent !== window && window.parent.document) {
+          initialTheme = window.parent.document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
+      } catch(e) {}
+      if (!initialTheme) {
+        try {
+          initialTheme = localStorage.getItem('algolearn_theme') || 'dark';
+        } catch(e) {}
+      }
+      applyCurrentTheme(initialTheme);
+      currentTheme = initialTheme;
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          applyCurrentTheme(currentTheme);
+        });
+      }
+
+      try {
+        var observer = new MutationObserver(function() {
+          var isDarkNow = document.documentElement.classList.contains('dark');
+          var newTheme = isDarkNow ? 'dark' : 'light';
+          if (newTheme !== currentTheme) {
+            currentTheme = newTheme;
+            try {
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'ALGOLEARN_MODULE_THEME_CHANGED', theme: newTheme }, '*');
+              }
+            } catch(e) {}
+          }
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      } catch(e) {}
+
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'ALGOLEARN_THEME_CHANGE' && (e.data.theme === 'dark' || e.data.theme === 'light')) {
+          currentTheme = e.data.theme;
+          applyCurrentTheme(e.data.theme);
+        }
+      });
+    })();
+  </script>
 </head>
 
 <body class="sidebar-expanded">

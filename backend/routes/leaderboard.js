@@ -19,11 +19,11 @@ const sumTopicPoints = (progressMap) => {
   let sum = 0;
   for (const [key, val] of Object.entries(progressMap)) {
     if (typeof val === 'number') {
-      sum += Math.max(0, Math.round(val));
+      sum += Math.round(val);
     } else if (val && typeof val.points === 'number') {
-      sum += Math.max(0, Math.round(val.points));
+      sum += Math.round(val.points);
     } else if (val && typeof val.score === 'number') {
-      sum += Math.max(0, Math.round(val.score));
+      sum += Math.round(val.score);
     }
   }
   return sum;
@@ -70,7 +70,7 @@ const formatLeaderboardEntry = (s, idx) => ({
   topicsCompleted: s.topicsCompleted || 0,
   topicsMastered: s.topicsCompleted || 0,
   topicsStarted: s.topicsStarted || (s.xp > 0 ? 1 : 0),
-  overallProgress: s.overallProgress || 0,
+  overallProgress: s.xp || 0,
   badgeTitle: 'Algo Scholar',
   createdAt: s.createdAt,
 });

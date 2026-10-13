@@ -218,9 +218,9 @@ export const loadProgress = (): UserProgress => {
     } else if (data.quizCompleted) {
       computedQuizEarned = Math.round((Math.max(0, data.quizHighScore || 100) / 100) * 30);
     }
-    const quizEarned = Math.min(30, Math.max(0, computedQuizEarned));
+    const quizEarned = Math.min(30, computedQuizEarned);
 
-    const totalEarned = Math.min(100, Math.max(0, visualizeEarned + gameEarned + quizEarned));
+    const totalEarned = Math.min(100, visualizeEarned + gameEarned + quizEarned);
 
     data.topicPoints = {
       visualizeEarned,
@@ -518,10 +518,10 @@ export const awardQuizQuestionPoints = (
 
   quizQuestionScores[questionId] = pointsDelta;
 
-  // Total quiz points calculation (clamped between 0 and 30)
+  // Total quiz points calculation
   const rawQuizSum = Object.values(quizQuestionScores).reduce((a, b) => a + b, 0);
-  const quizEarned = Math.min(30, Math.max(0, rawQuizSum));
-  const totalEarned = Math.min(100, Math.max(0, tp.visualizeEarned + tp.gameEarned + quizEarned));
+  const quizEarned = Math.min(30, rawQuizSum);
+  const totalEarned = Math.min(100, tp.visualizeEarned + tp.gameEarned + quizEarned);
 
   const updated: UserProgress = {
     ...current,

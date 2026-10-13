@@ -94,7 +94,7 @@ export function calculatePoints(progress: UserProgress): PointsBreakdown {
   let quizPoints = 0;
   if (quizAttempted) {
     const rawQuizPoints = quizCorrectCount * quizPointsPerCorrect - quizWrongCount * quizPenaltyPerWrong;
-    quizPoints = Math.max(0, Math.min(quizMaxPoints, rawQuizPoints));
+    quizPoints = Math.min(quizMaxPoints, rawQuizPoints);
   }
 
   // 3. Visualizations: 2 modules × 5 points = 10 points max
@@ -129,10 +129,7 @@ export function calculatePoints(progress: UserProgress): PointsBreakdown {
   // Overall Calculation:
   // Total Points = Theory Points + Quiz Points + Visualization Points + Game Net Points
   const maxPoints = 100;
-  const totalPoints = Math.max(
-    0,
-    Math.min(maxPoints, theoryPoints + quizPoints + visualizationPoints + gameNetPoints)
-  );
+  const totalPoints = Math.min(maxPoints, theoryPoints + quizPoints + visualizationPoints + gameNetPoints);
   const percentage = Math.round((totalPoints / maxPoints) * 100);
 
   // Academic Grade Descriptor

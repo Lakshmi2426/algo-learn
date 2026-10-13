@@ -59,7 +59,7 @@ export function buildAuthoritativeLeaderboard({
       solvedCount,
       topicsCompleted: solvedCount,
       topicsStarted: u.topicsStarted || (xp > 0 ? 1 : 0),
-      overallProgress: u.overallProgress || 0,
+      overallProgress: xp,
       email: u.email || '',
       tier: getTierFromXP(xp),
       countryCode: '',
@@ -76,7 +76,7 @@ export function buildAuthoritativeLeaderboard({
     const xp = existing?.xp !== undefined ? existing.xp : (std.xp || 0);
     const solvedCount = Math.max(std.topicsCompleted || 0, existing?.solvedCount || 0);
     const started = Math.max(std.topicsStarted || 0, existing?.topicsStarted || 0, xp > 0 ? 1 : 0);
-    const overallProgress = Math.max(std.overallProgress || 0, existing?.overallProgress || 0);
+    const overallProgress = xp;
 
     map.set(key, {
       id: std.id,
@@ -104,14 +104,15 @@ export function buildAuthoritativeLeaderboard({
   // 3. Merge active current student with local aggregate progress
   const isStudentUser = isAuthenticated && role === 'student' && currentUser?.name && currentUser.name !== 'Guest Learner' && isRealStudent(currentUser);
   if (isStudentUser && currentUser) {
-    const topicSummary = getAllTopicsProgress();
+    const studentKey = (currentUser.regdNo || currentUser.id || currentUser.email || '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    const topicSummary = getAllTopicsProgress(studentKey || undefined);
     const currKey = getKey(currentUser);
     const existing = map.get(currKey);
 
     const userXp = topicSummary.totalXP;
     const userCompleted = Math.max(topicSummary.topicsMasteredCount, currentUser.topicsMastered || 0, currentUser.problemsSolved || 0, existing?.solvedCount || 0);
     const userStarted = Math.max(topicSummary.topicsStartedCount, existing?.topicsStarted || 0, userXp > 0 ? 1 : 0);
-    const userProgress = Math.max(topicSummary.overallPercentage || 0, existing?.overallProgress || 0);
+    const userProgress = userXp;
 
     map.set(currKey, {
       id: currentUser.id || 'curr-user',
