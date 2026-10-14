@@ -6,8 +6,10 @@ import {
   syncUserProfileWithTopicProgress,
   getTopicScore,
   setTopicScore,
+  setTopicCompletion,
   getAllTopicsProgress,
   restoreStudentModuleKeys,
+  initNewStudentProgress,
   clearActiveModuleKeys,
   snapshotActiveModuleKeys,
   getActiveStudentKey,
@@ -26,13 +28,13 @@ interface UserContextType {
   addXP: (amount: number, reason?: string) => void;
   markTopicProgress: (topicId: string, progress: number) => void;
   solveProblem: (problemName: string, xpReward?: number) => void;
-  login: (regdNo: string, password: string) => Promise<{ success: boolean; message?: string; notFound?: boolean }>;
+  login: (regdNo: string, password: string) => Promise<{ success: boolean; message?: string; notFound?: boolean; isRateLimited?: boolean }>;
   registerStudent: (data: {
     name: string;
     branch: string;
     regdNo: string;
     password?: string;
-  }) => Promise<{ success: boolean; message?: string }>;
+  }) => Promise<{ success: boolean; message?: string; isRateLimited?: boolean }>;
   isRegdNoTaken: (regdNo: string) => boolean;
   loginAsAdmin: (name: string, adminCode: string) => Promise<{ success: boolean; message?: string; role?: string }>;
   logout: (options?: { skipServerCall?: boolean; redirectToSignIn?: boolean }) => Promise<void> | void;
@@ -271,6 +273,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               });
             }
+            if (isCurrent && s.topicCompletions && typeof s.topicCompletions === 'object') {
+              Object.entries(s.topicCompletions).forEach(([topicId, completion]) => {
+                const value = Number(completion);
+                if (Number.isFinite(value)) setTopicCompletion(topicId, value, activeKey!);
+              });
+            }
 
             // Sum actual topic points from s.progress
             let serverTopicSum = 0;
@@ -347,7 +355,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data?.student) {
             const student = data.student;
             const studentKey = student.regdNo.toLowerCase();
-            restoreStudentModuleKeys(studentKey);
+            restoreStudentModuleKeys(studentKey, student.moduleState);
 
             if (student.progress && typeof student.progress === 'object') {
               Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
@@ -358,6 +366,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setTopicScore(tKey, num, studentKey);
                   }
                 }
+              });
+            }
+            if (student.topicCompletions && typeof student.topicCompletions === 'object') {
+              Object.entries(student.topicCompletions).forEach(([topicId, completion]) => {
+                const value = Number(completion);
+                if (Number.isFinite(value)) setTopicCompletion(topicId, value, studentKey);
               });
             }
 
@@ -443,12 +457,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               regdNo: synced.regdNo,
               xp: allProg.totalXP,
               progress: allProg.topicScores,
+              topicCompletions: allProg.topicCompletions,
+              moduleState: snapshotActiveModuleKeys(),
               topicsCompleted: allProg.topicsMasteredCount,
               topicsStarted: allProg.topicsStartedCount,
               overallProgress: allProg.totalXP,
             };
 
             const token = localStorage.getItem('algolearn_token');
+            const syncStudentKey = activeKey;
+            if (!token || !syncStudentKey || getActiveStudentKey() !== syncStudentKey) return;
             const authHeaders: Record<string, string> = {
               'Content-Type': 'application/json',
             };
@@ -510,9 +528,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleWindowMessage = (event: MessageEvent) => {
       if (event.data && typeof event.data === 'object' && event.data.type === 'ALGOLEARN_TOPIC_PROGRESS_UPDATE') {
-        const { moduleId, score } = event.data;
-        if (moduleId && typeof score === 'number') {
-          setTopicScore(moduleId, score);
+        const { moduleId, score, progress } = event.data;
+        if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
+          const s = typeof score === 'number' ? score : progress;
+          setTopicScore(moduleId, s);
+          const comp = typeof progress === 'number' ? Math.max(progress, s) : s;
+          setTopicCompletion(moduleId, comp);
           handleProgressChange();
         }
       }
@@ -672,7 +693,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (
     regdNoInput: string,
     passwordInput: string
-  ): Promise<{ success: boolean; message?: string; notFound?: boolean }> => {
+  ): Promise<{ success: boolean; message?: string; notFound?: boolean; isRateLimited?: boolean }> => {
     const cleanRegdNo = (regdNoInput || '').trim().toUpperCase();
 
     if (!cleanRegdNo) {
@@ -761,16 +782,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('algolearn_role', 'student');
           localStorage.setItem('dsa_user_email', `${student.regdNo.toLowerCase()}@algolearn.edu`);
           localStorage.setItem('current_user', `${student.regdNo.toLowerCase()}@algolearn.edu`);
-          restoreStudentModuleKeys(studentKey);
+          restoreStudentModuleKeys(studentKey, student.moduleState);
         }
 
         // Restore saved progress from database
         if (student.progress && typeof student.progress === 'object') {
           Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
             const num = Number(scoreVal);
-            if (!isNaN(num)) {
-              setTopicScore(tKey, num, studentKey);
+            if (!isNaN(num) && num >= 0) {
+              const currentScore = getTopicScore(tKey, studentKey);
+              const bestScore = Math.max(currentScore, num);
+              setTopicScore(tKey, bestScore, studentKey);
             }
+          });
+        }
+        if (student.topicCompletions && typeof student.topicCompletions === 'object') {
+          Object.entries(student.topicCompletions).forEach(([topicId, completion]) => {
+            const value = Number(completion);
+            if (Number.isFinite(value)) setTopicCompletion(topicId, value, studentKey);
           });
         }
 
@@ -801,11 +830,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const allProg = getAllTopicsProgress(studentKey);
           fetch(apiUrl('/api/leaderboard/sync'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
             body: JSON.stringify({
               studentName: student.name,
               regdNo: student.regdNo,
               xp: allProg.totalXP,
+              progress: allProg.topicScores,
+              topicCompletions: allProg.topicCompletions,
+              moduleState: snapshotActiveModuleKeys(),
+              topicsCompleted: allProg.topicsMasteredCount,
+              topicsStarted: allProg.topicsStartedCount,
             }),
           }).catch(() => { });
         }
@@ -841,7 +875,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     branch: string;
     regdNo: string;
     password?: string;
-  }): Promise<{ success: boolean; message?: string }> => {
+  }): Promise<{ success: boolean; message?: string; isRateLimited?: boolean }> => {
     const cleanName = (data.name || '').trim();
     if (!cleanName) {
       return { success: false, message: 'Name is required.' };
@@ -903,15 +937,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Newly registered student starts with ZERO progress and ZERO earned points
         if (typeof window !== 'undefined') {
-          clearActiveModuleKeys();
-          localStorage.setItem(
-            `algolearn_student_progress_${studentKey}`,
-            JSON.stringify({
-              topicScores: {},
-              moduleKeys: {},
-              xp: 0,
-            })
-          );
+          // Use initNewStudentProgress to properly initialize all student-scoped keys
+          initNewStudentProgress(studentKey);
           localStorage.setItem('algolearn_auth', 'true');
           localStorage.setItem('algolearn_token', resData.token);
           localStorage.setItem('algolearn_role', 'student');
@@ -1090,6 +1117,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let existing: any = {};
         try { if (existingRaw) existing = JSON.parse(existingRaw); } catch { }
         existing.moduleKeys = snap;
+        const allProg = getAllTopicsProgress(currentKey);
+        existing.topicScores = allProg.topicScores;
+        existing.topicCompletions = allProg.topicCompletions;
+        existing.xp = allProg.totalXP;
         localStorage.setItem(`algolearn_student_progress_${currentKey}`, JSON.stringify(existing));
       }
 

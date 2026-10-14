@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
+const jwt = require('jsonwebtoken');
 
 /**
  * Helper to compute division tier from XP
@@ -113,46 +114,47 @@ router.get('/', async (_req, res) => {
  */
 router.post('/sync', async (req, res) => {
   try {
-    const { regdNo, studentName, xp, topicsCompleted, topicsStarted, overallProgress, progress } = req.body;
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Authentication is required to sync progress.' });
 
-    if (regdNo) {
-      const cleanRegdNo = regdNo.trim().toUpperCase();
-      const student = await Student.findOne({ regdNo: cleanRegdNo });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
+    } catch {
+      return res.status(401).json({ error: 'Session expired or invalid token.' });
+    }
+    const student = decoded.role === 'admin' ? null : await Student.findById(decoded.id);
+    if (decoded.role !== 'admin' && !student) return res.status(401).json({ error: 'Student account not found.' });
+    if (student && (!decoded.sessionId || decoded.sessionId !== student.activeSessionId)) {
+      return res.status(401).json({ error: 'This session is no longer active.', sessionRevoked: true });
+    }
 
-      if (student) {
-        if (progress && typeof progress === 'object') {
-          student.progress = { ...(student.progress || {}), ...progress };
-        }
+    const { topicsCompleted, topicsStarted, progress, topicCompletions, moduleState } = req.body;
 
-        const calculatedSum = sumTopicPoints(student.progress);
-        student.xp = calculatedSum;
+    if (student) {
 
-        if (topicsCompleted !== undefined && typeof topicsCompleted === 'number') {
-          student.topicsCompleted = Math.max(student.topicsCompleted || 0, topicsCompleted);
-        }
-        if (topicsStarted !== undefined && typeof topicsStarted === 'number') {
-          student.topicsStarted = Math.max(student.topicsStarted || 0, topicsStarted);
-        }
-        if (overallProgress !== undefined && typeof overallProgress === 'number') {
-          student.overallProgress = Math.max(student.overallProgress || 0, overallProgress);
-        }
-
-        await student.save();
+      if (progress && typeof progress === 'object') {
+        student.progress = { ...(student.progress || {}), ...progress };
       }
-    } else if (studentName && studentName !== 'Guest Learner' && studentName !== 'Student') {
-      const student = await Student.findOne({ name: studentName.trim() });
-      if (student) {
-        if (progress && typeof progress === 'object') {
-          student.progress = { ...(student.progress || {}), ...progress };
-          student.xp = sumTopicPoints(student.progress);
-        } else if (xp !== undefined && typeof xp === 'number') {
-          student.xp = xp;
-        }
-        if (topicsCompleted !== undefined && typeof topicsCompleted === 'number') {
-          student.topicsCompleted = Math.max(student.topicsCompleted || 0, topicsCompleted);
-        }
-        await student.save();
+      if (topicCompletions && typeof topicCompletions === 'object') {
+        student.topicCompletions = { ...(student.topicCompletions || {}), ...topicCompletions };
       }
+      if (moduleState && typeof moduleState === 'object') {
+        student.moduleState = { ...(student.moduleState || {}), ...moduleState };
+      }
+
+      const calculatedSum = sumTopicPoints(student.progress);
+      student.xp = calculatedSum;
+
+      if (topicsCompleted !== undefined && typeof topicsCompleted === 'number') {
+        student.topicsCompleted = Math.max(student.topicsCompleted || 0, topicsCompleted);
+      }
+      if (topicsStarted !== undefined && typeof topicsStarted === 'number') {
+        student.topicsStarted = Math.max(student.topicsStarted || 0, topicsStarted);
+      }
+
+      await student.save();
     }
 
     // Re-fetch sorted leaderboard excluding admins

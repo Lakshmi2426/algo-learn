@@ -43,6 +43,14 @@ const verifyAuth = async (req, res, next) => {
       });
     }
 
+    if (!decoded.sessionId || decoded.sessionId !== student.activeSessionId) {
+      return res.status(401).json({
+        error: 'This session is no longer active. Please log in again.',
+        sessionRevoked: true,
+        authenticated: false,
+      });
+    }
+
     // Update sessionLastActive timestamp
     Student.updateOne(
       { _id: student._id },

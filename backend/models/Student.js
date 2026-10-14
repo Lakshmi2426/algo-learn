@@ -54,6 +54,14 @@ const StudentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    topicCompletions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    moduleState: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     activeSessionId: {
       type: String,
       default: null,

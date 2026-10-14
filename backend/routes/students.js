@@ -25,6 +25,7 @@ router.get('/', async (_req, res) => {
         topicsCompleted: s.topicsCompleted || 0,
         overallProgress: totalPoints,
         progress: s.progress || {},
+        topicCompletions: s.topicCompletions || {},
         streak: 1,
         lastActive: 'Active recently',
         currentStage: totalPoints > 400 ? 'Phase 2: Data Structures' : 'Phase 1: Foundations',
@@ -76,30 +77,40 @@ function sumTopicPoints(progressMap) {
 const handleProgressUpdate = async (req, res) => {
   try {
     const cleanRegdNo = req.params.regdNo.trim().toUpperCase();
-    const { xp, progress, topicsStarted, topicsCompleted, overallProgress } = req.body;
+    const { progress, topicCompletions, moduleState, topicsStarted, topicsCompleted } = req.body;
 
     const student = await Student.findOne({ regdNo: cleanRegdNo });
     if (!student) {
       return res.status(404).json({ error: 'Student not found.' });
     }
 
-    // Verify session and identity if authorization header is provided
+    // Progress is private account data: require an authenticated owner for every write.
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
-        const tokenRegd = decoded.regdNo ? String(decoded.regdNo).trim().toUpperCase() : null;
-        if (decoded.role !== 'admin' && tokenRegd && tokenRegd !== cleanRegdNo && decoded.id !== student._id.toString()) {
-          return res.status(403).json({ error: 'Access denied: Cannot update progress for another student.' });
-        }
-      } catch (err) {
-        return res.status(401).json({ error: 'Session expired or invalid token.' });
-      }
+    let token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token && req.cookies) token = req.cookies.algolearn_session || null;
+    if (!token) return res.status(401).json({ error: 'Authentication is required to save progress.' });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
+    } catch {
+      return res.status(401).json({ error: 'Session expired or invalid token.' });
+    }
+    if (decoded.role !== 'admin' && String(decoded.id) !== student._id.toString()) {
+      return res.status(403).json({ error: 'Access denied: Cannot update progress for another student.' });
+    }
+    if (decoded.role !== 'admin' && (!decoded.sessionId || decoded.sessionId !== student.activeSessionId)) {
+      return res.status(401).json({ error: 'This session is no longer active.', sessionRevoked: true });
     }
 
     if (progress !== undefined && typeof progress === 'object') {
       student.progress = { ...(student.progress || {}), ...progress };
+    }
+    if (topicCompletions !== undefined && typeof topicCompletions === 'object') {
+      student.topicCompletions = { ...(student.topicCompletions || {}), ...topicCompletions };
+    }
+    if (moduleState !== undefined && typeof moduleState === 'object') {
+      student.moduleState = { ...(student.moduleState || {}), ...moduleState };
     }
 
     // Leaderboard XP & Overall Progress = exact sum of points across all topics
@@ -120,6 +131,8 @@ const handleProgressUpdate = async (req, res) => {
         topicsCompleted: student.topicsCompleted,
         overallProgress: student.overallProgress,
         progress: student.progress,
+        topicCompletions: student.topicCompletions || {},
+        moduleState: student.moduleState || {},
       },
     });
   } catch (error) {

@@ -838,13 +838,21 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
   // ============================================================
   // BACKEND API PROXY (Express + MongoDB Auth & Students)
   // ============================================================
+  // BACKEND API PROXY (Express + MongoDB Auth & Students)
+  // ============================================================
+  const LOCAL_BACKEND_URL = "http://127.0.0.1:5000";
   const DEFAULT_REMOTE_BACKEND = "https://algolearn-1yp9.onrender.com";
   const configuredBackend = process.env.BACKEND_URL?.trim();
 
-  // If BACKEND_URL is not explicitly set, default to DEFAULT_REMOTE_BACKEND to guarantee live MongoDB Atlas connectivity
+  // In local environments, route to the local backend on port 5000 (which is directly connected to MongoDB Atlas).
+  // In production (Render) or if configured, route accordingly with bidirectional fallback.
+  const isLocalEnv = !process.env.RENDER && process.env.NODE_ENV !== "production";
   const PRIMARY_BACKEND_URL = (
     configuredBackend ||
-    DEFAULT_REMOTE_BACKEND
+    (isLocalEnv ? LOCAL_BACKEND_URL : DEFAULT_REMOTE_BACKEND)
+  ).replace(/\/+$/, "");
+  const SECONDARY_BACKEND_URL = (
+    PRIMARY_BACKEND_URL === LOCAL_BACKEND_URL ? DEFAULT_REMOTE_BACKEND : LOCAL_BACKEND_URL
   ).replace(/\/+$/, "");
 
   const proxyToBackend = async (req: express.Request, res: express.Response) => {
@@ -870,9 +878,11 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
         headers["Cookie"] = req.headers.cookie as string;
       }
 
+      const timeoutMs = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") ? 4000 : 8000;
       const options: RequestInit = {
         method: req.method,
         headers,
+        signal: AbortSignal.timeout(timeoutMs),
       };
       if (
         req.method !== "GET" &&
@@ -887,15 +897,18 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
     };
 
     try {
-      let backendRes = await forwardRequest(PRIMARY_BACKEND_URL);
+      let backendRes: Response | null = null;
+      let primaryErr: any = null;
 
-      // Automatic fallback: if primary backend is local and fails or returns a database timeout/error,
-      // seamlessly retry using DEFAULT_REMOTE_BACKEND (which is connected to live MongoDB)
-      if (
-        PRIMARY_BACKEND_URL !== DEFAULT_REMOTE_BACKEND &&
-        (!backendRes || backendRes.status >= 500)
-      ) {
-        let isDbError = !backendRes;
+      try {
+        backendRes = await forwardRequest(PRIMARY_BACKEND_URL);
+      } catch (err: any) {
+        primaryErr = err;
+      }
+
+      // Automatic fallback if primary fails, times out, or returns a 5xx database error
+      if (!backendRes || backendRes.status >= 500) {
+        let shouldFallback = !backendRes;
         if (backendRes) {
           const clone = backendRes.clone();
           const text = await clone.text().catch(() => "");
@@ -904,19 +917,26 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
             text.includes("buffering timed out") ||
             text.includes("Mongo")
           ) {
-            isDbError = true;
+            shouldFallback = true;
           }
         }
-        if (isDbError) {
-          console.warn(`[Proxy Fallback] Local backend database unavailable. Routing request to ${DEFAULT_REMOTE_BACKEND}...`);
-          const fallbackRes = await forwardRequest(DEFAULT_REMOTE_BACKEND);
-          if (fallbackRes) {
-            backendRes = fallbackRes;
+
+        if (shouldFallback && SECONDARY_BACKEND_URL) {
+          try {
+            const fallbackRes = await forwardRequest(SECONDARY_BACKEND_URL);
+            if (fallbackRes && fallbackRes.status < 500) {
+              backendRes = fallbackRes;
+            } else if (!backendRes && fallbackRes) {
+              backendRes = fallbackRes;
+            }
+          } catch (secErr: any) {
+            console.warn(`[Proxy Fallback] Secondary backend (${SECONDARY_BACKEND_URL}) error:`, secErr.message);
           }
         }
       }
 
       if (!backendRes) {
+        if (primaryErr) throw primaryErr;
         return res.status(508).json({
           error: "Infinite proxy loop detected. BACKEND_URL matches frontend URL.",
         });
@@ -937,29 +957,6 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
         return res.status(backendRes.status).send(text);
       }
     } catch (err: any) {
-      if (PRIMARY_BACKEND_URL !== DEFAULT_REMOTE_BACKEND) {
-        try {
-          console.warn(`[Proxy Fallback] Connection to primary backend failed (${err.message}). Retrying via ${DEFAULT_REMOTE_BACKEND}...`);
-          const fallbackRes = await forwardRequest(DEFAULT_REMOTE_BACKEND);
-          if (fallbackRes) {
-            const setCookies = (fallbackRes.headers as any).getSetCookie?.() || fallbackRes.headers.get("set-cookie");
-            if (setCookies) {
-              res.setHeader("set-cookie", setCookies);
-            }
-            const contentType = fallbackRes.headers.get("content-type") || "";
-            if (contentType.includes("application/json")) {
-              const data = await fallbackRes.json().catch(() => ({}));
-              return res.status(fallbackRes.status).json(data);
-            } else {
-              const text = await fallbackRes.text().catch(() => "");
-              return res.status(fallbackRes.status).send(text);
-            }
-          }
-        } catch (fallbackErr: any) {
-          console.error("[Backend Fallback Error]", fallbackErr.message);
-        }
-      }
-
       console.error("[Backend Proxy Error]", err.message);
       return res.status(503).json({
         error: "Backend service is temporarily unavailable. Please verify backend server.",

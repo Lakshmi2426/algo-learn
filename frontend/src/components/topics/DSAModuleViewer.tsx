@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { ModuleRouteConfig, INTEGRATED_MODULES } from '../../utils/moduleRoutes';
 import { useTheme } from '../../context/ThemeContext';
-import { setTopicScore } from '../../utils/topicProgress';
+import { setTopicScore, setTopicCompletion } from '../../utils/topicProgress';
 
 interface DSAModuleViewerProps {
   moduleConfig: ModuleRouteConfig | null;
@@ -103,8 +103,10 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
           setTheme(event.data.theme);
         }
       } else if (event.data.type === 'ALGOLEARN_TOPIC_PROGRESS_UPDATE') {
-        if (event.data.moduleId && typeof event.data.score === 'number') {
-          setTopicScore(event.data.moduleId, event.data.score);
+        const { moduleId, score, progress } = event.data;
+        if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
+          if (typeof score === 'number') setTopicScore(moduleId, score);
+          if (typeof progress === 'number') setTopicCompletion(moduleId, progress);
         }
       }
     };
@@ -113,7 +115,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [onNavigateHome, onNavigateAskTeacher, setTheme]);
+  }, [moduleConfig, onNavigateHome, onNavigateAskTeacher, setTheme]);
 
   const handleIframeLoad = (modId: string) => {
     setLoadedMap((prev) => ({ ...prev, [modId]: true }));

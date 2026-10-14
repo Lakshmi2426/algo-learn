@@ -51,6 +51,9 @@ const MainAppContent: React.FC = () => {
       setActiveModule(INTEGRATED_MODULES[moduleId]);
     } else {
       setActiveModule(null);
+      try {
+        window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
+      } catch { }
     }
     syncAddressBar({ tab, moduleId: moduleId || null }, replace);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -79,6 +82,9 @@ const MainAppContent: React.FC = () => {
       } else {
         setActiveTab(state.tab || 'home');
         setActiveModule(null);
+        try {
+          window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
+        } catch { }
       }
       syncAddressBar({ tab: state.tab || 'home', moduleId: state.moduleId || null }, true);
       window.scrollTo({ top: 0, behavior: 'instant' });

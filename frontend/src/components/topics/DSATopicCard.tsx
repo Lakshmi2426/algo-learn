@@ -137,10 +137,17 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
   // Use algorithms[] for CONCEPTS COVERED — show up to 4
   const concepts = topic.algorithms.slice(0, 4);
 
-  const [liveCompletion, setLiveCompletion] = React.useState<number>(() => (isAuthenticated ? getTopicCompletion(topic.id) : 0));
+  const [liveCompletion, setLiveCompletion] = React.useState<number>(() => {
+    if (!isAuthenticated) return 0;
+    return getTopicCompletion(topic.id);
+  });
 
   React.useEffect(() => {
-    setLiveCompletion(isAuthenticated ? getTopicCompletion(topic.id) : 0);
+    if (!isAuthenticated) {
+      setLiveCompletion(0);
+    } else {
+      setLiveCompletion(getTopicCompletion(topic.id));
+    }
 
     const handleUpdate = (e: Event) => {
       if (!isAuthenticated) {
@@ -158,6 +165,7 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
           (targetMod && e.key.includes(targetMod)) ||
           e.key.includes('algolearn_topics_completions') ||
           e.key.includes('algolearn_topic_completion_') ||
+          e.key.includes('algolearn_topic_progress_') ||
           e.key.includes('algolearn_student_progress_') ||
           e.key.includes('algolearn_user')
         ) {
@@ -179,7 +187,9 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
     (t) => t.id === topic.id || t.title.toLowerCase() === topic.title.toLowerCase()
   );
   const currentFallback = isAuthenticated ? getTopicCompletion(topic.id) : 0;
-  const rawCompletion = liveCompletion !== 0 ? liveCompletion : (currentFallback !== 0 ? currentFallback : (userTopic?.progress ?? 0));
+  const rawCompletion = isAuthenticated
+    ? Math.max(liveCompletion, currentFallback, userTopic?.progress ?? 0)
+    : 0;
   const progressPercent = isAuthenticated ? Math.max(0, Math.min(100, Math.round(rawCompletion))) : 0;
   const clampedProgressForSvg = progressPercent;
 

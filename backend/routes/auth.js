@@ -147,6 +147,8 @@ router.post('/signup', async (req, res) => {
       topicsCompleted: 0,
       overallProgress: 0,
       progress: defaultProgress,
+      topicCompletions: Object.fromEntries(Object.keys(defaultProgress).map((topic) => [topic, 0])),
+      moduleState: {},
       activeSessionId: sessionId,
       sessionLastActive: new Date(),
     });
@@ -185,6 +187,8 @@ router.post('/signup', async (req, res) => {
         topicsCompleted: 0,
         overallProgress: 0,
         progress: defaultProgress,
+        topicCompletions: newStudent.topicCompletions || {},
+        moduleState: newStudent.moduleState || {},
       },
     });
   } catch (error) {
@@ -350,6 +354,8 @@ router.post('/login', async (req, res) => {
         topicsCompleted: typeof claimedStudent.topicsCompleted === 'number' ? claimedStudent.topicsCompleted : 0,
         overallProgress: typeof claimedStudent.overallProgress === 'number' ? claimedStudent.overallProgress : 0,
         progress: studentProgress,
+        topicCompletions: claimedStudent.topicCompletions || {},
+        moduleState: claimedStudent.moduleState || {},
       },
     });
   } catch (error) {
@@ -618,6 +624,14 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: 'Student account not found.' });
     }
 
+    if (!decoded.sessionId || decoded.sessionId !== student.activeSessionId) {
+      return res.status(401).json({
+        error: 'This session is no longer active. Please sign in again.',
+        sessionRevoked: true,
+        authenticated: false,
+      });
+    }
+
     // Touch sessionLastActive
     Student.updateOne(
       { _id: student._id },
@@ -637,6 +651,8 @@ router.get('/me', async (req, res) => {
         topicsCompleted: student.topicsCompleted || 0,
         overallProgress: student.overallProgress || 0,
         progress: student.progress || {},
+        topicCompletions: student.topicCompletions || {},
+        moduleState: student.moduleState || {},
       },
     });
   } catch (error) {
