@@ -219,11 +219,11 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
 ];
 
-const QUIZ_STORAGE_ANSWERS_KEY = 'hash_quest_quiz_answers_v4';
-const QUIZ_STORAGE_SUBMITTED_KEY = 'hash_quest_quiz_submitted_v4';
-const QUIZ_STORAGE_STARTED_KEY = 'hash_quest_quiz_started_v4';
-const QUIZ_STORAGE_CURRENT_INDEX_KEY = 'hash_quest_quiz_current_index_v4';
-const QUIZ_STORAGE_QUESTION_DEADLINE_KEY = 'hash_quest_quiz_q_deadline_v4';
+const QUIZ_STORAGE_ANSWERS_KEY = 'linear_search_quiz_answers_v1';
+const QUIZ_STORAGE_SUBMITTED_KEY = 'linear_search_quiz_submitted_v1';
+const QUIZ_STORAGE_STARTED_KEY = 'linear_search_quiz_started_v1';
+const QUIZ_STORAGE_CURRENT_INDEX_KEY = 'linear_search_quiz_current_index_v1';
+const QUIZ_STORAGE_QUESTION_DEADLINE_KEY = 'linear_search_quiz_q_deadline_v1';
 
 export const QuizView: React.FC<QuizViewProps> = ({
   onNavigateToTheory,
@@ -233,10 +233,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
 }) => {
   useScrollReveal();
 
-  // Load persisted student answers
+  // Load persisted student answers (with migration from legacy key)
   const [studentAnswers, setStudentAnswers] = useState<Record<number, StudentAnswerRecord>>(() => {
     try {
-      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
+      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY) || localStorage.getItem('hash_quest_quiz_answers_v4');
       if (stored) {
         return JSON.parse(stored);
       }
@@ -246,13 +246,26 @@ export const QuizView: React.FC<QuizViewProps> = ({
     return {};
   });
 
+  // Strict rule: Quiz is NEVER completed until all 10 questions have been attempted!
   const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
     try {
+      let answersCount = 0;
+      const storedAnswers = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY) || localStorage.getItem('hash_quest_quiz_answers_v4');
+      if (storedAnswers) {
+        const parsed = JSON.parse(storedAnswers);
+        if (parsed && typeof parsed === 'object') {
+          answersCount = Object.keys(parsed).length;
+        }
+      }
+      if (answersCount < QUIZ_QUESTIONS.length) {
+        return false;
+      }
+
       const storedSub = localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY);
       if (storedSub !== null) {
         return storedSub === 'true';
       }
-      return progressManager.getState().quizSubmitted || false;
+      return Boolean(progressManager.getState().quizSubmitted);
     } catch {
       return false;
     }
@@ -293,21 +306,23 @@ export const QuizView: React.FC<QuizViewProps> = ({
     return unsub;
   }, []);
 
-  // Navigation within Quiz (0-indexed current question)
+  // Navigation within Quiz: auto-resume on the first unanswered question if quiz is in progress
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(() => {
     try {
+      const storedAnswers = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY) || localStorage.getItem('hash_quest_quiz_answers_v4');
+      if (storedAnswers) {
+        const parsedAnswers = JSON.parse(storedAnswers);
+        if (parsedAnswers && typeof parsedAnswers === 'object') {
+          const firstUnanswered = QUIZ_QUESTIONS.findIndex((q) => parsedAnswers[q.id] === undefined);
+          if (firstUnanswered >= 0) return firstUnanswered;
+        }
+      }
       const storedIdx = localStorage.getItem(QUIZ_STORAGE_CURRENT_INDEX_KEY);
       if (storedIdx !== null) {
         const parsed = parseInt(storedIdx, 10);
         if (!isNaN(parsed) && parsed >= 0 && parsed < QUIZ_QUESTIONS.length) {
           return parsed;
         }
-      }
-      const storedAnswers = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
-      if (storedAnswers) {
-        const parsedAnswers = JSON.parse(storedAnswers);
-        const firstUnanswered = QUIZ_QUESTIONS.findIndex((q) => parsedAnswers[q.id] === undefined);
-        if (firstUnanswered >= 0) return firstUnanswered;
       }
     } catch {
       // fallback
@@ -483,6 +498,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
       clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
+      try {
+        localStorage.removeItem(QUIZ_STORAGE_QUESTION_DEADLINE_KEY);
+      } catch {
+        // Ignore
+      }
     };
   }, [isQuizStarted, currentQuestionIndex, isCurrentQuestionAnswered, viewMode, isSubmitted, handleQuestionTimeout, currentQuestion.id]);
 
@@ -694,6 +714,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     });
 
     progressManager.recordQuizCompletion(rawScoresMap, score, QUIZ_QUESTIONS.length);
+    pointsManager.recordQuizCompleted();
 
     if (score >= 6) {
       soundManager.playQuizComplete();

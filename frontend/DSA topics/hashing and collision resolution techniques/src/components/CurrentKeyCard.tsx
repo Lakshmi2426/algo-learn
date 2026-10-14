@@ -163,6 +163,7 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                     <button
                       id="btn-guided-solve"
                       type="button"
+                      data-guided-solve="true"
                       onClick={() => {
                         soundManager.playClick();
                         if (onToggleGuidedSolve) {
@@ -171,7 +172,7 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                           onCalculate();
                         }
                       }}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold font-mono rounded-xl border transition-all cursor-pointer select-none shadow-2xs ${
+                      className={`guided-solve-btn inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold font-mono rounded-xl border transition-all cursor-pointer select-none shadow-2xs ${
                         isGuidedSolveActive
                           ? 'bg-[#2563EB] text-white border-[#1D4ED8] dark:border-[#2563EB]'
                           : 'bg-white dark:bg-[#0B1120] text-[#2563EB] dark:text-[#3B82F6] border-blue-200 dark:border-blue-500/40 hover:border-blue-400 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-[#172033]'

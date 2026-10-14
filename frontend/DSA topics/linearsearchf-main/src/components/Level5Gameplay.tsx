@@ -226,8 +226,8 @@ export const Level5Gameplay: React.FC<Level5GameplayProps> = ({
                     pointsManager.recordGuidedSolveUsed(4);
                     setIsGuidedSolveActive(true);
                   }}
-                  className="btn-modern-secondary px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none"
-                  title="Start Guided Solve step-by-step assistant (-4 points per use)"
+                  className="btn-modern-secondary px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none guided-solve-btn"
+                  title="Start Guided Solve step-by-step walkthrough (-4 points per use)"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
                   <span>Guided Solve</span>
@@ -403,8 +403,8 @@ export const Level5Gameplay: React.FC<Level5GameplayProps> = ({
                     pointsManager.recordGuidedSolveUsed(4, 'Master Challenge');
                     setIsGuidedSolveActive(true);
                   }}
-                  className="btn-modern-secondary px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none"
-                  title="Start Guided Solve step-by-step assistant (-4 points per use)"
+                  className="btn-modern-secondary px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none guided-solve-btn"
+                  title="Start Guided Solve step-by-step walkthrough (-4 points per use)"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
                   <span>Guided Solve</span>

@@ -58,7 +58,7 @@ export const PointsView: React.FC = () => {
       id: 'game',
       label: `Games (Max ${breakdown.maxGame})`,
       score: breakdown.gameScore,
-      scoreText: `+${breakdown.gameScore}`,
+      scoreText: breakdown.gameScore > 0 ? `+${breakdown.gameScore}` : `${breakdown.gameScore}`,
       icon: Gamepad2,
       iconContainerClass:
         'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20',

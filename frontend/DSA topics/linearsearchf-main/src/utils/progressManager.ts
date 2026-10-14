@@ -1,6 +1,7 @@
 import { ModuleRecord, ModuleStatus, UserProgressState } from '../types/game';
 
-const STORAGE_KEY = 'hash_quest_field_notes_progress_v2';
+const STORAGE_KEY = 'linear_search_field_notes_progress_v2';
+const FALLBACK_STORAGE_KEY = 'hash_quest_field_notes_progress_v2';
 
 export const FIELD_NOTES_MODULES: Omit<ModuleRecord, 'status' | 'progressPercent'>[] = [
   {
@@ -220,13 +221,16 @@ class ProgressManager {
   private loadState(): UserProgressState {
     if (typeof window === 'undefined') return INITIAL_PROGRESS;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(FALLBACK_STORAGE_KEY);
       if (!stored) return INITIAL_PROGRESS;
       const parsed = JSON.parse(stored);
       if (parsed && parsed.version === 2) {
+        const scoresCount = parsed.quizScores ? Object.keys(parsed.quizScores).length : 0;
+        const isQuizDone = Boolean(parsed.quizSubmitted) && scoresCount >= 10;
         return {
           ...INITIAL_PROGRESS,
           ...parsed,
+          quizSubmitted: isQuizDone,
           completedTheoryChapters: Array.isArray(parsed.completedTheoryChapters)
             ? Array.from(new Set(parsed.completedTheoryChapters.map(normalizeTheoryChapterId)))
             : [],
@@ -252,6 +256,7 @@ class ProgressManager {
     try {
       this.state.lastActiveTimestamp = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify(this.state));
       this.notifyListeners();
     } catch {
       // Ignore write errors
@@ -332,7 +337,8 @@ class ProgressManager {
 
   // 4. QUIZ STATS (1 Whole Quiz)
   public getQuizStats() {
-    const isSubmitted = Boolean(this.state.quizSubmitted);
+    const scoresCount = this.state.quizScores ? Object.keys(this.state.quizScores).length : 0;
+    const isSubmitted = Boolean(this.state.quizSubmitted) && scoresCount >= 10;
     const completed = isSubmitted ? 1 : 0;
     const total = 1;
     const percentage = isSubmitted ? 100 : 0;
@@ -591,6 +597,11 @@ class ProgressManager {
         localStorage.removeItem('hash_quest_quiz_submitted_v4');
         localStorage.removeItem('hash_quest_quiz_answers_v3');
         localStorage.removeItem('hash_quest_quiz_submitted_v3');
+        localStorage.removeItem('linear_search_quiz_answers_v1');
+        localStorage.removeItem('linear_search_quiz_submitted_v1');
+        localStorage.removeItem('linear_search_quiz_started_v1');
+        localStorage.removeItem('linear_search_quiz_current_index_v1');
+        localStorage.removeItem('linear_search_quiz_q_deadline_v1');
       } catch {
         // Ignore storage errors
       }
@@ -626,6 +637,11 @@ class ProgressManager {
         localStorage.removeItem('hash_quest_quiz_submitted_v4');
         localStorage.removeItem('hash_quest_quiz_answers_v3');
         localStorage.removeItem('hash_quest_quiz_submitted_v3');
+        localStorage.removeItem('linear_search_quiz_answers_v1');
+        localStorage.removeItem('linear_search_quiz_submitted_v1');
+        localStorage.removeItem('linear_search_quiz_started_v1');
+        localStorage.removeItem('linear_search_quiz_current_index_v1');
+        localStorage.removeItem('linear_search_quiz_q_deadline_v1');
       } catch {
         // Ignore storage errors
       }

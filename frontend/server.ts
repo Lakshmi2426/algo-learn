@@ -35,6 +35,9 @@ const getProjectRootDir = (): string => {
 const projectRoot = getProjectRootDir();
 
 dotenv.config();
+dotenv.config({ path: path.resolve(appDir, ".env") });
+dotenv.config({ path: path.resolve(projectRoot, ".env") });
+dotenv.config({ path: path.resolve(projectRoot, "..", ".env") });
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -58,6 +61,7 @@ function getGeminiClient(): GoogleGenAI | null {
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
   app.use(express.json({ limit: "5mb" }));
 
   // DSA Topic Mini-Websites Mapping for 11 Integrated Modules
@@ -506,37 +510,77 @@ async function startServer() {
             else if (tab === 'ask-teacher') window.location.href = '/#ask-teacher';
           }
 
-          function isLogoElement(el) {
-            if (!el) return false;
-            if (el.closest('button[id*="theme"], button[id*="sound"], button[id*="toggle"], button[id*="menu"], #header-hamburger-btn, #topbar-menu-toggle')) return false;
-
-            var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, [aria-label*="AlgoLearn" i], [aria-label*="Logo" i], [title*="AlgoLearn" i], [title*="Overview" i], a[href="/"]');
-            if (sel) return true;
-
+          function getLogoContainer(el) {
+            if (!el || typeof el.closest !== 'function') return null;
+            if (el.closest('button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn')) return null;
+            var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]');
+            if (sel) return sel;
             var txt = (el.textContent || '').trim();
             var parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
-            if (txt.includes('Algo') && txt.includes('earn')) return true;
-            if (txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) return true;
-            if (txt === 'AlgoLearn' || parentTxt === 'AlgoLearn') return true;
+            if ((txt.includes('Algo') && txt.includes('earn')) || (parentTxt.includes('Algo') && parentTxt.includes('earn')) || txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) {
+              return el.closest('div, a') || el;
+            }
+            return null;
+          }
 
-            return false;
+          function isCapLogoClick(e, logoEl) {
+            if (!logoEl || !e) return false;
+            var rect = logoEl.getBoundingClientRect();
+            if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+            var clickX = e.clientX - rect.left;
+            var clickY = e.clientY - rect.top;
+            if (clickY < -6 || clickY > rect.height + 6) return false;
+            var capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
+            capBoundary = Math.max(28, Math.min(52, capBoundary));
+            return clickX >= 0 && clickX <= capBoundary;
           }
 
           function isChatElement(el) {
             if (!el) return false;
-            var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [aria-label*="Teacher" i], [aria-label*="Assistant" i], [aria-label*="Chatbot" i], [title*="Ask a Teacher" i], [title*="Teacher" i], [title*="Assistant" i], [title*="Chatbot" i]');
+            // Never intercept guided solve, hints, or game action controls
+            if (el.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i], button, [role="button"]')) {
+              return false;
+            }
+            var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i]');
             return !!sel;
           }
+
+          document.addEventListener('mousemove', function(e) {
+            var target = e.target;
+            var logoEl = getLogoContainer(target);
+            if (logoEl) {
+              if (isCapLogoClick(e, logoEl)) {
+                logoEl.style.cursor = 'pointer';
+                logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
+              } else {
+                logoEl.style.cursor = 'default';
+                logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
+              }
+            }
+          }, true);
 
           document.addEventListener('click', function(e) {
             var target = e.target;
             if (!target) return;
 
-            if (isLogoElement(target)) {
-              e.preventDefault();
-              e.stopPropagation();
-              navigateParent('home');
+            // Never intercept or redirect clicks on Guided Solve, Hint, or in-game controls
+            if (target.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
               return;
+            }
+
+            var logoEl = getLogoContainer(target);
+            if (logoEl) {
+              if (isCapLogoClick(e, logoEl)) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateParent('home');
+                return;
+              } else {
+                // Clicked on logo text or non-cap area: strictly prevent redirection
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
             }
 
             if (isChatElement(target)) {
@@ -836,59 +880,27 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
   });
 
   // ============================================================
-  // BACKEND API PROXY (Port 5000: Express + MongoDB Auth & Students)
+  // BACKEND API PROXY (Express + MongoDB Auth & Students)
   // ============================================================
   const DEFAULT_REMOTE_BACKEND = "https://algolearn-1yp9.onrender.com";
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
   const configuredBackend = process.env.BACKEND_URL?.trim();
 
-  const BACKEND_URL = (
+  // If BACKEND_URL is not explicitly set, default to DEFAULT_REMOTE_BACKEND to guarantee live MongoDB Atlas connectivity
+  const PRIMARY_BACKEND_URL = (
     configuredBackend ||
-    (isProduction ? DEFAULT_REMOTE_BACKEND : "http://127.0.0.1:5000")
+    DEFAULT_REMOTE_BACKEND
   ).replace(/\/+$/, "");
 
-  const isLocalBackend = BACKEND_URL.includes("127.0.0.1") || BACKEND_URL.includes("localhost");
-
-  const ensureBackend = () => {
-    if (isProduction || !isLocalBackend) {
-      return;
-    }
-    try {
-      const testReq = http.get(`${BACKEND_URL}/api/health`, (_res) => { });
-      testReq.on("error", () => {
-        try {
-          const backendDir = path.resolve(projectRoot, "..", "backend");
-          if (fs.existsSync(backendDir)) {
-            console.log("⚡ Auto-starting AlgoLearn Backend service on port 5000...");
-            const proc = spawn("node", ["server.js"], {
-              cwd: backendDir,
-              stdio: "inherit",
-            });
-            proc.on("error", (e) => console.error("Backend process error:", e.message));
-          }
-        } catch (err: any) {
-          console.error("Failed to auto-start backend process:", err.message);
-        }
-      });
-    } catch (e) { }
-  };
-
-  if (!isProduction && isLocalBackend) {
-    ensureBackend();
-  }
-
   const proxyToBackend = async (req: express.Request, res: express.Response) => {
-    try {
-      const targetUrl = `${BACKEND_URL}${req.originalUrl}`;
+    const forwardRequest = async (baseUrl: string) => {
+      const targetUrl = `${baseUrl}${req.originalUrl}`;
 
-      // Prevent infinite loops if BACKEND_URL accidentally targets this server
+      // Prevent infinite loops if targetUrl accidentally targets this server
       if (
-        (BACKEND_URL.includes(`:${PORT}`) && (BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1"))) ||
-        (process.env.RENDER_EXTERNAL_URL && BACKEND_URL === process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, ""))
+        (baseUrl.includes(`:${PORT}`) && (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1"))) ||
+        (process.env.RENDER_EXTERNAL_URL && baseUrl === process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, ""))
       ) {
-        return res.status(508).json({
-          error: "Infinite proxy loop detected. BACKEND_URL matches frontend URL.",
-        });
+        return null;
       }
 
       const headers: Record<string, string> = {
@@ -898,6 +910,10 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       if (req.headers.authorization) {
         headers["Authorization"] = req.headers.authorization as string;
       }
+      if (req.headers.cookie) {
+        headers["Cookie"] = req.headers.cookie as string;
+      }
+
       const options: RequestInit = {
         method: req.method,
         headers,
@@ -910,9 +926,53 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       ) {
         options.body = JSON.stringify(req.body);
       }
-      const backendRes = await fetch(targetUrl, options);
-      const contentType = backendRes.headers.get("content-type") || "";
 
+      return await fetch(targetUrl, options);
+    };
+
+    try {
+      let backendRes = await forwardRequest(PRIMARY_BACKEND_URL);
+
+      // Automatic fallback: if primary backend is local and fails or returns a database timeout/error,
+      // seamlessly retry using DEFAULT_REMOTE_BACKEND (which is connected to live MongoDB)
+      if (
+        PRIMARY_BACKEND_URL !== DEFAULT_REMOTE_BACKEND &&
+        (!backendRes || backendRes.status >= 500)
+      ) {
+        let isDbError = !backendRes;
+        if (backendRes) {
+          const clone = backendRes.clone();
+          const text = await clone.text().catch(() => "");
+          if (
+            text.includes("database error") ||
+            text.includes("buffering timed out") ||
+            text.includes("Mongo")
+          ) {
+            isDbError = true;
+          }
+        }
+        if (isDbError) {
+          console.warn(`[Proxy Fallback] Local backend database unavailable. Routing request to ${DEFAULT_REMOTE_BACKEND}...`);
+          const fallbackRes = await forwardRequest(DEFAULT_REMOTE_BACKEND);
+          if (fallbackRes) {
+            backendRes = fallbackRes;
+          }
+        }
+      }
+
+      if (!backendRes) {
+        return res.status(508).json({
+          error: "Infinite proxy loop detected. BACKEND_URL matches frontend URL.",
+        });
+      }
+
+      // Forward Set-Cookie headers
+      const setCookies = (backendRes.headers as any).getSetCookie?.() || backendRes.headers.get("set-cookie");
+      if (setCookies) {
+        res.setHeader("set-cookie", setCookies);
+      }
+
+      const contentType = backendRes.headers.get("content-type") || "";
       if (contentType.includes("application/json")) {
         const data = await backendRes.json().catch(() => ({}));
         return res.status(backendRes.status).json(data);
@@ -921,6 +981,29 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
         return res.status(backendRes.status).send(text);
       }
     } catch (err: any) {
+      if (PRIMARY_BACKEND_URL !== DEFAULT_REMOTE_BACKEND) {
+        try {
+          console.warn(`[Proxy Fallback] Connection to primary backend failed (${err.message}). Retrying via ${DEFAULT_REMOTE_BACKEND}...`);
+          const fallbackRes = await forwardRequest(DEFAULT_REMOTE_BACKEND);
+          if (fallbackRes) {
+            const setCookies = (fallbackRes.headers as any).getSetCookie?.() || fallbackRes.headers.get("set-cookie");
+            if (setCookies) {
+              res.setHeader("set-cookie", setCookies);
+            }
+            const contentType = fallbackRes.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+              const data = await fallbackRes.json().catch(() => ({}));
+              return res.status(fallbackRes.status).json(data);
+            } else {
+              const text = await fallbackRes.text().catch(() => "");
+              return res.status(fallbackRes.status).send(text);
+            }
+          }
+        } catch (fallbackErr: any) {
+          console.error("[Backend Fallback Error]", fallbackErr.message);
+        }
+      }
+
       console.error("[Backend Proxy Error]", err.message);
       return res.status(503).json({
         error: "Backend service is temporarily unavailable. Please verify backend server.",
@@ -932,6 +1015,8 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
   app.use("/api/auth", proxyToBackend);
   app.use("/api/students", proxyToBackend);
   app.use("/api/leaderboard", proxyToBackend);
+  app.use("/api/teachers", proxyToBackend);
+  app.use("/api/questions", proxyToBackend);
 
   // ============================================================
   // USER PROGRESS & POINTS API ENDPOINTS

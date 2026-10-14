@@ -238,8 +238,166 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
 ];
 
-const QUIZ_STORAGE_ANSWERS_KEY = 'hash_quest_quiz_answers_v4';
-const QUIZ_STORAGE_SUBMITTED_KEY = 'hash_quest_quiz_submitted_v4';
+const QUIZ_STORAGE_ANSWERS_KEY = 'cll_quiz_answers_v2';
+const QUIZ_STORAGE_SUBMITTED_KEY = 'cll_quiz_submitted_v2';
+const QUIZ_STORAGE_STARTED_KEY = 'cll_quiz_started_v2';
+const QUIZ_STORAGE_INDEX_KEY = 'cll_quiz_current_index_v2';
+const QUIZ_STORAGE_TIMER_KEY = 'cll_quiz_timer_v2';
+const QUIZ_STORAGE_PENDING_KEY = 'cll_quiz_pending_selection_v2';
+
+const QUESTION_TIME_LIMIT = 20;
+
+const loadPersistedAnswers = (): Record<number, StudentAnswerRecord> => {
+  try {
+    const stored =
+      localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY) ||
+      localStorage.getItem('cll_quiz_answers_v1') ||
+      localStorage.getItem('hash_quest_quiz_answers_v4');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // fallback
+  }
+  return {};
+};
+
+const loadPersistedSubmitted = (): boolean => {
+  try {
+    if (progressManager.getState().quizSubmitted) {
+      return true;
+    }
+    const storedSub =
+      localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY) ||
+      localStorage.getItem('cll_quiz_submitted_v1') ||
+      localStorage.getItem('hash_quest_quiz_submitted_v4');
+    if (storedSub !== null) {
+      return storedSub === 'true';
+    }
+    return Boolean(progressManager.getState().quizSubmitted);
+  } catch {
+    return false;
+  }
+};
+
+const loadPersistedQuizStarted = (): boolean => {
+  try {
+    const raw = localStorage.getItem(QUIZ_STORAGE_STARTED_KEY);
+    if (raw !== null) {
+      return raw === 'true';
+    }
+  } catch {
+    // fallback
+  }
+  return false;
+};
+
+const loadPersistedQuestionIndex = (answers?: Record<number, StudentAnswerRecord>): number => {
+  try {
+    const raw = localStorage.getItem(QUIZ_STORAGE_INDEX_KEY);
+    if (raw !== null) {
+      const idx = parseInt(raw, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < QUIZ_QUESTIONS.length) {
+        return idx;
+      }
+    }
+    if (answers && Object.keys(answers).length > 0) {
+      const firstUnanswered = QUIZ_QUESTIONS.findIndex((q) => answers[q.id] === undefined);
+      if (firstUnanswered >= 0) return firstUnanswered;
+    }
+  } catch {
+    // fallback
+  }
+  return 0;
+};
+
+const loadPersistedTimeLeft = (qId: number): number => {
+  try {
+    const raw = localStorage.getItem(QUIZ_STORAGE_TIMER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed[qId] === 'number' && parsed[qId] > 0 && parsed[qId] <= QUESTION_TIME_LIMIT) {
+          return parsed[qId];
+        }
+        if (
+          parsed.questionId === qId &&
+          typeof parsed.timeLeft === 'number' &&
+          parsed.timeLeft > 0 &&
+          parsed.timeLeft <= QUESTION_TIME_LIMIT
+        ) {
+          return parsed.timeLeft;
+        }
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return QUESTION_TIME_LIMIT;
+};
+
+const savePersistedTimeLeft = (qId: number, seconds: number) => {
+  try {
+    let currentMap: Record<number, number> = {};
+    const raw = localStorage.getItem(QUIZ_STORAGE_TIMER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !('questionId' in parsed)) {
+        currentMap = parsed;
+      }
+    }
+    currentMap[qId] = seconds;
+    localStorage.setItem(QUIZ_STORAGE_TIMER_KEY, JSON.stringify(currentMap));
+  } catch {
+    // Ignore
+  }
+};
+
+const clearPersistedTimeLeft = (qId?: number) => {
+  try {
+    if (qId === undefined) {
+      localStorage.removeItem(QUIZ_STORAGE_TIMER_KEY);
+      return;
+    }
+    const raw = localStorage.getItem(QUIZ_STORAGE_TIMER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        delete parsed[qId];
+        localStorage.setItem(QUIZ_STORAGE_TIMER_KEY, JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // Ignore
+  }
+};
+
+const loadPersistedPendingSelection = (qId: number): number | null => {
+  try {
+    const raw = localStorage.getItem(QUIZ_STORAGE_PENDING_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.questionId === qId && typeof parsed.optionIndex === 'number') {
+        return parsed.optionIndex;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+};
+
+const savePersistedPendingSelection = (qId: number, optionIndex: number | null) => {
+  try {
+    if (optionIndex === null) {
+      localStorage.removeItem(QUIZ_STORAGE_PENDING_KEY);
+    } else {
+      localStorage.setItem(QUIZ_STORAGE_PENDING_KEY, JSON.stringify({ questionId: qId, optionIndex }));
+    }
+  } catch {
+    // Ignore
+  }
+};
 
 export const QuizView: React.FC<QuizViewProps> = ({
   onNavigateToTheory,
@@ -251,57 +409,63 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   // Load persisted student answers
   const [studentAnswers, setStudentAnswers] = useState<Record<number, StudentAnswerRecord>>(() => {
-    try {
-      const stored = localStorage.getItem(QUIZ_STORAGE_ANSWERS_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // fallback
-    }
-    return {};
+    return loadPersistedAnswers();
   });
 
   const [isSubmitted, setIsSubmitted] = useState<boolean>(() => {
-    try {
-      if (!progressManager.getState().quizSubmitted) {
-        return false;
-      }
-      const storedSub = localStorage.getItem(QUIZ_STORAGE_SUBMITTED_KEY);
-      if (storedSub !== null) {
-        return storedSub === 'true';
-      }
-      return Boolean(progressManager.getState().quizSubmitted);
-    } catch {
-      return false;
-    }
+    return loadPersistedSubmitted();
   });
 
-  const [isQuizStarted, setIsQuizStarted] = useState<boolean>(false);
+  const [isQuizStarted, setIsQuizStarted] = useState<boolean>(() => {
+    if (loadPersistedQuizStarted()) return true;
+    if (loadPersistedSubmitted()) return true;
+    const initialAnswers = loadPersistedAnswers();
+    if (Object.keys(initialAnswers).length > 0) return true;
+    return false;
+  });
+
   const [quizWarning, setQuizWarning] = useState<string | null>(null);
+
+  // Navigation within Quiz (0-indexed current question)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(() => {
+    return loadPersistedQuestionIndex(loadPersistedAnswers());
+  });
+
+  // Current question helper
+  const currentQuestion = QUIZ_QUESTIONS[currentQuestionIndex] || QUIZ_QUESTIONS[0];
+  const currentAnswerRecord = studentAnswers[currentQuestion.id];
+  const isCurrentQuestionAnswered = currentAnswerRecord !== undefined;
+
+  // Temporary selection before confirming/submitting the question
+  const [pendingSelection, setPendingSelection] = useState<number | null>(() => {
+    const initialAnswers = loadPersistedAnswers();
+    const curQ = QUIZ_QUESTIONS[loadPersistedQuestionIndex(initialAnswers)] || QUIZ_QUESTIONS[0];
+    const rec = initialAnswers[curQ.id];
+    if (rec !== undefined) {
+      return rec.selectedOptionIndex;
+    }
+    return loadPersistedPendingSelection(curQ.id);
+  });
+
+  // View mode: 'STEP_BY_STEP' or 'FULL_REVIEW'
+  const [viewMode, setViewMode] = useState<'STEP_BY_STEP' | 'FULL_REVIEW'>(() => {
+    return isSubmitted ? 'FULL_REVIEW' : 'STEP_BY_STEP';
+  });
+
+  // Synchronize currentQuestionIndex to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUIZ_STORAGE_INDEX_KEY, String(currentQuestionIndex));
+    } catch {
+      // Ignore
+    }
+  }, [currentQuestionIndex]);
 
   // Subscribe to progressManager for reset synchronization
   useEffect(() => {
     const unsub = progressManager.subscribe((pState) => {
-      const isQuizEmpty = !pState.quizScores || Object.keys(pState.quizScores).length === 0;
-      if (!pState.quizSubmitted && isQuizEmpty) {
-        setIsSubmitted(false);
-        setIsQuizStarted(false);
-        setQuizWarning(null);
-        setStudentAnswers({});
-        setCurrentQuestionIndex(0);
-        setPendingSelection(null);
-        setViewMode('STEP_BY_STEP');
-        try {
-          localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
-          localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
-          localStorage.removeItem('hash_quest_quiz_answers_v4');
-          localStorage.removeItem('hash_quest_quiz_submitted_v4');
-          localStorage.removeItem('cll_quiz_answers_v1');
-          localStorage.removeItem('cll_quiz_submitted_v1');
-        } catch {
-          // Ignore
-        }
+      if (pState.quizSubmitted && !isSubmitted) {
+        setIsSubmitted(true);
       }
     });
 
@@ -316,35 +480,21 @@ export const QuizView: React.FC<QuizViewProps> = ({
       window.removeEventListener('cll_reset_quiz', handleGlobalQuizReset);
       window.removeEventListener('cll_reset_progress', handleGlobalQuizReset);
     };
-  }, []);
-
-  // Navigation within Quiz (0-indexed current question)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  // Temporary selection before confirming/submitting the question
-  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
-  // View mode: 'STEP_BY_STEP' or 'FULL_REVIEW'
-  const [viewMode, setViewMode] = useState<'STEP_BY_STEP' | 'FULL_REVIEW'>(() => {
-    return isSubmitted ? 'FULL_REVIEW' : 'STEP_BY_STEP';
-  });
+  }, [isSubmitted]);
 
   // Clear warning when changing question
   useEffect(() => {
     setQuizWarning(null);
   }, [currentQuestionIndex]);
 
-  // Current question helper
-  const currentQuestion = QUIZ_QUESTIONS[currentQuestionIndex] || QUIZ_QUESTIONS[0];
-  const currentAnswerRecord = studentAnswers[currentQuestion.id];
-  const isCurrentQuestionAnswered = currentAnswerRecord !== undefined;
-
   // Synchronize selection with current question record
   useEffect(() => {
     if (currentAnswerRecord !== undefined) {
       setPendingSelection(currentAnswerRecord.selectedOptionIndex);
     } else {
-      setPendingSelection(null);
+      setPendingSelection(loadPersistedPendingSelection(currentQuestion.id));
     }
-  }, [currentQuestionIndex, currentAnswerRecord]);
+  }, [currentQuestionIndex, currentAnswerRecord, currentQuestion.id]);
 
   // Persist answers to localStorage and synchronize session with pointsManager
   useEffect(() => {
@@ -541,6 +691,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setQuizWarning(null);
     soundManager.playQuizSelect();
     setPendingSelection(optionIndex);
+    savePersistedPendingSelection(currentQuestion.id, optionIndex);
   };
 
   // Handle question timeout (awards 0 points immediately, prevents duplicate submissions)
@@ -562,6 +713,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
       ...prev,
       [q.id]: newRecord,
     }));
+    clearPersistedTimeLeft(q.id);
+    savePersistedPendingSelection(q.id, null);
 
     soundManager.playQuizWrong();
     pointsManager.recordQuizTimeout(q.id, `Quiz Question ${q.id} Timed Out (0 pts)`);
@@ -572,13 +725,19 @@ export const QuizView: React.FC<QuizViewProps> = ({
     handleTimeoutRef.current = handleTimeout;
   });
 
-  const QUESTION_TIME_LIMIT = 20;
-  const [timeLeft, setTimeLeft] = useState<number>(QUESTION_TIME_LIMIT);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    return loadPersistedTimeLeft(currentQuestion.id);
+  });
 
   // Handle starting the quiz countdown
   const handleStartQuiz = useCallback(() => {
     setIsQuizStarted((prev) => {
       if (prev) return prev;
+      try {
+        localStorage.setItem(QUIZ_STORAGE_STARTED_KEY, 'true');
+      } catch {
+        // audio fallback
+      }
       try {
         soundManager.playClick();
       } catch {
@@ -593,20 +752,29 @@ export const QuizView: React.FC<QuizViewProps> = ({
     if (!isQuizStarted || isSubmitted || isCurrentQuestionAnswered) {
       return;
     }
-    setTimeLeft(QUESTION_TIME_LIMIT);
+
+    const currentQId = currentQuestion.id;
+    const initialSeconds = loadPersistedTimeLeft(currentQId);
+    setTimeLeft(initialSeconds);
+    savePersistedTimeLeft(currentQId, initialSeconds);
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          clearPersistedTimeLeft(currentQId);
+          savePersistedPendingSelection(currentQId, null);
           handleTimeoutRef.current();
           return 0;
         }
-        return prev - 1;
+        const nextTime = prev - 1;
+        savePersistedTimeLeft(currentQId, nextTime);
+        return nextTime;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isQuizStarted, currentQuestionIndex, isCurrentQuestionAnswered, isSubmitted]);
+  }, [isQuizStarted, currentQuestionIndex, isCurrentQuestionAnswered, isSubmitted, currentQuestion.id]);
 
   // Handle confirming answer for current question (Records answer without revealing final result screen)
   const handleConfirmAnswer = () => {
@@ -642,6 +810,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
     };
 
     setStudentAnswers(updatedAnswers);
+    clearPersistedTimeLeft(q.id);
+    savePersistedPendingSelection(q.id, null);
 
     // Play appropriate interaction sound and record points immediately (+3 correct / -2 wrong)
     if (isCorrect) {
@@ -674,6 +844,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setViewMode('FULL_REVIEW');
     try {
       localStorage.setItem(QUIZ_STORAGE_SUBMITTED_KEY, 'true');
+      clearPersistedTimeLeft();
+      savePersistedPendingSelection(currentQuestion.id, null);
     } catch {
       // Ignore storage errors
     }
@@ -702,11 +874,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setQuizWarning(null);
     setCurrentQuestionIndex(0);
     setPendingSelection(null);
+    setTimeLeft(QUESTION_TIME_LIMIT);
     setViewMode('STEP_BY_STEP');
 
     try {
       localStorage.removeItem(QUIZ_STORAGE_ANSWERS_KEY);
       localStorage.removeItem(QUIZ_STORAGE_SUBMITTED_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_STARTED_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_INDEX_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_TIMER_KEY);
+      localStorage.removeItem(QUIZ_STORAGE_PENDING_KEY);
       localStorage.removeItem('hash_quest_quiz_answers_v4');
       localStorage.removeItem('hash_quest_quiz_submitted_v4');
       localStorage.removeItem('cll_quiz_answers_v1');

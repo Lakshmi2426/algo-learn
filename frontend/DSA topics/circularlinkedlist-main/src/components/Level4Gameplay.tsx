@@ -539,14 +539,15 @@ export const Level4Gameplay: React.FC<Level4GameplayProps> = ({
                 <button
                   id="btn-lvl4-start-guided-solve"
                   type="button"
+                  data-action="guided-solve"
                   onClick={() => {
                     soundManager.playClick();
                     setIsGuidedSolveActive(true);
                     setShowHint(false);
                     pointsManager.deductGuidedSolve(`game-level-4-gs-${Date.now()}`, 'Used Guided Solve: Level 4');
                   }}
-                  className="btn-modern-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none"
-                  title="Start Guided Solve step-by-step assistant (−4 pts)"
+                  className="guided-solve-btn btn-modern-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs select-none"
+                  title="Start Guided Solve step-by-step walkthrough (−4 pts)"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#3B82F6]" />
                   <span>Guided Solve (−4 pts)</span>

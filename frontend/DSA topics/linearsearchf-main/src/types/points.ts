@@ -26,27 +26,27 @@ export interface PointsActivityEvent {
   id: string;
   type: string;
   description: string;
-  categoryLabel: string; // e.g. 'HINT USED', 'GUIDED SOLVE USED', 'GAME COMPLETED', 'THEORY COMPLETED', 'QUIZ CORRECT', 'QUIZ INCORRECT', 'VISUALIZATION COMPLETED'
-  pointsChange: number; // e.g. -2, -3, +9, +3, +2, -1, +4
+  categoryLabel: string;
+  pointsChange: number;
   timestamp: number;
 }
 
 export interface PointsBreakdown {
-  theoryScore: number; // 0 to 36
-  maxTheory: number; // 36
-  visualizeScore: number; // 0 to 8
-  maxVisualize: number; // 8
-  gameScore: number; // 0 to 36
-  maxGame: number; // 36
-  quizScore: number; // 0 to 20
-  maxQuiz: number; // 20
-  penaltiesTotal: number; // hintPenalties + guidedSolvePenalties
-  hintPenalties: number; // Total points deducted by hints (e.g. 4)
-  hintUsesCount: number; // Number of hint clicks
-  guidedSolvePenalties: number; // Total points deducted by guided solve (e.g. 6)
-  guidedSolveUsesCount: number; // Number of guided solve activations
-  totalPoints: number; // Can be negative! e.g. -2, 0, 4, 72
-  maxTotalPoints: number; // 100
+  theoryScore: number;
+  maxTheory: number;
+  visualizeScore: number;
+  maxVisualize: number;
+  gameScore: number;
+  maxGame: number;
+  quizScore: number;
+  maxQuiz: number;
+  penaltiesTotal: number;
+  hintPenalties: number;
+  hintUsesCount: number;
+  guidedSolvePenalties: number;
+  guidedSolveUsesCount: number;
+  totalPoints: number;
+  maxTotalPoints: number;
 }
 
 export interface PointsNotification {
@@ -64,7 +64,10 @@ export interface PointsState {
   completedVisualizeIds: string[];
   completedGameLevelIds: number[];
   answeredQuizQuestionIds: number[];
+  quizCompleted: boolean;
   quizScore: number;
+  deductedHintLevelIds: number[];
+  deductedGuidedSolveLevelIds: number[];
   hintPenaltiesTotal: number;
   hintUsesCount: number;
   guidedSolvePenaltiesTotal: number;
@@ -72,4 +75,3 @@ export interface PointsState {
   totalPoints: number;
   history: PointsActivityEvent[];
 }
-
