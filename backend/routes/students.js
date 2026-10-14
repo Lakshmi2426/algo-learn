@@ -11,7 +11,8 @@ router.get('/', async (_req, res) => {
     const students = await Student.find({}, '-password').sort({ createdAt: -1 });
     const formatted = students.map((s) => {
       const topicSum = sumTopicPoints(s.progress);
-      const totalPoints = Math.max(s.xp || 0, topicSum);
+      // XP is derived from topic scores; stale aggregates must not override them.
+      const totalPoints = topicSum;
       return {
         id: s._id.toString(),
         name: s.name,

@@ -98,11 +98,8 @@ router.get('/', async (_req, res) => {
       .lean();
 
     students.forEach((s) => {
-      if (s.progress && typeof s.progress === 'object' && Object.keys(s.progress).length > 0) {
-        s.xp = sumTopicPoints(s.progress);
-      } else {
-        s.xp = s.xp || 0;
-      }
+      // Topic scores are the source of truth; stored XP may contain stale totals.
+      s.xp = sumTopicPoints(s.progress);
     });
 
     students.sort(compareStudents);
@@ -170,11 +167,7 @@ router.post('/sync', async (req, res) => {
     // Re-fetch sorted leaderboard excluding admins
     const allStudents = await Student.find({ role: { $ne: 'admin' } }, '-password').lean();
     allStudents.forEach((s) => {
-      if (s.progress && typeof s.progress === 'object' && Object.keys(s.progress).length > 0) {
-        s.xp = sumTopicPoints(s.progress);
-      } else {
-        s.xp = s.xp || 0;
-      }
+      s.xp = sumTopicPoints(s.progress);
     });
     allStudents.sort(compareStudents);
 
