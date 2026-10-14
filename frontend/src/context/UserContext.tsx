@@ -18,7 +18,6 @@ import {
   CANONICAL_MODULE_IDS,
 } from '../utils/topicProgress';
 import { apiUrl } from '../config/api';
-import { navigateAlgoLearn } from '../utils/navigation';
 
 export const INITIAL_STUDENTS: StudentProgressRecord[] = [];
 
@@ -26,6 +25,7 @@ interface UserContextType {
   user: UserProfile;
   role: UserRole;
   isAuthenticated: boolean;
+  isAuthReady: boolean;
   studentsList: StudentProgressRecord[];
   addXP: (amount: number, reason?: string) => void;
   markTopicProgress: (topicId: string, progress: number) => void;
@@ -333,15 +333,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const verifySession = () => {
       const token = localStorage.getItem('algolearn_token');
       const isAuth = localStorage.getItem('algolearn_auth') === 'true';
-      if (!isAuth || !token) {
+      if (!isAuth && !token) {
+        setIsAuthenticated(false);
         setIsAuthReady(true);
         return;
       }
       if (isVerifying) return;
 
       isVerifying = true;
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
       fetch(apiUrl('/api/auth/me'), {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         credentials: 'include',
       })
         .then((res) => {
@@ -581,7 +584,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fresh visitor must be logged out unless explicit valid session exists
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') clearActiveModuleKeys();
-    return false;
+    if (typeof window === 'undefined') return false;
+    return (
+      localStorage.getItem('algolearn_auth') === 'true' ||
+      Boolean(localStorage.getItem('algolearn_token'))
+    );
   });
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [sessionCheckUnavailable, setSessionCheckUnavailable] = useState(false);
@@ -862,17 +869,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
-          const pendingMod =
-            sessionStorage.getItem('algolearn_pending_module') ||
-            sessionStorage.getItem('algolearn_pending_module_hash');
-          if (pendingMod) {
-            sessionStorage.removeItem('algolearn_pending_module');
-            sessionStorage.removeItem('algolearn_pending_module_hash');
-            const modId = pendingMod.replace(/^.*topics[\/#]+/i, '').trim().toLowerCase();
-            setTimeout(() => {
-              navigateAlgoLearn('topics', modId || pendingMod);
-            }, 50);
-          }
         }
 
         return { success: true };
@@ -1011,17 +1007,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
-          const pendingMod =
-            sessionStorage.getItem('algolearn_pending_module') ||
-            sessionStorage.getItem('algolearn_pending_module_hash');
-          if (pendingMod) {
-            sessionStorage.removeItem('algolearn_pending_module');
-            sessionStorage.removeItem('algolearn_pending_module_hash');
-            const modId = pendingMod.replace(/^.*topics[\/#]+/i, '').trim().toLowerCase();
-            setTimeout(() => {
-              navigateAlgoLearn('topics', modId || pendingMod);
-            }, 50);
-          }
         }
 
         return { success: true };
@@ -1227,6 +1212,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         role,
         isAuthenticated,
+        isAuthReady,
         studentsList: registeredStudents,
         addXP,
         markTopicProgress,

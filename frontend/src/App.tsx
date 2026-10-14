@@ -33,9 +33,7 @@ import {
 const MainAppContent: React.FC = () => {
   const initialNav = parseInitialRoute();
   const [activeTab, setActiveTab] = useState<NavigationTab>(initialNav.tab);
-  const [activeModule, setActiveModule] = useState<ModuleRouteConfig | null>(
-    initialNav.moduleId ? INTEGRATED_MODULES[initialNav.moduleId] || null : null
-  );
+  const [activeModule, setActiveModule] = useState<ModuleRouteConfig | null>(null);
   const [teacherInitialTopic, setTeacherInitialTopic] = useState<string>('');
   const {
     showAuthModal,
@@ -43,9 +41,18 @@ const MainAppContent: React.FC = () => {
     authModalMode,
     setAuthModalMode,
     isAuthenticated,
+    isAuthReady,
   } = useUser();
 
   const navigateTo = (tab: NavigationTab, moduleId?: string | null, replace = false) => {
+    if (moduleId && !isAuthenticated) {
+      setActiveModule(null);
+      setActiveTab('home');
+      syncAddressBar({ tab: 'home', moduleId: null }, true);
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+      return;
+    }
     setActiveTab(tab);
     if (moduleId && INTEGRATED_MODULES[moduleId]) {
       setActiveModule(INTEGRATED_MODULES[moduleId]);
@@ -71,14 +78,20 @@ const MainAppContent: React.FC = () => {
 
   // Synchronize URL and history state on initial mount
   useEffect(() => {
+    if (!isAuthReady) return;
     const initial = parseInitialRoute();
-    navigateTo(initial.tab, initial.moduleId, true);
+    if (initial.moduleId && !isAuthenticated) {
+      navigateTo('home', null, true);
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+    } else {
+      navigateTo(initial.tab, initial.moduleId, true);
+    }
 
     const handlePopState = (event: PopStateEvent) => {
       const state: NavigationState = event.state || parseInitialRoute();
       if (state.moduleId && INTEGRATED_MODULES[state.moduleId]) {
-        setActiveTab('topics');
-        setActiveModule(INTEGRATED_MODULES[state.moduleId]);
+        navigateTo('topics', state.moduleId, true);
       } else {
         setActiveTab(state.tab || 'home');
         setActiveModule(null);
@@ -129,7 +142,7 @@ const MainAppContent: React.FC = () => {
       window.removeEventListener('message', handleGlobalNavMessage);
       window.removeEventListener('algolearn_student_logged_out', handleLoggedOut);
     };
-  }, [isAuthenticated, setAuthModalMode, setShowAuthModal]);
+  }, [isAuthenticated, isAuthReady, setAuthModalMode, setShowAuthModal]);
 
   // Scroll to top when activeTab changes
   useEffect(() => {

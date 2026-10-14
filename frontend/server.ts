@@ -140,10 +140,20 @@ async function startServer() {
       return res.status(404).send("Module not found");
     }
 
+    const mainTopicUrl = `/#/topics/${encodeURIComponent(rawId)}`;
+    if (req.get("sec-fetch-dest") === "document") {
+      return res.redirect(302, mainTopicUrl);
+    }
+    const redirectTopLevelModulePage = (html: string) => {
+      const guard = `<script>(function(){if(window.self===window.top){window.location.replace(${JSON.stringify(mainTopicUrl)});}})();</script>`;
+      return html.replace(/<\/head>/i, `${guard}</head>`);
+    };
+
     const builtPublicHtml = path.join(projectRoot, "public", "dsa-modules", rawId, "index.html");
     if (fs.existsSync(builtPublicHtml)) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.sendFile(builtPublicHtml);
+      res.setHeader("Cache-Control", "no-cache");
+      return res.send(redirectTopLevelModulePage(fs.readFileSync(builtPublicHtml, "utf-8")));
     }
 
     let htmlPath = path.join(projectRoot, "DSA topics", folderName, "index.html");
@@ -591,6 +601,7 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       }
     }
 
+    rawHtml = redirectTopLevelModulePage(rawHtml);
     moduleHtmlCache.set(cacheKey, rawHtml);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");

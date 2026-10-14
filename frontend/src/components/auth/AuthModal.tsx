@@ -20,6 +20,7 @@ import {
 import { useUser } from '../../context/UserContext';
 import { Logo } from '../common/Logo';
 import { NavigationTab } from '../../types';
+import { navigateAlgoLearn } from '../../utils/navigation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -197,6 +198,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       onClose();
+      navigateAlgoLearn('home');
       return;
     }
 
@@ -240,6 +242,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       onClose();
+      navigateAlgoLearn('home');
     }
   };
 
