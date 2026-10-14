@@ -4,12 +4,14 @@ import { UserProfile, AchievementBadge, StudentProgressRecord, UserRole } from '
 import { TEACHERS } from '../data/teachersData';
 import {
   syncUserProfileWithTopicProgress,
+  getTopicScore,
   setTopicScore,
   getAllTopicsProgress,
   restoreStudentModuleKeys,
   clearActiveModuleKeys,
   snapshotActiveModuleKeys,
   getActiveStudentKey,
+  CANONICAL_MODULE_IDS,
 } from '../utils/topicProgress';
 import { apiUrl } from '../config/api';
 import { navigateAlgoLearn } from '../utils/navigation';
