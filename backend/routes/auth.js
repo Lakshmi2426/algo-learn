@@ -613,14 +613,6 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: 'Student account not found.' });
     }
 
-    // Validate that token's session ID matches the currently active session in DB
-    if (decoded.sessionId && student.activeSessionId && student.activeSessionId !== decoded.sessionId) {
-      return res.status(401).json({
-        error: 'Session expired, revoked, or replaced. Please log in again.',
-        sessionRevoked: true,
-      });
-    }
-
     // Touch sessionLastActive
     Student.updateOne(
       { _id: student._id },

@@ -83,17 +83,18 @@ const handleProgressUpdate = async (req, res) => {
       return res.status(404).json({ error: 'Student not found.' });
     }
 
-    // Verify session if authorization header is provided
+    // Verify session and identity if authorization header is provided
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
-        if (decoded.sessionId && student.activeSessionId && decoded.sessionId !== student.activeSessionId) {
-          return res.status(401).json({ error: 'Session expired or replaced on another device.', sessionRevoked: true });
+        const tokenRegd = decoded.regdNo ? String(decoded.regdNo).trim().toUpperCase() : null;
+        if (decoded.role !== 'admin' && tokenRegd && tokenRegd !== cleanRegdNo && decoded.id !== student._id.toString()) {
+          return res.status(403).json({ error: 'Access denied: Cannot update progress for another student.' });
         }
       } catch (err) {
-        return res.status(401).json({ error: 'Session expired or invalid.', sessionRevoked: true });
+        return res.status(401).json({ error: 'Session expired or invalid token.' });
       }
     }
 

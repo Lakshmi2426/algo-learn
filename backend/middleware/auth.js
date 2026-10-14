@@ -43,15 +43,6 @@ const verifyAuth = async (req, res, next) => {
       });
     }
 
-    // Check if the session identifier in the token matches the active session in MongoDB
-    if (!student.activeSessionId || student.activeSessionId !== decoded.sessionId) {
-      return res.status(401).json({
-        error: 'Session expired, revoked, or active elsewhere. Please log in again.',
-        sessionRevoked: true,
-        authenticated: false,
-      });
-    }
-
     // Update sessionLastActive timestamp
     Student.updateOne(
       { _id: student._id },
