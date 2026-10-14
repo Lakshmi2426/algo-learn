@@ -488,8 +488,11 @@ export function readNativeModuleCompletion(moduleId: CanonicalModuleId): number 
         const raw = localStorage.getItem('binary_search_user_progress_v4');
         const p: any = safeJsonParse(raw);
         if (!p) return 0;
-        const totalEarned = p.topicPoints?.totalEarned !== undefined ? p.topicPoints.totalEarned : (p.totalPoints || 0);
-        return Math.min(100, Math.max(0, Math.round(totalEarned)));
+        const completedVideos = p.completedLabs?.length || p.topicPoints?.completedVideos?.length || 0;
+        const completedGames = p.completedGameLevels?.length || Object.keys(p.topicPoints?.gameLevelScores || {}).length;
+        const completedQuiz = p.quizCompleted ? 10 : Object.keys(p.topicPoints?.quizQuestionAnswered || {}).length;
+        const completed = Math.min(2, completedVideos) + Math.min(6, completedGames) + Math.min(10, completedQuiz);
+        return Math.min(100, Math.max(0, Math.round((completed / 18) * 100)));
       }
 
       case 'sorting': {
@@ -515,8 +518,8 @@ export function readNativeModuleCompletion(moduleId: CanonicalModuleId): number 
         const raw = localStorage.getItem('algolearn_sll_100_points_progress_v4');
         const p: any = safeJsonParse(raw);
         if (!p) return 0;
-        const totalPoints = p.totalPoints !== undefined ? p.totalPoints : 0;
-        return Math.min(100, Math.max(0, Math.round(totalPoints)));
+        const completed = Object.keys(p.completedActivities || {}).length;
+        return Math.min(100, Math.max(0, Math.round((completed / 35) * 100)));
       }
 
       case 'dll': {
@@ -596,8 +599,7 @@ export function readNativeModuleCompletion(moduleId: CanonicalModuleId): number 
         const isMastery = (isVideoDone ? 30 : 0) + scoreVal >= 70;
         const completed = Math.min(10, Math.min(7, completedTopicsCount) + (isVideoDone ? 1 : 0) + (isQuizDone ? 1 : 0) + (isMastery ? 1 : 0));
         const activityPct = Math.round((completed / 10) * 100);
-        const totalTreesScore = (isVideoDone ? 30 : 0) + scoreVal;
-        return Math.min(100, Math.max(0, Math.max(activityPct, totalTreesScore)));
+        return Math.min(100, Math.max(0, activityPct));
       }
 
       case 'bst': {
@@ -744,6 +746,8 @@ export function snapshotActiveModuleKeys(): Record<string, string> {
 export function clearActiveModuleKeys() {
   if (typeof localStorage === 'undefined') return;
   try {
+    const activeStudentKey = localStorage.getItem('algolearn_active_student_marker');
+    if (activeStudentKey) saveActiveStudentProgress(activeStudentKey);
     for (const key of NATIVE_STORAGE_KEYS) {
       localStorage.removeItem(key);
     }
@@ -1118,7 +1122,8 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
   localStorage.setItem(`algolearn_topic_progress_${studentKey}_${moduleId}`, String(cleanScore));
 
   const activeKey = getActiveStudentKey();
-  if (studentKey === activeKey) {
+  const ownsActiveModuleStorage = studentKey === activeKey && localStorage.getItem('algolearn_active_student_marker') === studentKey;
+  if (ownsActiveModuleStorage) {
     localStorage.setItem(`algolearn_topic_progress_${moduleId}`, String(cleanScore));
     // 2. Update algolearn_topics_progress map
     try {
@@ -1140,8 +1145,10 @@ export function setTopicScore(topicIdOrTitle: string, score: number, explicitUse
   if (!studentData.topicScores) studentData.topicScores = {};
   studentData.topicScores[moduleId] = cleanScore;
 
-  // Snapshot active module keys for this student
-  studentData.moduleKeys = snapshotActiveModuleKeys();
+  // Snapshot active module keys only when the active marker confirms ownership.
+  if (localStorage.getItem('algolearn_active_student_marker') === studentKey) {
+    studentData.moduleKeys = snapshotActiveModuleKeys();
+  }
 
   // Compute updated XP (Leaderboard Total Points = exact sum of topic Total Points)
   let sumScores = 0;
@@ -1208,7 +1215,7 @@ export function setTopicCompletion(topicIdOrTitle: string, completion: number, e
 
   localStorage.setItem(`algolearn_topic_completion_${studentKey}_${moduleId}`, String(cleanComp));
   const activeKey = getActiveStudentKey();
-  if (studentKey === activeKey) {
+  if (studentKey === activeKey && localStorage.getItem('algolearn_active_student_marker') === studentKey) {
     localStorage.setItem(`algolearn_topic_completion_${moduleId}`, String(cleanComp));
     try {
       const currentCompletions = safeJsonParse<Record<string, number>>(localStorage.getItem('algolearn_topics_completions')) || {};
@@ -1320,11 +1327,10 @@ export function getAllTopicsProgress(explicitUserKey?: string): TopicProgressSum
   });
 
   const totalPossible = CANONICAL_MODULE_IDS.length * 100;
-  // Leaderboard total points = exact sum of actual Total Points displayed in each topic's Progress page
+  // Completion measures activities completed; earned points remain a separate total.
   const totalXP = totalEarned;
-  const overallPercentage = Math.min(
-    100,
-    Math.round((totalEarned / totalPossible) * 100)
+  const overallPercentage = Math.round(
+    Object.values(topicCompletions).reduce((sum, value) => sum + value, 0) / CANONICAL_MODULE_IDS.length
   );
 
   return {

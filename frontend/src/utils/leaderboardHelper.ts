@@ -59,7 +59,7 @@ export function buildAuthoritativeLeaderboard({
       solvedCount,
       topicsCompleted: solvedCount,
       topicsStarted: u.topicsStarted || (xp > 0 ? 1 : 0),
-      overallProgress: xp,
+      overallProgress: u.overallProgress || 0,
       email: u.email || '',
       tier: getTierFromXP(xp),
       countryCode: '',
@@ -76,7 +76,7 @@ export function buildAuthoritativeLeaderboard({
     const xp = existing?.xp !== undefined ? existing.xp : (std.xp || 0);
     const solvedCount = Math.max(std.topicsCompleted || 0, existing?.solvedCount || 0);
     const started = Math.max(std.topicsStarted || 0, existing?.topicsStarted || 0, xp > 0 ? 1 : 0);
-    const overallProgress = xp;
+    const overallProgress = std.overallProgress || existing?.overallProgress || 0;
 
     map.set(key, {
       id: std.id,
@@ -112,7 +112,7 @@ export function buildAuthoritativeLeaderboard({
     const userXp = topicSummary.totalXP;
     const userCompleted = Math.max(topicSummary.topicsMasteredCount, currentUser.topicsMastered || 0, currentUser.problemsSolved || 0, existing?.solvedCount || 0);
     const userStarted = Math.max(topicSummary.topicsStartedCount, existing?.topicsStarted || 0, userXp > 0 ? 1 : 0);
-    const userProgress = userXp;
+    const userProgress = topicSummary.overallPercentage;
 
     map.set(currKey, {
       id: currentUser.id || 'curr-user',

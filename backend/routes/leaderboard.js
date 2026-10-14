@@ -30,6 +30,15 @@ const sumTopicPoints = (progressMap) => {
   return sum;
 };
 
+const averageTopicCompletion = (completions) => {
+  if (!completions || typeof completions !== 'object') return 0;
+  const total = Object.values(completions).reduce((sum, value) => {
+    const number = Number(value);
+    return sum + (Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 0);
+  }, 0);
+  return Math.round(total / 13);
+};
+
 /**
  * Deterministic sort comparator for students:
  * 1. XP descending
@@ -71,7 +80,7 @@ const formatLeaderboardEntry = (s, idx) => ({
   topicsCompleted: s.topicsCompleted || 0,
   topicsMastered: s.topicsCompleted || 0,
   topicsStarted: s.topicsStarted || (s.xp > 0 ? 1 : 0),
-  overallProgress: s.xp || 0,
+  overallProgress: s.overallProgress || 0,
   badgeTitle: 'Algo Scholar',
   createdAt: s.createdAt,
 });
@@ -153,6 +162,7 @@ router.post('/sync', async (req, res) => {
       if (topicsStarted !== undefined && typeof topicsStarted === 'number') {
         student.topicsStarted = Math.max(student.topicsStarted || 0, topicsStarted);
       }
+      student.overallProgress = averageTopicCompletion(student.topicCompletions);
 
       await student.save();
     }

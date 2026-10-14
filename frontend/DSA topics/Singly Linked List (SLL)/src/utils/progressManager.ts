@@ -1118,7 +1118,7 @@ class ProgressManager {
   // =========================================================================
 
   public getProgressPercentage(): number {
-    return Math.min(100, Math.max(0, Math.round((this.getTotalPoints() / 100) * 100)));
+    return Math.min(100, Math.max(0, Math.round((this.getCompletedActivitiesCount() / this.getTotalActivitiesCount()) * 100)));
   }
 
   public getMasteryLevel(score?: number): {

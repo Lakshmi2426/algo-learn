@@ -7,6 +7,8 @@ import {
   getTopicScore,
   setTopicScore,
   setTopicCompletion,
+  readNativeModuleCompletion,
+  normalizeToModuleId,
   getAllTopicsProgress,
   restoreStudentModuleKeys,
   initNewStudentProgress,
@@ -202,10 +204,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (parsed.avatar && parsed.avatar.includes('unsplash.com')) {
             parsed.avatar = '';
           }
-          const studentKey = (parsed.regdNo || parsed.id || parsed.email || '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-          if (studentKey) {
-            restoreStudentModuleKeys(studentKey);
-          }
           return syncUserProfileWithTopicProgress(parsed);
         } catch (e) {
           console.error(e);
@@ -293,7 +291,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userXp = isCurrent ? freshProg!.totalXP : (serverTopicSum > 0 ? serverTopicSum : (s.xp || 0));
             const userMastered = isCurrent ? freshProg!.topicsMasteredCount : (s.topicsCompleted || 0);
             const userStarted = isCurrent ? freshProg!.topicsStartedCount : (s.topicsStarted || (userXp > 0 ? 1 : 0));
-            const userProgress = userXp;
+            const userProgress = s.overallProgress || 0;
 
             return {
               id: s.id || s._id,
@@ -335,7 +333,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const verifySession = () => {
       const token = localStorage.getItem('algolearn_token');
       const isAuth = localStorage.getItem('algolearn_auth') === 'true';
-      if (!isAuth || !token || isVerifying) return;
+      if (!isAuth || !token) {
+        setIsAuthReady(true);
+        return;
+      }
+      if (isVerifying) return;
 
       isVerifying = true;
       fetch(apiUrl('/api/auth/me'), {
@@ -352,10 +354,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return res.json();
         })
         .then((data) => {
+          if (localStorage.getItem('algolearn_token') !== token) return;
+          setSessionCheckUnavailable(false);
           if (data?.student) {
             const student = data.student;
             const studentKey = student.regdNo.toLowerCase();
             restoreStudentModuleKeys(studentKey, student.moduleState);
+            setIsAuthenticated(true);
+            setRole('student');
 
             if (student.progress && typeof student.progress === 'object') {
               Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
@@ -393,11 +399,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } catch { }
               return synced;
             });
+            setTimeout(() => {
+              if (localStorage.getItem('algolearn_token') === token) {
+                window.dispatchEvent(new CustomEvent('algolearn_topic_progress_updated'));
+              }
+            }, 0);
+          } else if (data?.authenticated) {
+            setIsAuthenticated(true);
+            const savedRole = localStorage.getItem('algolearn_role');
+            if (savedRole === 'admin' || savedRole === 'teacher') setRole(savedRole);
           }
         })
-        .catch(() => { })
+        .catch(() => { setSessionCheckUnavailable(true); })
         .finally(() => {
           isVerifying = false;
+          setIsAuthReady(true);
         });
     };
 
@@ -461,12 +477,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               moduleState: snapshotActiveModuleKeys(),
               topicsCompleted: allProg.topicsMasteredCount,
               topicsStarted: allProg.topicsStartedCount,
-              overallProgress: allProg.totalXP,
+              overallProgress: allProg.overallPercentage,
             };
 
             const token = localStorage.getItem('algolearn_token');
             const syncStudentKey = activeKey;
-            if (!token || !syncStudentKey || getActiveStudentKey() !== syncStudentKey) return;
+            if (
+              !token ||
+              !syncStudentKey ||
+              getActiveStudentKey() !== syncStudentKey ||
+              localStorage.getItem('algolearn_active_student_marker') !== syncStudentKey
+            ) return;
             const authHeaders: Record<string, string> = {
               'Content-Type': 'application/json',
             };
@@ -513,7 +534,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               xp: allProg.totalXP,
               topicsCompleted: allProg.topicsMasteredCount,
               topicsStarted: allProg.topicsStartedCount,
-              overallProgress: allProg.totalXP,
+              overallProgress: allProg.overallPercentage,
               lastActive: 'Just now',
             };
           }
@@ -532,8 +553,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
           const s = typeof score === 'number' ? score : progress;
           setTopicScore(moduleId, s);
-          const comp = typeof progress === 'number' ? Math.max(progress, s) : s;
-          setTopicCompletion(moduleId, comp);
+          const moduleKey = normalizeToModuleId(moduleId);
+          if (moduleKey) setTopicCompletion(moduleKey, readNativeModuleCompletion(moduleKey as any));
           handleProgressChange();
         }
       }
@@ -559,16 +580,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fresh visitor must be logged out unless explicit valid session exists
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('algolearn_auth') === 'true';
-    }
+    if (typeof window !== 'undefined') clearActiveModuleKeys();
     return false;
   });
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [sessionCheckUnavailable, setSessionCheckUnavailable] = useState(false);
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup' | 'admin'>('login');
 
   useEffect(() => {
+    if (!isAuthReady) return;
+    if (sessionCheckUnavailable) return;
     if (isAuthenticated) {
       localStorage.setItem('algolearn_auth', 'true');
       localStorage.setItem('algolearn_user', JSON.stringify(user));
@@ -576,7 +599,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       localStorage.removeItem('algolearn_auth');
     }
-  }, [isAuthenticated, user, role]);
+  }, [isAuthenticated, isAuthReady, sessionCheckUnavailable, user, role]);
 
   const triggerConfetti = () => {
     try {
@@ -592,6 +615,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addXP = (amount: number, reason?: string) => {
+    const topicSummary = getAllTopicsProgress(getActiveStudentKey() || undefined);
     setUser((prev) => {
       const newXp = prev.xp + amount;
       const newLevel = Math.floor(newXp / 350) + 1;
@@ -633,16 +657,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       if (updatedUser.regdNo || (updatedUser.name && updatedUser.name !== 'Guest Learner')) {
-        fetch(apiUrl('/api/leaderboard/sync'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentName: updatedUser.name,
-            regdNo: updatedUser.regdNo,
-            xp: newXp,
-          }),
-        }).catch(() => { });
-
         setRegisteredStudents((prevList) => {
           return prevList.map((s) => {
             if (
@@ -652,10 +666,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ) {
               return {
                 ...s,
-                xp: newXp,
+                xp: topicSummary.totalXP,
                 streak: updatedUser.streak,
                 topicsCompleted: updatedUser.topicsMastered || s.topicsCompleted,
-                overallProgress: newXp,
+                overallProgress: topicSummary.overallPercentage,
                 lastActive: 'Just now',
               };
             }
@@ -1094,6 +1108,42 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('algolearn_token');
       const currentKey = getActiveStudentKey();
+      if (currentKey) {
+        // Snapshot current student's progress before logout
+        const snap = snapshotActiveModuleKeys();
+        const existingRaw = localStorage.getItem(`algolearn_student_progress_${currentKey}`);
+        let existing: any = {};
+        try { if (existingRaw) existing = JSON.parse(existingRaw); } catch { }
+        existing.moduleKeys = snap;
+        const allProg = getAllTopicsProgress(currentKey);
+        existing.topicScores = allProg.topicScores;
+        existing.topicCompletions = allProg.topicCompletions;
+        existing.xp = allProg.totalXP;
+        localStorage.setItem(`algolearn_student_progress_${currentKey}`, JSON.stringify(existing));
+
+        if (token && user?.regdNo) {
+          try {
+            await fetch(apiUrl(`/api/students/${encodeURIComponent(user.regdNo)}/progress`), {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                progress: allProg.topicScores,
+                topicCompletions: allProg.topicCompletions,
+                moduleState: snap,
+                topicsStarted: allProg.topicsStartedCount,
+                topicsCompleted: allProg.topicsMasteredCount,
+              }),
+            });
+          } catch (e) {
+            console.error('Progress save before logout failed:', e);
+          }
+        }
+      }
+
       if (!options?.skipServerCall) {
         try {
           await fetch(apiUrl('/api/auth/logout'), {
@@ -1108,20 +1158,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (e) {
           console.error('Logout error:', e);
         }
-      }
-
-      if (currentKey) {
-        // Snapshot current student's progress before logout
-        const snap = snapshotActiveModuleKeys();
-        const existingRaw = localStorage.getItem(`algolearn_student_progress_${currentKey}`);
-        let existing: any = {};
-        try { if (existingRaw) existing = JSON.parse(existingRaw); } catch { }
-        existing.moduleKeys = snap;
-        const allProg = getAllTopicsProgress(currentKey);
-        existing.topicScores = allProg.topicScores;
-        existing.topicCompletions = allProg.topicCompletions;
-        existing.xp = allProg.totalXP;
-        localStorage.setItem(`algolearn_student_progress_${currentKey}`, JSON.stringify(existing));
       }
 
       clearActiveModuleKeys();

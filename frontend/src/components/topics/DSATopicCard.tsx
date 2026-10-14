@@ -131,7 +131,7 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
   index = 0,
   onSelect,
 }) => {
-  const { user, isAuthenticated, setShowAuthModal, setAuthModalMode } = useUser();
+  const { isAuthenticated, setShowAuthModal, setAuthModalMode } = useUser();
   const TopicIcon = getTopicIconComponent(topic.iconName);
 
   // Use algorithms[] for CONCEPTS COVERED — show up to 4
@@ -182,14 +182,8 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
     };
   }, [topic.id, isAuthenticated]);
 
-  // Derive real progress from user context or inner module storage
-  const userTopic = user.exploredTopics?.find(
-    (t) => t.id === topic.id || t.title.toLowerCase() === topic.title.toLowerCase()
-  );
-  const currentFallback = isAuthenticated ? getTopicCompletion(topic.id) : 0;
-  const rawCompletion = isAuthenticated
-    ? Math.max(liveCompletion, currentFallback, userTopic?.progress ?? 0)
-    : 0;
+  // Topic cards use the same authoritative completion value as their module Progress page.
+  const rawCompletion = isAuthenticated ? liveCompletion : 0;
   const progressPercent = isAuthenticated ? Math.max(0, Math.min(100, Math.round(rawCompletion))) : 0;
   const clampedProgressForSvg = progressPercent;
 

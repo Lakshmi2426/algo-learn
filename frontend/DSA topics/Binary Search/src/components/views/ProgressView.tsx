@@ -44,7 +44,7 @@ export const ProgressView: React.FC<ProgressViewProps> = ({
     Math.min(2, completedVideos) + Math.min(6, completedGames) + Math.min(10, completedQuizCount)
   );
 
-  const overallCompletionPercent = totalTopicPoints; // Direct 100-point curriculum alignment
+  const overallCompletionPercent = Math.round((completedModulesCount / totalModulesCount) * 100);
 
   const visualizePercent = Math.round((visualizeEarned / 10) * 100);
   const gamePercent = Math.round((gameEarned / 60) * 100);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { ModuleRouteConfig, INTEGRATED_MODULES } from '../../utils/moduleRoutes';
 import { useTheme } from '../../context/ThemeContext';
-import { setTopicScore, setTopicCompletion } from '../../utils/topicProgress';
+import { setTopicScore, setTopicCompletion, readNativeModuleCompletion, normalizeToModuleId } from '../../utils/topicProgress';
 
 interface DSAModuleViewerProps {
   moduleConfig: ModuleRouteConfig | null;
@@ -106,7 +106,8 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
         const { moduleId, score, progress } = event.data;
         if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
           if (typeof score === 'number') setTopicScore(moduleId, score);
-          if (typeof progress === 'number') setTopicCompletion(moduleId, progress);
+          const moduleKey = normalizeToModuleId(moduleId);
+          if (moduleKey) setTopicCompletion(moduleKey, readNativeModuleCompletion(moduleKey as any));
         }
       }
     };

@@ -23,9 +23,7 @@ router.get('/', async (_req, res) => {
         xp: totalPoints,
         topicsStarted: s.topicsStarted || 0,
         topicsCompleted: s.topicsCompleted || 0,
-        overallProgress: totalPoints,
-        progress: s.progress || {},
-        topicCompletions: s.topicCompletions || {},
+        overallProgress: s.overallProgress || 0,
         streak: 1,
         lastActive: 'Active recently',
         currentStage: totalPoints > 400 ? 'Phase 2: Data Structures' : 'Phase 1: Foundations',
@@ -44,10 +42,28 @@ router.get('/', async (_req, res) => {
 // -------------------------------------------------------------
 router.get('/:regdNo', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    let token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token && req.cookies) token = req.cookies.algolearn_session || null;
+    if (!token) return res.status(401).json({ error: 'Authentication is required to read student progress.' });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'algolearn_jwt_secret_2026');
+    } catch {
+      return res.status(401).json({ error: 'Session expired or invalid token.' });
+    }
     const cleanRegdNo = req.params.regdNo.trim().toUpperCase();
     const student = await Student.findOne({ regdNo: cleanRegdNo }).select('-password');
     if (!student) {
       return res.status(404).json({ error: 'Student not found.' });
+    }
+    const privileged = decoded.role === 'admin' || decoded.role === 'teacher';
+    if (!privileged && String(decoded.id) !== student._id.toString()) {
+      return res.status(403).json({ error: 'Access denied: Cannot read another student\'s progress.' });
+    }
+    if (!privileged && (!decoded.sessionId || decoded.sessionId !== student.activeSessionId)) {
+      return res.status(401).json({ error: 'This session is no longer active.', sessionRevoked: true });
     }
     return res.json({ student });
   } catch (error) {
@@ -69,6 +85,15 @@ function sumTopicPoints(progressMap) {
     }
   }
   return sum;
+}
+
+function averageTopicCompletion(completions) {
+  if (!completions || typeof completions !== 'object') return 0;
+  const total = Object.values(completions).reduce((sum, value) => {
+    const number = Number(value);
+    return sum + (Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 0);
+  }, 0);
+  return Math.round(total / 13);
 }
 
 // -------------------------------------------------------------
@@ -116,7 +141,7 @@ const handleProgressUpdate = async (req, res) => {
     // Leaderboard XP & Overall Progress = exact sum of points across all topics
     const calculatedSum = sumTopicPoints(student.progress);
     student.xp = calculatedSum;
-    student.overallProgress = calculatedSum;
+    student.overallProgress = averageTopicCompletion(student.topicCompletions);
 
     if (topicsStarted !== undefined) student.topicsStarted = topicsStarted;
     if (topicsCompleted !== undefined) student.topicsCompleted = topicsCompleted;
