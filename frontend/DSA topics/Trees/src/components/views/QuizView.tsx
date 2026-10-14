@@ -41,7 +41,7 @@ export const loadSavedQuizState = (userId?: string): QuizSavedState | null => {
       inMemoryQuizStateMap.set(effectiveUserId, parsed);
       return parsed;
     }
-  } catch {}
+  } catch { }
   return null;
 };
 
@@ -53,7 +53,7 @@ export const saveQuizState = (state: QuizSavedState, userId?: string) => {
     const serialized = JSON.stringify(state);
     sessionStorage.setItem(storageKey, serialized);
     localStorage.setItem(storageKey, serialized);
-  } catch {}
+  } catch { }
 };
 
 export const clearSavedQuizState = (userId?: string) => {
@@ -63,7 +63,7 @@ export const clearSavedQuizState = (userId?: string) => {
     const storageKey = getUserStorageKey(effectiveUserId, 'quiz_state');
     sessionStorage.removeItem(storageKey);
     localStorage.removeItem(storageKey);
-  } catch {}
+  } catch { }
 };
 
 // Points Configuration:
@@ -351,29 +351,26 @@ export const QuizView: React.FC<QuizViewProps> = ({
     <div className="max-w-3xl mx-auto space-y-4 py-2">
       {/* 1. Knowledge Assessment Card - Tree Knowledge Check */}
       <div
-        className={`p-5 sm:p-6 rounded-2xl border transition-all duration-200 ${
-          isDarkMode
+        className={`p-5 sm:p-6 rounded-2xl border transition-all duration-200 ${isDarkMode
             ? 'bg-[#0a1020] border-blue-900/40 text-slate-100 shadow-xl shadow-blue-950/20'
             : 'bg-white border-slate-200/80 text-slate-900 shadow-[0_2px_8px_rgba(0,0,0,0.02)]'
-        }`}
+          }`}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                isDarkMode
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode
                   ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-400'
                   : 'bg-[#e8f7f0] border-[#bbf0d8] text-[#059669]'
-              }`}
+                }`}
             >
               <HelpCircle className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </div>
             <h1
               id="quiz-header-title"
               style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}
-              className={`text-lg sm:text-xl font-black tracking-tight ${
-                isDarkMode ? 'text-white' : 'text-black'
-              }`}
+              className={`text-lg sm:text-xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-black'
+                }`}
             >
               Tree Knowledge Check
             </h1>
@@ -382,20 +379,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
           {/* Question counter pill on the right as shown in reference */}
           {!submitted && (
             <div
-              className={`px-3.5 py-1.5 rounded-xl border text-xs sm:text-[13px] font-mono font-semibold shrink-0 ${
-                isDarkMode
+              className={`px-3.5 py-1.5 rounded-xl border text-xs sm:text-[13px] font-mono font-semibold shrink-0 ${isDarkMode
                   ? 'bg-[#0e172a] border-blue-900/50 text-slate-300'
                   : 'bg-slate-100 border-slate-300 text-slate-800'
-              }`}
+                }`}
             >
               Question {currentQuestionIndex + 1} of {totalQuestions}
             </div>
           )}
         </div>
 
-        <p className={`text-xs sm:text-sm mt-2 font-normal leading-relaxed ${
-          isDarkMode ? 'text-slate-400' : 'text-slate-600'
-        }`}>
+        <p className={`text-xs sm:text-sm mt-2 font-normal leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'
+          }`}>
           Test your understanding of tree data structures, their properties, insertion, deletion, and traversal techniques.
         </p>
       </div>
@@ -405,11 +400,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
         <>
           {/* 2. Scoring Rules Box with Start Quiz option */}
           <div
-            className={`px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl border flex items-center justify-between flex-wrap gap-3 ${
-              isDarkMode
+            className={`px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl border flex items-center justify-between flex-wrap gap-3 ${isDarkMode
                 ? 'bg-[#231b09]/70 border-amber-600/40 text-amber-200 shadow-sm'
                 : 'bg-amber-50/90 border-amber-300 text-amber-900 shadow-xs'
-            }`}
+              }`}
           >
             <div className="flex items-center flex-wrap gap-y-1 text-xs sm:text-[13px] font-bold">
               <span>Correct answer: +5 points</span>
@@ -428,7 +422,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   Start Quiz
                 </button>
               ) : (
-                <span className="text-[11px] font-semibold font-mono px-2.5 py-1 rounded-lg bg-blue-600/15 border border-blue-500/30 text-blue-600 dark:text-blue-300">
+                <span className={`text-[11px] font-semibold font-mono px-2.5 py-1 rounded-lg bg-blue-600/15 border border-blue-500/30 ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
                   Active
                 </span>
               )}
@@ -437,9 +431,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
           {/* 3. Slim Horizontal Progress Bar */}
           <div
-            className={`w-full h-1.5 rounded-full overflow-hidden ${
-              isDarkMode ? 'bg-slate-800' : 'bg-slate-200'
-            }`}
+            className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'
+              }`}
           >
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out"
@@ -488,15 +481,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   key={q.id}
                   onClick={() => handleJumpToQuestion(idx)}
                   className={`min-w-[38px] px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center justify-center cursor-pointer shrink-0 ${btnStyle}`}
-                  title={`Question ${idx + 1}: ${
-                    isConfirmed
+                  title={`Question ${idx + 1}: ${isConfirmed
                       ? isTimedOut
                         ? 'Timed Out (-2 pts)'
                         : isAnsCorrect
-                        ? 'Correct (+5 pts)'
-                        : 'Incorrect (-2 pts)'
+                          ? 'Correct (+5 pts)'
+                          : 'Incorrect (-2 pts)'
                       : 'Not Answered'
-                  }`}
+                    }`}
                 >
                   Q{idx + 1}
                 </button>
@@ -507,20 +499,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
           {/* 5. Single Question Card */}
           {currentQ && (
             <div
-              className={`p-6 sm:p-8 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
-                isDarkMode
+              className={`p-6 sm:p-8 rounded-2xl border transition-all duration-200 relative overflow-hidden ${isDarkMode
                   ? 'bg-[#0a1020] border-blue-900/40 text-slate-100 shadow-xl shadow-blue-950/20'
                   : 'bg-white border-slate-200/90 text-slate-900 shadow-md shadow-slate-200/60'
-              }`}
+                }`}
             >
               {/* Card Top Meta & 20s Countdown Timer */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                    isDarkMode
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${isDarkMode
                       ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/60'
                       : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  }`}>
+                    }`}>
                     ★ {currentTopicMeta?.difficulty === 'Intermediate' ? 'INTERMEDIATE LEVEL' : currentTopicMeta?.difficulty === 'Advanced' ? 'ADVANCED LEVEL' : 'BASIC LEVEL'}
                   </span>
                 </div>
@@ -528,13 +518,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 {/* Live Countdown Timer Badge during question answering */}
                 {!isCurrentConfirmed && hasStarted && (
                   <span
-                    className={`text-xs font-bold font-mono flex items-center gap-1.5 px-3 py-1 rounded-full border ${
-                      timeLeft <= 5
+                    className={`text-xs font-bold font-mono flex items-center gap-1.5 px-3 py-1 rounded-full border ${timeLeft <= 5
                         ? 'bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse font-extrabold'
                         : isDarkMode
-                        ? 'bg-[#151c2e] border-amber-500/40 text-amber-300'
-                        : 'bg-amber-50 border-amber-300 text-amber-800'
-                    }`}
+                          ? 'bg-[#151c2e] border-amber-500/40 text-amber-300'
+                          : 'bg-amber-50 border-amber-300 text-amber-800'
+                      }`}
                   >
                     <Clock className="w-3.5 h-3.5" />
                     <span>{timeLeft} seconds</span>
@@ -544,19 +533,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 {/* Result Badge shown only once confirmed */}
                 {isCurrentConfirmed && (
                   <span
-                    className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1 rounded-full border ${
-                      isCurrentTimedOut
+                    className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1 rounded-full border ${isCurrentTimedOut
                         ? isDarkMode
                           ? 'bg-rose-950/60 border-rose-600/70 text-rose-300'
                           : 'bg-rose-100 border-rose-300 text-rose-800'
                         : isCorrect
-                        ? isDarkMode
-                          ? 'bg-emerald-950/60 border-emerald-600 text-emerald-400'
-                          : 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                        : isDarkMode
-                        ? 'bg-rose-950/60 border-rose-600 text-rose-400'
-                        : 'bg-rose-50 border-rose-400 text-rose-800'
-                    }`}
+                          ? isDarkMode
+                            ? 'bg-emerald-950/60 border-emerald-600 text-emerald-400'
+                            : 'bg-emerald-50 border-emerald-400 text-emerald-800'
+                          : isDarkMode
+                            ? 'bg-rose-950/60 border-rose-600 text-rose-400'
+                            : 'bg-rose-50 border-rose-400 text-rose-800'
+                      }`}
                   >
                     {isCurrentTimedOut ? (
                       <>
@@ -576,9 +564,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </div>
 
               {/* Question Title */}
-              <h3 className="text-base sm:text-lg font-bold mb-5 leading-relaxed text-slate-900 dark:text-white">
+
+              <h3
+                className={`text-base sm:text-lg font-bold mb-5 leading-relaxed ${isDarkMode ? 'text-white' : 'text-slate-900'
+                  }`}
+              >
                 {currentQ.question}
               </h3>
+
 
               {/* Options */}
               <div className="space-y-3">
@@ -622,12 +615,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
                       key={optIdx}
                       disabled={isCurrentConfirmed || isCurrentTimedOut}
                       onClick={() => handleSelectOption(optIdx)}
-                      className={`w-full text-left p-4 rounded-2xl border text-xs sm:text-sm font-medium transition-all flex items-center justify-between cursor-pointer ${optionStyle} ${
-                        isCurrentConfirmed ? 'cursor-default' : ''
-                      }`}
+                      className={`w-full text-left p-4 rounded-2xl border text-xs sm:text-sm font-medium transition-all flex items-center justify-between cursor-pointer ${optionStyle} ${isCurrentConfirmed ? 'cursor-default' : ''
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono font-bold shrink-0">
+                        <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono font-bold shrink-0 ${isDarkMode ? 'border-slate-500 text-slate-300' : 'border-slate-400 text-slate-700'}`}>
                           {String.fromCharCode(65 + optIdx)}
                         </span>
                         <span>{opt}</span>
@@ -635,11 +627,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
                       {/* Only reveal checkmark if the user got it right */}
                       {isCurrentConfirmed && isSelected && isCorrect && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                        <CheckCircle2 className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
                       )}
                       {/* Show red X on incorrect choice */}
                       {isCurrentConfirmed && isSelected && !isCorrect && (
-                        <XCircle className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
+                        <XCircle className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-rose-400' : 'text-rose-500'}`} />
                       )}
                     </button>
                   );
@@ -649,15 +641,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
               {/* Explanation Box on Confirmation - When correct */}
               {isCurrentConfirmed && isCorrect && (
                 <div
-                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${
-                    isDarkMode
+                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${isDarkMode
                       ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-300'
                       : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-                  }`}
+                    }`}
                 >
-                  <span className={`font-bold uppercase tracking-wider block mb-1 ${
-                    isDarkMode ? 'text-emerald-400' : 'text-emerald-800'
-                  }`}>
+                  <span className={`font-bold uppercase tracking-wider block mb-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-800'
+                    }`}>
                     💡 Explanation
                   </span>
                   <p>{currentQ.explanation}</p>
@@ -667,11 +657,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
               {/* Explanation Box on Confirmation - When incorrect (minus two points + explanation, without revealing answer) */}
               {isCurrentConfirmed && !isCorrect && !isCurrentTimedOut && (
                 <div
-                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${
-                    isDarkMode
+                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${isDarkMode
                       ? 'bg-rose-950/20 border-rose-900/40 text-rose-300'
                       : 'bg-rose-50/70 border-rose-200 text-rose-950'
-                  }`}
+                    }`}
                 >
                   <span className={`font-bold uppercase tracking-wider block mb-1 text-rose-500`}>
                     💡 Explanation (-2 pts)
@@ -683,11 +672,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
               {/* Explanation Box on Confirmation - When timed out (timeout minus two points + explanation, without revealing answer) */}
               {isCurrentConfirmed && isCurrentTimedOut && (
                 <div
-                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${
-                    isDarkMode
+                  className={`mt-6 p-4 rounded-2xl border text-xs leading-relaxed ${isDarkMode
                       ? 'bg-rose-950/25 border-rose-900/50 text-rose-300'
                       : 'bg-rose-50/70 border-rose-200 text-rose-950'
-                  }`}
+                    }`}
                 >
                   <span className="font-bold uppercase tracking-wider block mb-1 text-rose-500">
                     💡 timeout (-2 pts) — Explanation
@@ -704,13 +692,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     id="quiz-prev-btn"
                     onClick={handlePrevious}
                     disabled={currentQuestionIndex === 0}
-                    className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all ${
-                      currentQuestionIndex > 0
+                    className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all ${currentQuestionIndex > 0
                         ? isDarkMode
                           ? 'bg-[#141b2d] hover:bg-[#1c2740] text-slate-200 border border-blue-900/40 cursor-pointer'
                           : 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-xs cursor-pointer'
                         : 'opacity-0 pointer-events-none'
-                    }`}
+                      }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Prev</span>
@@ -724,15 +711,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
                       id="quiz-confirm-btn"
                       onClick={handleConfirmAnswer}
                       disabled={selectedAnswer === undefined}
-                      className={`flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-md ${
-                        selectedAnswer !== undefined
+                      className={`flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-md ${selectedAnswer !== undefined
                           ? isDarkMode
                             ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 ring-1 ring-blue-400/50 cursor-pointer hover:scale-[1.02]'
                             : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30 cursor-pointer hover:scale-[1.02]'
                           : isDarkMode
-                          ? 'bg-[#141b2d]/60 text-slate-500 border border-blue-950/40 cursor-not-allowed opacity-60'
-                          : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
-                      }`}
+                            ? 'bg-[#141b2d]/60 text-slate-500 border border-blue-950/40 cursor-not-allowed opacity-60'
+                            : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                        }`}
                     >
                       <span>Submit Answer</span>
                     </button>
@@ -740,11 +726,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     <button
                       id="quiz-next-btn"
                       onClick={handleNext}
-                      className={`flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] ${
-                        isDarkMode
+                      className={`flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] ${isDarkMode
                           ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 ring-1 ring-blue-400/50'
                           : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30'
-                      }`}
+                        }`}
                     >
                       <span>
                         {currentQuestionIndex === totalQuestions - 1 ? 'Finish Assessment' : 'Next Question'}
@@ -765,28 +750,26 @@ export const QuizView: React.FC<QuizViewProps> = ({
         <div className="space-y-6">
           {/* Assessment Summary Card */}
           <div
-            className={`p-6 sm:p-7 rounded-2xl border transition-all duration-200 ${
-              isDarkMode
+            className={`p-6 sm:p-7 rounded-2xl border transition-all duration-200 ${isDarkMode
                 ? 'bg-[#0a1020] border-blue-900/40 text-slate-100 shadow-xl shadow-blue-950/20'
                 : 'bg-white border-slate-200/90 text-slate-900 shadow-md shadow-slate-200/60'
-            }`}
+              }`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
               <div className="flex items-center gap-3.5">
                 <div
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
-                    isDarkMode
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${isDarkMode
                       ? 'bg-blue-950/60 border-blue-700/60 text-blue-400'
                       : 'bg-blue-50 border-blue-200 text-blue-600'
-                  }`}
+                    }`}
                 >
                   <Award className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  <h2 className={`text-lg sm:text-xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     Assessment Completed
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                  <p className={`text-xs sm:text-sm mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                     All {totalQuestions} questions evaluated with live algorithmic explanations.
                   </p>
                 </div>
@@ -794,21 +777,20 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  <div className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                     Total Score
                   </div>
-                  <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400">
+                  <div className={`text-xl sm:text-2xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                     {totalEarnedPoints} / {MAX_QUIZ_POINTS} pts
                   </div>
                 </div>
 
                 <button
                   onClick={handleRetakeQuiz}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                    isDarkMode
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${isDarkMode
                       ? 'bg-[#0e172a] hover:bg-[#162238] text-slate-200 border-blue-900/50'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
-                  }`}
+                    }`}
                   title="Retake Quiz"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -820,11 +802,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
             {/* Score Breakdown Pills */}
             <div className="grid grid-cols-3 gap-3 pt-4">
               <div
-                className={`p-3 rounded-xl border text-center ${
-                  isDarkMode
+                className={`p-3 rounded-xl border text-center ${isDarkMode
                     ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-300'
                     : 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                }`}
+                  }`}
               >
                 <div className="text-xs font-semibold">Correct</div>
                 <div className="text-lg sm:text-xl font-black mt-0.5">
@@ -833,11 +814,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </div>
 
               <div
-                className={`p-3 rounded-xl border text-center ${
-                  isDarkMode
+                className={`p-3 rounded-xl border text-center ${isDarkMode
                     ? 'bg-rose-950/30 border-rose-900/50 text-rose-300'
                     : 'bg-rose-50 border-rose-300 text-rose-800'
-                }`}
+                  }`}
               >
                 <div className="text-xs font-semibold">Incorrect</div>
                 <div className="text-lg sm:text-xl font-black mt-0.5">
@@ -846,11 +826,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </div>
 
               <div
-                className={`p-3 rounded-xl border text-center ${
-                  isDarkMode
+                className={`p-3 rounded-xl border text-center ${isDarkMode
                     ? 'bg-slate-900/40 border-slate-800 text-slate-400'
                     : 'bg-slate-50 border-slate-300 text-slate-700'
-                }`}
+                  }`}
               >
                 <div className="text-xs font-semibold">Unanswered</div>
                 <div className="text-lg sm:text-xl font-black mt-0.5">
@@ -863,11 +842,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
           {/* Detailed Question Review List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                 <BookOpen className="w-4 h-4 text-blue-500" />
                 <span>Question-by-Question Review</span>
               </h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 {totalQuestions} questions reviewed
               </span>
             </div>
@@ -889,35 +868,31 @@ export const QuizView: React.FC<QuizViewProps> = ({
               return (
                 <div
                   key={q.id}
-                  className={`p-5 sm:p-6 rounded-2xl border transition-all duration-200 ${
-                    isDarkMode
+                  className={`p-5 sm:p-6 rounded-2xl border transition-all duration-200 ${isDarkMode
                       ? 'bg-[#0a1020] border-blue-900/40 text-slate-100 shadow-md'
                       : 'bg-white border-slate-200/90 text-slate-900 shadow-xs'
-                  }`}
+                    }`}
                 >
                   {/* Question Header: Number, ID, Difficulty, and Result Badge */}
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                        isDarkMode
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${isDarkMode
                           ? 'bg-slate-800 text-slate-300 border-slate-700'
                           : 'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
+                        }`}>
                         Question {qIndex + 1} of {totalQuestions}
                       </span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold uppercase tracking-wider border ${
-                        isDarkMode
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold uppercase tracking-wider border ${isDarkMode
                           ? 'bg-blue-950/40 text-blue-300 border-blue-800/50'
                           : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
+                        }`}>
                         {q.id.toUpperCase()}
                       </span>
                       {qTopicMeta && (
-                        <span className={`hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                          isDarkMode
+                        <span className={`hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${isDarkMode
                             ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
+                          }`}>
                           {qTopicMeta.difficulty || 'BASIC'}
                         </span>
                       )}
@@ -926,38 +901,34 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     {/* Result Badge */}
                     <div>
                       {isUserCorrect ? (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                          isDarkMode
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${isDarkMode
                             ? 'bg-emerald-950/60 border-emerald-600 text-emerald-400'
                             : 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                        }`}>
+                          }`}>
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                           Correct (+5 pts)
                         </span>
                       ) : isTimedOut ? (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                          isDarkMode
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${isDarkMode
                             ? 'bg-rose-950/60 border-rose-600 text-rose-400'
                             : 'bg-rose-50 border-rose-300 text-rose-800'
-                        }`}>
+                          }`}>
                           <Clock className="w-4 h-4 text-rose-500" />
                           timeout (-2 pts)
                         </span>
                       ) : hasAnswered && isUserWrong ? (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                          isDarkMode
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${isDarkMode
                             ? 'bg-rose-950/60 border-rose-600 text-rose-400'
                             : 'bg-rose-50 border-rose-300 text-rose-800'
-                        }`}>
+                          }`}>
                           <XCircle className="w-4 h-4 text-rose-500" />
                           Incorrect (-2 pts)
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                          isDarkMode
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${isDarkMode
                             ? 'bg-slate-800 border-slate-700 text-slate-400'
                             : 'bg-slate-100 border-slate-300 text-slate-600'
-                        }`}>
+                          }`}>
                           <HelpCircle className="w-4 h-4 text-slate-500" />
                           Unanswered (0 pts)
                         </span>
@@ -966,7 +937,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   </div>
 
                   {/* Question Text */}
-                  <h4 className="text-base sm:text-lg font-bold mb-4 leading-relaxed text-slate-900 dark:text-white">
+                  <h4 className={`text-base sm:text-lg font-bold mb-4 leading-relaxed ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {q.question}
                   </h4>
 
@@ -974,35 +945,33 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 mb-4">
                     {/* Left Card: Your Answer */}
                     <div
-                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
-                        isTimedOut
+                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${isTimedOut
                           ? isDarkMode
                             ? 'bg-rose-950/35 border-rose-600/70 text-rose-100'
                             : 'bg-rose-50/90 border-rose-300 text-rose-950'
                           : !hasAnswered
-                          ? isDarkMode
-                            ? 'bg-[#121829] border-slate-800 text-slate-300'
-                            : 'bg-slate-50 border-slate-200 text-slate-700'
-                          : isUserCorrect
-                          ? isDarkMode
-                            ? 'bg-emerald-950/35 border-emerald-600/70 text-emerald-100'
-                            : 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-                          : isDarkMode
-                          ? 'bg-rose-950/35 border-rose-600/70 text-rose-100'
-                          : 'bg-rose-50/90 border-rose-300 text-rose-950'
-                      }`}
+                            ? isDarkMode
+                              ? 'bg-[#121829] border-slate-800 text-slate-300'
+                              : 'bg-slate-50 border-slate-200 text-slate-700'
+                            : isUserCorrect
+                              ? isDarkMode
+                                ? 'bg-emerald-950/35 border-emerald-600/70 text-emerald-100'
+                                : 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                              : isDarkMode
+                                ? 'bg-rose-950/35 border-rose-600/70 text-rose-100'
+                                : 'bg-rose-50/90 border-rose-300 text-rose-950'
+                        }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-black/5 dark:border-white/5">
-                          <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                            isTimedOut
-                              ? 'text-rose-700 dark:text-rose-300'
+                        <div className={`flex items-center justify-between gap-2 mb-2 pb-1.5 border-b ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+                          <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isTimedOut
+                              ? isDarkMode ? 'text-rose-300' : 'text-rose-700'
                               : !hasAnswered
-                              ? 'text-slate-500 dark:text-slate-400'
-                              : isUserCorrect
-                              ? 'text-emerald-700 dark:text-emerald-300'
-                              : 'text-rose-700 dark:text-rose-300'
-                          }`}>
+                                ? isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                                : isUserCorrect
+                                  ? isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+                                  : isDarkMode ? 'text-rose-300' : 'text-rose-700'
+                            }`}>
                             {isUserCorrect ? (
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             ) : isTimedOut ? (
@@ -1015,15 +984,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
                             Your Answer
                           </span>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                              isTimedOut
-                                ? 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-900 dark:text-rose-300 border border-rose-400/40'
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isTimedOut
+                                ? isDarkMode ? 'bg-rose-900/60 text-rose-300 border border-rose-400/40' : 'bg-rose-200/80 text-rose-900 border border-rose-400/40'
                                 : !hasAnswered
-                                ? 'bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                                : isUserCorrect
-                                ? 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400/40'
-                                : 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-900 dark:text-rose-300 border border-rose-400/40'
-                            }`}
+                                  ? isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/80 text-slate-600'
+                                  : isUserCorrect
+                                    ? isDarkMode ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-400/40' : 'bg-emerald-200/80 text-emerald-900 border border-emerald-400/40'
+                                    : isDarkMode ? 'bg-rose-900/60 text-rose-300 border border-rose-400/40' : 'bg-rose-200/80 text-rose-900 border border-rose-400/40'
+                              }`}
                           >
                             {isTimedOut ? 'timeout' : !hasAnswered ? 'Unanswered' : isUserCorrect ? 'Correct' : 'Incorrect'}
                           </span>
@@ -1031,18 +999,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
                         <div className="pt-1">
                           {isTimedOut ? (
-                            <div className="flex items-start gap-2 text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-400 py-1">
+                            <div className={`flex items-start gap-2 text-xs sm:text-sm font-semibold py-1 ${isDarkMode ? 'text-rose-400' : 'text-rose-600'}`}>
                               <Clock className="w-4 h-4 shrink-0 mt-0.5" />
                               <span>timeout (-2 pts)</span>
                             </div>
                           ) : hasAnswered ? (
                             <div className="flex items-start gap-2.5">
                               <span
-                                className={`w-6 h-6 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 border mt-0.5 ${
-                                  isUserCorrect
+                                className={`w-6 h-6 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 border mt-0.5 ${isUserCorrect
                                     ? 'bg-emerald-600 text-white border-emerald-500'
                                     : 'bg-rose-600 text-white border-rose-500'
-                                }`}
+                                  }`}
                               >
                                 {selectedOptionLetter}
                               </span>
@@ -1061,19 +1028,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
                     {/* Right Card: Correct Answer */}
                     <div
-                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
-                        isDarkMode
+                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${isDarkMode
                           ? 'bg-emerald-950/25 border-emerald-700/60 text-emerald-100'
                           : 'bg-emerald-50/70 border-emerald-300 text-emerald-950'
-                      }`}
+                        }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-emerald-500/10 dark:border-emerald-500/20">
-                          <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                        <div className={`flex items-center justify-between gap-2 mb-2 pb-1.5 border-b ${isDarkMode ? 'border-emerald-500/20' : 'border-emerald-500/10'}`}>
+                          <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             Correct Answer
                           </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400/40">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border border-emerald-400/40 ${isDarkMode ? 'bg-emerald-900/60 text-emerald-300' : 'bg-emerald-200/80 text-emerald-900'}`}>
                             Key
                           </span>
                         </div>
@@ -1082,7 +1048,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                           <span className="w-6 h-6 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 border mt-0.5 bg-emerald-600 text-white border-emerald-500">
                             {correctOptionLetter}
                           </span>
-                          <span className="text-sm font-semibold leading-snug">
+                          <span className={`text-sm font-semibold leading-snug ${isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
                             {correctOptionText}
                           </span>
                         </div>
@@ -1092,13 +1058,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
                   {/* Explanation Panel */}
                   <div
-                    className={`p-4 sm:p-4.5 rounded-xl border text-xs sm:text-sm leading-relaxed ${
-                      isDarkMode
+                    className={`p-4 sm:p-4.5 rounded-xl border text-xs sm:text-sm leading-relaxed ${isDarkMode
                         ? 'bg-blue-950/25 border-blue-900/50 text-blue-100'
                         : 'bg-blue-50/75 border-blue-200 text-blue-950'
-                    }`}
+                      }`}
                   >
-                    <div className="flex items-center gap-2 mb-1.5 font-bold uppercase tracking-wider text-xs text-blue-600 dark:text-blue-400">
+                    <div className={`flex items-center gap-2 mb-1.5 font-bold uppercase tracking-wider text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                       <BookOpen className="w-4 h-4 text-blue-500 shrink-0" />
                       <span>Why this is correct</span>
                     </div>
@@ -1115,11 +1080,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
           <div className="pt-2 pb-6 flex justify-center">
             <button
               onClick={handleRetakeQuiz}
-              className={`flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] ${
-                isDarkMode
+              className={`flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold transition-all shadow-md cursor-pointer hover:scale-[1.02] ${isDarkMode
                   ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40 ring-1 ring-blue-400/50'
                   : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-300/60'
-              }`}
+                }`}
             >
               <RotateCcw className="w-4 h-4" />
               <span>Retake Quiz Assessment</span>

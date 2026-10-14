@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Configure Tailwind v4 to use class-based dark mode (.dark ancestor)
+   instead of the default prefers-color-scheme media query.
+   This makes dark: utility variants consistent with App.tsx which toggles
+   the .dark class on document.documentElement to switch themes. */
+@variant dark (&:where(.dark, .dark *));
+
 @layer base {
   html,
   body {

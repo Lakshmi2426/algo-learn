@@ -54,7 +54,6 @@ export const VisualizeView: React.FC<VisualizeViewProps> = ({
   isSidebarOpen = false,
 }) => {
   const effectiveUserId = userId || getActiveUserId();
-  const activeVideoUrl = videoUrl || PUBLIC_LESSON_VIDEO_URL;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
