@@ -71,6 +71,19 @@ function getCanonicalLevelSlot(lvl) {
 }
 window.getCanonicalLevelSlot = getCanonicalLevelSlot;
 
+function getBFSUserStorageKey(key) {
+  let identity = localStorage.getItem("current_user") || localStorage.getItem("dsa_user_email") || "";
+  if (!identity) {
+    try {
+      const user = JSON.parse(localStorage.getItem("algolearn_user") || "null");
+      identity = user && (user.id || user.regdNo || user.email) || "";
+    } catch (e) {}
+  }
+  const userKey = String(identity).trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+  return userKey ? `${key}_${userKey}` : key;
+}
+window.getBFSUserStorageKey = getBFSUserStorageKey;
+
 const LEARN_CHECKPOINTS = {};
 window.LEARN_CHECKPOINTS = LEARN_CHECKPOINTS;
 
@@ -129,7 +142,7 @@ class AppController {
 
     // Completed chapters / activities tracker
     this.completedChapters = new Set(JSON.parse(localStorage.getItem("algolearn_completed_chapters") || "[]"));
-    this.completedActivities = new Set(JSON.parse(localStorage.getItem("algolearn_completed_activities") || "[]"));
+    this.completedActivities = new Set(JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_completed_activities")) || "[]"));
     this.completedVideos = new Set(JSON.parse(localStorage.getItem("algolearn_completed_videos") || "[]"));
     this.expandedGameModules = new Set();
     this.currentModuleIndex = null;
@@ -139,7 +152,7 @@ class AppController {
     this.penaltyHintsCount = 0;
     this.penaltyGuidedCount = 0;
     this.seedGameBonus = 0;
-    this.gameAssistance = JSON.parse(localStorage.getItem("algolearn_game_assistance") || "{}");
+    this.gameAssistance = JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_game_assistance")) || "{}");
     this.selectedCheckpointOptions = {};
 
     // 10 BFS Curriculum Modules Data (FN-01 to FN-10)
@@ -2182,7 +2195,7 @@ class AppController {
 
     const completedLevels = (window.game && window.game.completedLevels)
       ? window.game.completedLevels
-      : new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
+      : new Set(JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_completed_levels")) || "[]"));
 
     // 2. Auto-sync curriculum modules (FN-01 to FN-10) based on accomplishments
     if (this.completedChapters.has("graph-foundations")) this.completedActivities.add("FN-01");
@@ -2194,7 +2207,7 @@ class AppController {
     if (this.completedChapters.has("shortest-path") || this.completedVideos.has("shortest_path") || this.completedVideos.has("collision")) this.completedActivities.add("FN-07");
     if (this.completedChapters.has("connected-components") || completedLevels.has(6)) this.completedActivities.add("FN-08");
     if (this.completedChapters.has("complexity-analysis") || completedLevels.has(8) || completedLevels.has(9)) this.completedActivities.add("FN-09");
-    if (summary.quizAnsweredCount >= 10 || localStorage.getItem("algolearn_quiz_completed") === "true") this.completedActivities.add("FN-10");
+    if (summary.quizAnsweredCount >= 10 || localStorage.getItem(getBFSUserStorageKey("algolearn_quiz_completed")) === "true") this.completedActivities.add("FN-10");
 
     // 3. Calculate Activity Units: 12 Learn Chapters + 2 Videos + 8 Game Levels + 10 Quiz Questions = 32 total
     const learnDone = this.completedChapters ? this.completedChapters.size : 0;
@@ -2370,7 +2383,7 @@ class AppController {
     if (!mod) return;
 
     this.completedActivities.add(moduleId);
-    localStorage.setItem("algolearn_completed_activities", JSON.stringify([...this.completedActivities]));
+    localStorage.setItem(getBFSUserStorageKey("algolearn_completed_activities"), JSON.stringify([...this.completedActivities]));
     this.updateProgressStats();
 
     if (mod.tabTarget === "theory" && mod.chapterTarget) {
@@ -2432,8 +2445,8 @@ class AppController {
   }
 
   initPointsSystem() {
-    this.gameAssistance = JSON.parse(localStorage.getItem("algolearn_game_assistance") || "{}");
-    const stored = localStorage.getItem("algolearn_points_history");
+    this.gameAssistance = JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_game_assistance")) || "{}");
+    const stored = localStorage.getItem(getBFSUserStorageKey("algolearn_points_history"));
     if (!stored) {
       this.penaltyHintsCount = 0;
       this.penaltyGuidedCount = 0;
@@ -2458,7 +2471,7 @@ class AppController {
 
   savePointsData() {
     try {
-      localStorage.setItem("algolearn_points_history", JSON.stringify({
+      localStorage.setItem(getBFSUserStorageKey("algolearn_points_history"), JSON.stringify({
         history: this.pointsHistory,
         penaltyHintsCount: this.penaltyHintsCount,
         penaltyGuidedCount: this.penaltyGuidedCount,
@@ -2479,7 +2492,11 @@ class AppController {
     // 2. GAME SECTION — 64 Points Before Penalties (8 games × 8 pts)
     const completedLevels = (window.game && window.game.completedLevels)
       ? window.game.completedLevels
-      : new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
+      : new Set(JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_completed_levels")) || "[]"));
+    let firstPlayResults = {};
+    try {
+      firstPlayResults = JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_bfs_game_first_play_results")) || "{}");
+    } catch (e) {}
 
     let gamePositiveMarks = 0;
     let gameTotalPenalties = 0;
@@ -2501,6 +2518,7 @@ class AppController {
       else if (slot === 7 && completedLevels.has(8)) isDone = true;
       else if (slot === 8 && completedLevels.has(9)) isDone = true;
       if (completedLevels.has(slot)) isDone = true;
+      if (Object.values(firstPlayResults).some(result => result && result.completed && result.slot === slot)) isDone = true;
 
       if (isDone) gameLevelsCleared++;
 
@@ -2509,10 +2527,12 @@ class AppController {
 
       // Assistance tracking per level
       const ast = (this.gameAssistance && this.gameAssistance[slot]) ? this.gameAssistance[slot] : {};
-      const hintCount = typeof ast.hintCount === "number" ? ast.hintCount : (ast.hintUsed ? 1 : 0);
+      const slotResults = Object.values(firstPlayResults).filter(result => result && result.completed && result.slot === slot);
+      const savedResult = slotResults[0] || {};
+      const hintCount = typeof ast.hintCount === "number" ? ast.hintCount : (savedResult.hintCount || (ast.hintUsed ? 1 : 0));
       const guidedCount = Array.isArray(ast.chargedSessions)
         ? ast.chargedSessions.length
-        : (typeof ast.guidedCount === "number" ? ast.guidedCount : (ast.guidedUsed ? 1 : 0));
+        : (typeof ast.guidedCount === "number" ? ast.guidedCount : (savedResult.guidedCount || (ast.guidedUsed ? 1 : 0)));
 
       totalHintsUsed += hintCount;
       totalGuidedUsed += guidedCount;
@@ -2535,7 +2555,7 @@ class AppController {
     let quizTimedOut = 0;
     const quizAnswers = (window.quizEngine && window.quizEngine.userAnswers)
       ? window.quizEngine.userAnswers
-      : JSON.parse(localStorage.getItem("algolearn_quiz_answers") || "{}");
+      : JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_quiz_answers")) || "{}");
 
     Object.values(quizAnswers).forEach(ans => {
       if (!ans) return;
@@ -2719,11 +2739,15 @@ class AppController {
     if (window.game && window.game.completedLevels && window.game.completedLevels.has(slot)) {
       return true;
     }
-    const completed = new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
+    const completed = new Set(JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_completed_levels")) || "[]"));
     if (completed.has(slot)) return true;
     if (this.pointsHistory && this.pointsHistory.some(e => e.type === "game" && e.level === slot)) {
       return true;
     }
+    try {
+      const results = JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_bfs_game_first_play_results")) || "{}");
+      if (Object.values(results).some(result => result && result.completed && result.slot === slot)) return true;
+    } catch (e) {}
     return false;
   }
 
@@ -2742,7 +2766,7 @@ class AppController {
 
     this.gameAssistance[slot].hintCount = (this.gameAssistance[slot].hintCount || 0) + 1;
     this.gameAssistance[slot].hintUsed = true;
-    localStorage.setItem("algolearn_game_assistance", JSON.stringify(this.gameAssistance));
+    localStorage.setItem(getBFSUserStorageKey("algolearn_game_assistance"), JSON.stringify(this.gameAssistance));
 
     const newEvent = {
       id: "hint-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
@@ -2801,7 +2825,7 @@ class AppController {
       ? this.gameAssistance[slot].chargedSessions.length
       : (this.gameAssistance[slot].guidedCount || 0) + 1;
     this.gameAssistance[slot].guidedUsed = true;
-    localStorage.setItem("algolearn_game_assistance", JSON.stringify(this.gameAssistance));
+    localStorage.setItem(getBFSUserStorageKey("algolearn_game_assistance"), JSON.stringify(this.gameAssistance));
 
     const deductionAmount = (BFS_SCORING.game && BFS_SCORING.game.penalties && BFS_SCORING.game.penalties.guidedSolve) || 3;
     const currentScore = this.getPointsSummary().finalScore;
@@ -2967,9 +2991,34 @@ class AppController {
     const slot = getCanonicalLevelSlot(levelNum);
     const marks = LEVEL_MARKS[slot] || 8;
 
+    const resultKey = getBFSUserStorageKey("algolearn_bfs_game_first_play_results");
+    let firstPlayResults = {};
+    try {
+      firstPlayResults = JSON.parse(localStorage.getItem(resultKey) || "{}");
+    } catch (e) {}
+    if (firstPlayResults[levelNum]) return false;
+
     // Check if points history already recorded victory for this slot to avoid duplicate positive marks
     if (!this.pointsHistory) this.pointsHistory = [];
-    const alreadyRecorded = this.pointsHistory.some(e => e.type === "game" && e.level === slot);
+    const alreadyRecorded = this.pointsHistory.some(e => e.type === "game" && e.level === slot)
+      || Object.values(firstPlayResults).some(result => result && result.completed && result.slot === slot);
+    const assistance = this.gameAssistance && this.gameAssistance[slot] || {};
+    firstPlayResults[levelNum] = {
+      level: Number(levelNum),
+      slot,
+      completed: true,
+      points: alreadyRecorded ? 0 : marks,
+      hintCount: Number(assistance.hintCount) || 0,
+      guidedCount: Array.isArray(assistance.chargedSessions)
+        ? assistance.chargedSessions.length
+        : (Number(assistance.guidedCount) || 0),
+      recordedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(resultKey, JSON.stringify(firstPlayResults));
+    } catch (e) {
+      console.warn("Could not persist first-play game result", e);
+    }
     if (!alreadyRecorded) {
       const newEvent = {
         id: "game-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
@@ -2987,23 +3036,50 @@ class AppController {
       this.updateProgressStats();
       this.showToast(`Level ${slot} Complete! +${marks} Marks Earned.`);
     }
+    return true;
   }
 
   resetAllProgress() {
+    // Carry existing official game outcomes forward before clearing ordinary progress.
+    // This preserves first-play scoring across a local progress reset.
+    try {
+      const resultKey = getBFSUserStorageKey("algolearn_bfs_game_first_play_results");
+      const results = JSON.parse(localStorage.getItem(resultKey) || "{}");
+      const completed = JSON.parse(localStorage.getItem(getBFSUserStorageKey("algolearn_completed_levels")) || "[]");
+      for (const level of completed) {
+        if (results[level]) continue;
+        const slot = getCanonicalLevelSlot(level);
+        const assistance = this.gameAssistance && this.gameAssistance[slot] || {};
+        results[level] = {
+          level: Number(level), slot, completed: true, points: 0,
+          hintCount: Number(assistance.hintCount) || 0,
+          guidedCount: Array.isArray(assistance.chargedSessions)
+            ? assistance.chargedSessions.length
+            : (Number(assistance.guidedCount) || 0),
+          recordedAt: Date.now()
+        };
+      }
+      localStorage.setItem(resultKey, JSON.stringify(results));
+    } catch (e) {}
+
     // 1. Clear curriculum and video progress
     this.completedChapters.clear();
     this.completedActivities.clear();
     this.completedVideos.clear();
     localStorage.removeItem("algolearn_completed_chapters");
-    localStorage.removeItem("algolearn_completed_activities");
+    localStorage.removeItem(getBFSUserStorageKey("algolearn_completed_activities"));
     localStorage.removeItem("algolearn_completed_videos");
-    localStorage.removeItem("algolearn_completed_levels");
-    localStorage.removeItem("algolearn_game_assistance");
-    localStorage.removeItem("algolearn_quiz_answers");
-    localStorage.removeItem("algolearn_quiz_score");
-    localStorage.removeItem("algolearn_quiz_completed");
+    localStorage.removeItem(getBFSUserStorageKey("algolearn_completed_levels"));
+    localStorage.removeItem(getBFSUserStorageKey("algolearn_game_assistance"));
+    const officialQuizResult = localStorage.getItem(getBFSUserStorageKey("algolearn_quiz_official_result"));
+    if (!officialQuizResult) {
+      localStorage.removeItem(getBFSUserStorageKey("algolearn_quiz_answers"));
+      localStorage.removeItem(getBFSUserStorageKey("algolearn_quiz_score"));
+      localStorage.removeItem(getBFSUserStorageKey("algolearn_quiz_completed"));
+      localStorage.removeItem(getBFSUserStorageKey("algolearn_quiz_started"));
+    }
     localStorage.removeItem("algolearn_score");
-    localStorage.removeItem("algolearn_points_history");
+    localStorage.removeItem(getBFSUserStorageKey("algolearn_points_history"));
     this.gameAssistance = {};
     if (this.videoWatchStats) this.videoWatchStats = {};
 

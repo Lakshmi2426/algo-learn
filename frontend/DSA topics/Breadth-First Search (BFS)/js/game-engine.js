@@ -14,7 +14,7 @@ class GameEngine {
     this.mistakesCount = 0;
     this.correctActionsCount = 0;
     try {
-      this.completedLevels = new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
+      this.completedLevels = new Set(JSON.parse(localStorage.getItem(window.getBFSUserStorageKey("algolearn_completed_levels")) || "[]"));
     } catch (e) {
       this.completedLevels = new Set();
     }
@@ -533,6 +533,15 @@ class GameEngine {
     }
   }
 
+  hasMetLevelObjective() {
+    if (!this.currentLevelData) return false;
+    const reachableNodes = this.currentLevelData.graph.nodes.filter(node => !node.isUnreachable);
+    if (this.currentLevelData.targetNode) {
+      return this.discovered.has(this.currentLevelData.targetNode) || this.visited.has(this.currentLevelData.targetNode);
+    }
+    return this.queue.length === 0 && reachableNodes.every(node => this.visited.has(node.id));
+  }
+
   showMistakeGuidance(diagnosis) {
     this.currentError = diagnosis;
     this.displayStepError(diagnosis);
@@ -655,13 +664,15 @@ class GameEngine {
 
   triggerVictory(shortestPath = []) {
     if (this.isLevelCompleted) return;
+    // Keep manual, guided, and delayed victory paths tied to the level objective.
+    if (!this.hasMetLevelObjective()) return false;
     this.isLevelCompleted = true;
     this.completedLevels.add(this.currentLevelData.id);
     this.addScore(100); // Level completion bonus
 
     // Persist completed levels to localStorage
     try {
-      localStorage.setItem("algolearn_completed_levels", JSON.stringify([...this.completedLevels]));
+      localStorage.setItem(window.getBFSUserStorageKey("algolearn_completed_levels"), JSON.stringify([...this.completedLevels]));
     } catch (e) {
       console.warn("Could not persist completed levels", e);
     }
@@ -696,7 +707,7 @@ class GameEngine {
       if (lvlId === 8 || lvlId === 9) app.completedActivities.add("FN-09");
 
       try {
-        localStorage.setItem("algolearn_completed_activities", JSON.stringify([...app.completedActivities]));
+        localStorage.setItem(window.getBFSUserStorageKey("algolearn_completed_activities"), JSON.stringify([...app.completedActivities]));
       } catch (e) {}
 
       if (typeof app.updateProgressStats === "function") {
@@ -793,6 +804,7 @@ class GameEngine {
       modal.classList.add("flex");
       modal.style.display = "flex";
     }
+    return true;
   }
 
   nextLevel() {

@@ -65,7 +65,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const isQuestionLocked = Boolean(currentOutcome);
 
   // Start / restart the 20-second quiz countdown timer
-  const handleStartQuiz = () => {
+  const handleStartQuiz = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     soundEffects.playClick();
     setIsQuizStarted(true);
     setTimeLeft(20);
@@ -611,18 +613,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
               </div>
 
               <div className="px-4 py-1 rounded-full text-xs font-mono font-black uppercase tracking-wider mb-2 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                TOPIC ASSESSMENT RESULTS
+                QUIZ RESULTS
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
                 QUIZ COMPLETED
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-md">
-                Review your validated quiz score with negative deductions, visualization rewards, and overall topic mastery score.
+                Review your validated quiz answers and quiz score.
               </p>
 
-              {/* ─── 8 PROMINENT METRICS TILES (SECTION 4.D) ─── */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full max-w-3xl mx-auto my-6">
+              {/* ─── QUIZ METRICS ─── */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 w-full max-w-3xl mx-auto my-6">
                 {/* 1. Total questions */}
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
                   <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold">
@@ -685,25 +687,6 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   </span>
                 </div>
 
-                {/* 7. Visualization points earned */}
-                <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800">
-                  <span className="text-[10px] font-mono text-sky-700 dark:text-sky-400 uppercase block font-bold">
-                    Visualization Points
-                  </span>
-                  <span className="text-2xl font-mono font-black text-sky-600 dark:text-sky-400">
-                    {topicData.visualizationPoints} / 50 pts
-                  </span>
-                </div>
-
-                {/* 8. Overall topic score out of 100 */}
-                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 shadow-md">
-                  <span className="text-[10px] font-mono text-emerald-800 dark:text-emerald-300 uppercase block font-bold">
-                    Overall Topic Score
-                  </span>
-                  <span className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400">
-                    {topicData.overallTopicScore} / 100 pts
-                  </span>
-                </div>
               </div>
 
               {/* Home Navigation (No Reset or Refresh buttons) */}

@@ -8,8 +8,6 @@ import {
   Maximize2,
   Minimize2,
   Film,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
   CheckCircle2,
   Layers,
@@ -294,50 +292,6 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
     } else if (nativeVideoRef.current) {
       nativeVideoRef.current.currentTime = 0;
       nativeVideoRef.current.play().catch(() => {});
-    }
-    showAndScheduleHide();
-  };
-
-  // Step Jumper: Go to previous step
-  const handlePrevStep = () => {
-    soundEffects.playClick();
-    const targetIdx = Math.max(0, activeSceneIndexSafe - 1);
-    const targetTime = activeLesson.scenes[targetIdx]?.timeStart ?? 0;
-    setCurrentTime(targetTime);
-
-    if (renderMode === 'studio' && audioRef.current) {
-      audioRef.current.currentTime = targetTime;
-      if (!isPlaying) {
-        setIsPlaying(true);
-        audioRef.current.play().catch(() => {});
-      }
-    } else if (nativeVideoRef.current) {
-      nativeVideoRef.current.currentTime = targetTime;
-    }
-    showAndScheduleHide();
-  };
-
-  // Step Jumper: Go to next step (forward skipping locked)
-  const handleNextStep = () => {
-    const targetIdx = Math.min(activeLesson.scenes.length - 1, activeSceneIndexSafe + 1);
-    const targetTime = activeLesson.scenes[targetIdx]?.timeStart ?? 0;
-    const allowedMax = Math.max(currentTime, maxReachedTimeRef.current);
-    if (targetTime > allowedMax + 0.3) {
-      triggerForwardBlockedNotice();
-      soundEffects.playError();
-      return;
-    }
-    soundEffects.playClick();
-    setCurrentTime(targetTime);
-
-    if (renderMode === 'studio' && audioRef.current) {
-      audioRef.current.currentTime = targetTime;
-      if (!isPlaying) {
-        setIsPlaying(true);
-        audioRef.current.play().catch(() => {});
-      }
-    } else if (nativeVideoRef.current) {
-      nativeVideoRef.current.currentTime = targetTime;
     }
     showAndScheduleHide();
   };
@@ -891,6 +845,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
             const isCompleted = currentTime >= scene.timeEnd;
             return (
               <button
+                type="button"
                 key={scene.id}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -915,6 +870,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
         {/* Right: Mode Switcher, Timer & Fullscreen Toggle */}
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               setRenderMode((prev) => (prev === 'studio' ? 'video' : 'studio'));
@@ -931,6 +887,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               toggleFullscreen();
@@ -1042,6 +999,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {/* Play / Pause Button */}
             <button
+              type="button"
               onClick={handleTogglePlay}
               className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-[0_0_18px_rgba(99,102,241,0.5)] active:scale-95 transition-all cursor-pointer tracking-wider"
               aria-label={isPlaying ? 'Pause video' : 'Play video'}
@@ -1059,30 +1017,9 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
               )}
             </button>
 
-            {/* Prev Step Button */}
-            <button
-              onClick={handlePrevStep}
-              disabled={activeSceneIndexSafe === 0}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white transition-all active:scale-95 cursor-pointer flex items-center justify-center border border-white/10"
-              title="Previous Step (Left Arrow)"
-              aria-label="Previous Step"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {/* Next Step Button */}
-            <button
-              onClick={handleNextStep}
-              disabled={activeSceneIndexSafe === activeLesson.scenes.length - 1}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white transition-all active:scale-95 cursor-pointer flex items-center justify-center border border-white/10"
-              title="Next Step (Right Arrow)"
-              aria-label="Next Step"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-
             {/* Restart Button */}
             <button
+              type="button"
               onClick={handleRestart}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95 cursor-pointer flex items-center justify-center border border-white/10"
               title="Restart from Step 1 (R)"
@@ -1094,6 +1031,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
             {/* Volume & Mute */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/10 text-white">
               <button
+                type="button"
                 onClick={handleToggleMute}
                 className="hover:text-indigo-400 transition-colors cursor-pointer flex items-center justify-center"
                 title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
@@ -1125,6 +1063,7 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
             <div className="flex items-center p-0.5 rounded-xl bg-white/10 border border-white/10 text-xs font-mono font-bold">
               {[0.5, 1].map((spd) => (
                 <button
+                  type="button"
                   key={spd}
                   onClick={() => handleSpeedChange(spd)}
                   className={`px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer ${

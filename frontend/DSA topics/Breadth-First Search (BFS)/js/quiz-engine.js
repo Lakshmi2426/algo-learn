@@ -12,13 +12,27 @@
  */
 
 class QuizEngine {
+  getStorageKey(key) {
+    if (typeof window !== "undefined" && typeof window.getBFSUserStorageKey === "function") {
+      return window.getBFSUserStorageKey(key);
+    }
+    const identity = localStorage.getItem("current_user") || localStorage.getItem("dsa_user_email") || "";
+    const userKey = String(identity).trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    return userKey ? `${key}_${userKey}` : key;
+  }
+
   constructor() {
     this.questions = (typeof QUIZ_QUESTIONS !== 'undefined' ? QUIZ_QUESTIONS : (typeof window !== 'undefined' ? window.QUIZ_QUESTIONS : [])) || [];
     this.currentIndex = 0;
     try {
-      this.userAnswers = JSON.parse(localStorage.getItem("algolearn_quiz_answers") || "{}");
-      this.score = parseInt(localStorage.getItem("algolearn_quiz_score") || "0", 10);
-      this.isCompleted = localStorage.getItem("algolearn_quiz_completed") === "true";
+      const officialResult = JSON.parse(localStorage.getItem(this.getStorageKey("algolearn_quiz_official_result")) || "null");
+      this.userAnswers = officialResult && officialResult.answers
+        ? officialResult.answers
+        : JSON.parse(localStorage.getItem(this.getStorageKey("algolearn_quiz_answers")) || "{}");
+      this.score = officialResult && Number.isFinite(officialResult.score)
+        ? officialResult.score
+        : parseInt(localStorage.getItem(this.getStorageKey("algolearn_quiz_score")) || "0", 10);
+      this.isCompleted = Boolean(officialResult) || localStorage.getItem(this.getStorageKey("algolearn_quiz_completed")) === "true";
     } catch (e) {
       this.userAnswers = {};
       this.score = 0;
@@ -37,7 +51,7 @@ class QuizEngine {
 
     // Quiz started state
     const hasExistingAnswers = Object.keys(this.userAnswers).length > 0;
-    this.quizStarted = hasExistingAnswers || (localStorage.getItem("algolearn_quiz_started") === "true");
+    this.quizStarted = hasExistingAnswers || (localStorage.getItem(this.getStorageKey("algolearn_quiz_started")) === "true");
   }
 
   init(containerEl) {
@@ -52,7 +66,7 @@ class QuizEngine {
   startQuiz() {
     this.quizStarted = true;
     try {
-      localStorage.setItem("algolearn_quiz_started", "true");
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_started"), "true");
     } catch (e) {}
     this.timeLeft = this.questionTimeLimit;
     this.startQuestionTimer();
@@ -60,6 +74,8 @@ class QuizEngine {
   }
 
   reset() {
+    // A completed quiz is an official first-play result and cannot be reopened.
+    if (this.isCompleted || localStorage.getItem(this.getStorageKey("algolearn_quiz_official_result"))) return;
     this.clearQuestionTimer();
     this.currentIndex = 0;
     this.score = 0;
@@ -71,10 +87,10 @@ class QuizEngine {
     this.unansweredWarning = null;
     this.expandedQuestions = new Set([1]);
     try {
-      localStorage.removeItem("algolearn_quiz_started");
-      localStorage.removeItem("algolearn_quiz_answers");
-      localStorage.removeItem("algolearn_quiz_score");
-      localStorage.removeItem("algolearn_quiz_completed");
+      localStorage.removeItem(this.getStorageKey("algolearn_quiz_started"));
+      localStorage.removeItem(this.getStorageKey("algolearn_quiz_answers"));
+      localStorage.removeItem(this.getStorageKey("algolearn_quiz_score"));
+      localStorage.removeItem(this.getStorageKey("algolearn_quiz_completed"));
     } catch (e) {}
     if (typeof app !== 'undefined' && typeof app.updateProgressStats === 'function') {
       app.updateProgressStats();
@@ -169,6 +185,7 @@ class QuizEngine {
   }
 
   handleTimeout() {
+    if (this.isCompleted) return;
     const q = this.questions[this.currentIndex];
     if (!q || this.userAnswers[q.id] !== undefined) return;
 
@@ -188,8 +205,8 @@ class QuizEngine {
     }
 
     try {
-      localStorage.setItem("algolearn_quiz_answers", JSON.stringify(this.userAnswers));
-      localStorage.setItem("algolearn_quiz_score", String(this.score));
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_answers"), JSON.stringify(this.userAnswers));
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_score"), String(this.score));
     } catch (e) {}
 
     if (typeof app !== 'undefined') {
@@ -227,13 +244,14 @@ class QuizEngine {
   }
 
   selectOption(questionId, optionId) {
+    if (this.isCompleted) return;
     // If this question is already answered, do not allow changing
     if (this.userAnswers[questionId] !== undefined) return;
 
     if (!this.quizStarted) {
       this.quizStarted = true;
       try {
-        localStorage.setItem("algolearn_quiz_started", "true");
+        localStorage.setItem(this.getStorageKey("algolearn_quiz_started"), "true");
       } catch (e) {}
       this.startQuestionTimer();
     }
@@ -246,6 +264,7 @@ class QuizEngine {
   }
 
   confirmAnswer() {
+    if (this.isCompleted) return;
     const q = this.questions[this.currentIndex];
     if (!q) return;
 
@@ -291,8 +310,8 @@ class QuizEngine {
 
     // Persist answers and score to localStorage
     try {
-      localStorage.setItem("algolearn_quiz_answers", JSON.stringify(this.userAnswers));
-      localStorage.setItem("algolearn_quiz_score", String(this.score));
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_answers"), JSON.stringify(this.userAnswers));
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_score"), String(this.score));
     } catch (e) {}
 
     // Update app progress & dashboard immediately
@@ -371,6 +390,7 @@ class QuizEngine {
   }
 
   completeQuiz() {
+    if (this.isCompleted) return;
     this.clearQuestionTimer();
     const unanswered = this.getUnansweredIndices();
     if (unanswered.length > 0) {
@@ -399,7 +419,13 @@ class QuizEngine {
     this.unansweredWarning = null;
     this.isCompleted = true;
     try {
-      localStorage.setItem("algolearn_quiz_completed", "true");
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_completed"), "true");
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_score"), String(this.calculateScore().rawScore));
+      localStorage.setItem(this.getStorageKey("algolearn_quiz_official_result"), JSON.stringify({
+        answers: this.userAnswers,
+        score: this.calculateScore().rawScore,
+        completedAt: Date.now()
+      }));
     } catch (e) {}
 
     // Notify app of completion
@@ -799,12 +825,8 @@ class QuizEngine {
             </div>
           </div>
 
-          <!-- Actions: Retry Quiz & Return to Dashboard -->
+          <!-- Actions: Return to Dashboard -->
           <div class="results-actions-row">
-            <button type="button" class="btn-quiz-retry" onclick="quizEngine.reset()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              Retry Quiz
-            </button>
             <button type="button" class="btn-quiz-dashboard" onclick="if(window.app && app.switchTab){ app.switchTab('overview'); } else { window.location.reload(); }">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
               Return to Dashboard
