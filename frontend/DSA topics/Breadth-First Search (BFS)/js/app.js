@@ -413,6 +413,15 @@ class AppController {
     if (closeGuidanceBtn) closeGuidanceBtn.addEventListener("click", hideGuidance);
     if (gotGuidanceBtn) gotGuidanceBtn.addEventListener("click", hideGuidance);
 
+    const stepErrorDismissBtn = document.getElementById("game-step-error-dismiss");
+    if (stepErrorDismissBtn) {
+      stepErrorDismissBtn.addEventListener("click", () => {
+        if (window.game && typeof window.game.clearError === "function") {
+          window.game.clearError();
+        }
+      });
+    }
+
     const openDemoBtn = document.getElementById("open-demo-btn");
     if (openDemoBtn) {
       openDemoBtn.addEventListener("click", () => {
@@ -2501,7 +2510,9 @@ class AppController {
       // Assistance tracking per level
       const ast = (this.gameAssistance && this.gameAssistance[slot]) ? this.gameAssistance[slot] : {};
       const hintCount = typeof ast.hintCount === "number" ? ast.hintCount : (ast.hintUsed ? 1 : 0);
-      const guidedCount = typeof ast.guidedCount === "number" ? ast.guidedCount : (ast.guidedUsed ? 1 : 0);
+      const guidedCount = Array.isArray(ast.chargedSessions)
+        ? ast.chargedSessions.length
+        : (typeof ast.guidedCount === "number" ? ast.guidedCount : (ast.guidedUsed ? 1 : 0));
 
       totalHintsUsed += hintCount;
       totalGuidedUsed += guidedCount;
@@ -2762,22 +2773,38 @@ class AppController {
     return true;
   }
 
-  recordGuidedPenalty(levelNum = 1) {
+  recordGuidedPenalty(levelNum = 1, sessionId = null) {
     if (this.isLevelCompleted(levelNum)) {
       return false; // Replaying a completed level must not deduct points
     }
     const slot = getCanonicalLevelSlot(levelNum);
     if (!this.gameAssistance) this.gameAssistance = {};
     if (!this.gameAssistance[slot]) {
-      this.gameAssistance[slot] = { hintCount: 0, guidedCount: 0, hintUsed: false, guidedUsed: false };
+      this.gameAssistance[slot] = { hintCount: 0, guidedCount: 0, hintUsed: false, guidedUsed: false, chargedSessions: [] };
     }
+    if (!Array.isArray(this.gameAssistance[slot].chargedSessions)) {
+      this.gameAssistance[slot].chargedSessions = [];
+      if (this.gameAssistance[slot].guidedUsed) {
+        this.gameAssistance[slot].chargedSessions.push("session-prev");
+      }
+    }
+
+    // STRICT CHECK: If this Guided Solve session has already been charged, DO NOT deduct again!
+    if (sessionId && this.gameAssistance[slot].chargedSessions.includes(sessionId)) {
+      return false;
+    }
+
+    if (sessionId) {
+      this.gameAssistance[slot].chargedSessions.push(sessionId);
+    }
+    this.gameAssistance[slot].guidedCount = this.gameAssistance[slot].chargedSessions.length > 0
+      ? this.gameAssistance[slot].chargedSessions.length
+      : (this.gameAssistance[slot].guidedCount || 0) + 1;
+    this.gameAssistance[slot].guidedUsed = true;
+    localStorage.setItem("algolearn_game_assistance", JSON.stringify(this.gameAssistance));
 
     const deductionAmount = (BFS_SCORING.game && BFS_SCORING.game.penalties && BFS_SCORING.game.penalties.guidedSolve) || 3;
     const currentScore = this.getPointsSummary().finalScore;
-
-    this.gameAssistance[slot].guidedCount = (this.gameAssistance[slot].guidedCount || 0) + 1;
-    this.gameAssistance[slot].guidedUsed = true;
-    localStorage.setItem("algolearn_game_assistance", JSON.stringify(this.gameAssistance));
 
     const newEvent = {
       id: "guided-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
@@ -2794,7 +2821,7 @@ class AppController {
     this.savePointsData();
 
     if (window.game) {
-      window.game.score = currentScore - deductionAmount;
+      window.game.score = Math.max(0, currentScore - deductionAmount);
       if (typeof window.game.updateStatsUI === "function") {
         window.game.updateStatsUI();
       }
@@ -2804,7 +2831,7 @@ class AppController {
     this.updateProgressStats();
     this.updateGameScoreboard();
 
-    this.showDeductionNotification(-deductionAmount, "Guided Solve Used");
+    this.showDeductionNotification(-deductionAmount, "Guided Solve Session Started");
     return true;
   }
 

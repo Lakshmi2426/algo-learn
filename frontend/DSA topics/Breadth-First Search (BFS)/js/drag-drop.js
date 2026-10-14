@@ -117,7 +117,7 @@ class DragDropEngine {
     const explorerStation = dropTarget.closest("#explorer-station-dropzone") || dropTarget.closest(".explorer-station-box");
     if (explorerStation && (this.dragType === 'queue-front' || this.dragType === 'graph-node')) {
       if (this.dragType === 'queue-front' || (this.game.queue.length > 0 && this.game.queue[0] === this.draggedNodeId)) {
-        this.game.handleDequeueExplore();
+        this.game.handleDequeueExplore(this.draggedNodeId);
       } else {
         this.game.showMistakeGuidance({
           title: "⚠️ FIFO Queue Rule",

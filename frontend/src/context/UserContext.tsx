@@ -688,18 +688,53 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Password is required.' };
     }
 
+    const cleanPassword = passwordInput.trim();
+
     try {
-      const res = await fetch(apiUrl('/api/auth/login'), {
+      let res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           regdNo: cleanRegdNo,
-          password: passwordInput.trim(),
+          password: cleanPassword,
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      let data = await res.json().catch(() => null);
+
+      // Seamless Multi-Device Session Takeover:
+      // If the response indicates an active session conflict (status 409 or alreadyLoggedIn),
+      // automatically release the previous session with the verified credentials and immediately re-authenticate.
+      // Valid credentials must NEVER be blocked by an active session message.
+      if (res.status === 409 || data?.alreadyLoggedIn) {
+        try {
+          const recoverRes = await fetch(apiUrl('/api/auth/recover-session'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              regdNo: cleanRegdNo,
+              password: cleanPassword,
+            }),
+          });
+
+          if (recoverRes.ok) {
+            res = await fetch(apiUrl('/api/auth/login'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                regdNo: cleanRegdNo,
+                password: cleanPassword,
+              }),
+            });
+            data = await res.json().catch(() => null);
+          }
+        } catch (takeoverErr) {
+          console.warn('Session replacement attempt error:', takeoverErr);
+        }
+      }
 
       if (!res.ok) {
         return {

@@ -12,9 +12,14 @@ export function getApiBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
     const isLocal =
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1';
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.startsWith('172.') ||
+      host.endsWith('.local');
 
     if (!isLocal) {
       return DEFAULT_REMOTE_BACKEND;

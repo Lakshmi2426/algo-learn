@@ -71,9 +71,14 @@ class GameEngine {
       victoryModal.style.display = "none";
     }
 
+    this.clearError();
+
+    this.currentSessionId = `bfs-session-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+
     // Guided Solve must ALWAYS be reset to inactive when entering/loading any level
     if (this.guidedEngine) {
       this.guidedEngine.isActive = false;
+      this.guidedEngine.setSessionId(this.currentSessionId);
       if (this.guidedEngine.isAutoPlaying) {
         this.guidedEngine.pauseAutoPlay();
       }
@@ -197,16 +202,30 @@ class GameEngine {
       return;
     }
 
-    // Check mistake cases: already discovered, in queue, or visited
-    if (this.visited.has(nodeId) || this.discovered.has(nodeId) || this.queue.includes(nodeId)) {
+    // Check mistake cases: already visited
+    if (this.visited.has(nodeId)) {
       this.mistakesCount++;
       this.streak = 0;
       this.updateStatsUI();
       if (window.soundManager) soundManager.playError();
       this.showMistakeGuidance({
         title: "⚠️ Visited Set Guard Active",
-        explanation: `Node '${nodeId}' is already discovered/visited. It cannot be added again.`,
+        explanation: `Node '${nodeId}' has already been visited and processed. In BFS, visited nodes cannot be enqueued again.`,
         fix: "This Visited Set rule prevents cycles from causing infinite loops in BFS!"
+      });
+      return;
+    }
+
+    // Check mistake cases: already discovered or in queue
+    if (this.discovered.has(nodeId) || this.queue.includes(nodeId)) {
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
+      if (window.soundManager) soundManager.playError();
+      this.showMistakeGuidance({
+        title: "⚠️ Duplicate Queue Entry",
+        explanation: `Node '${nodeId}' is already waiting inside the FIFO Queue.`,
+        fix: "In BFS, each node is enqueued at most once when first discovered. Wait for it to reach the front!"
       });
       return;
     }
@@ -223,6 +242,7 @@ class GameEngine {
         this.addScore(10);
         if (window.soundManager) soundManager.playEnqueue();
 
+        this.clearError();
         this.stepHistory.push({ type: "init", text: `Source root node '${nodeId}' enqueued at REAR.` });
         this.showToast(`Source node '${nodeId}' added to Queue (REAR). Now click or drag to Dequeue it!`, "success");
         this.updateUI();
@@ -237,7 +257,7 @@ class GameEngine {
         this.showMistakeGuidance({
           title: "⚠️ Start at the Source Node",
           explanation: `BFS must start by enqueuing the source/root node '${this.currentLevelData.startNode}'.`,
-          fix: `Drag source node '${this.currentLevelData.startNode}' into the Queue first.`
+          fix: `Drag or click source node '${this.currentLevelData.startNode}' into the Queue first.`
         });
         return;
       }
@@ -245,12 +265,41 @@ class GameEngine {
 
     // If no active explorer node (need to dequeue first)
     if (!this.currentExplorerNode) {
-      this.showToast("⚡ Dequeue the front node first before adding new neighbors!", "info");
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
+      if (window.soundManager) soundManager.playError();
+      const frontNode = this.queue.length > 0 ? this.queue[0] : this.currentLevelData.startNode;
+      this.showMistakeGuidance({
+        title: "⚠️ Dequeue Front Node First",
+        explanation: `Cannot enqueue '${nodeId}' yet because there is no active explorer node. The front node '${frontNode}' must be dequeued first to explore its connections!`,
+        fix: `Click 'Dequeue Front' or drag '${frontNode}' into the Active Explorer Station before discovering its neighbors.`
+      });
       return;
     }
 
     // Check if node is an adjacent neighbor of currentExplorerNode
     const neighbors = this.graphEngine.getNeighbors(this.currentExplorerNode);
+    const unvisitedNeighbors = neighbors.filter(n => {
+      const nodeObj = this.currentLevelData.graph.nodes.find(node => node.id === n);
+      if (nodeObj && nodeObj.isUnreachable) return false;
+      return !this.visited.has(n) && !this.discovered.has(n) && !this.queue.includes(n);
+    });
+
+    if (unvisitedNeighbors.length === 0) {
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
+      if (window.soundManager) soundManager.playError();
+      const nextToDequeue = this.queue.length > 0 ? this.queue[0] : "next node";
+      this.showMistakeGuidance({
+        title: "⚠️ All Neighbors Discovered",
+        explanation: `All unvisited neighbors of active room '${this.currentExplorerNode}' have already been enqueued into the FIFO Queue.`,
+        fix: `Click 'Dequeue Front' to process '${nextToDequeue}' from the front of the queue.`
+      });
+      return;
+    }
+
     if (!neighbors.includes(nodeId)) {
       this.mistakesCount++;
       this.streak = 0;
@@ -258,8 +307,22 @@ class GameEngine {
       if (window.soundManager) soundManager.playError();
       this.showMistakeGuidance({
         title: "⚠️ Not an Adjacent Neighbor",
-        explanation: `Node '${nodeId}' is not an immediate neighbor of active room '${this.currentExplorerNode}'.`,
-        fix: `Only unvisited neighbors connected to '${this.currentExplorerNode}' can be discovered at this step.`
+        explanation: `Node '${nodeId}' is not an immediate neighbor of active room '${this.currentExplorerNode}'. In BFS, only direct unvisited neighbors connected to '${this.currentExplorerNode}' can be discovered at this step.`,
+        fix: `Expected next neighbor: '${unvisitedNeighbors[0]}'. Choose one of: [${unvisitedNeighbors.join(", ")}].`
+      });
+      return;
+    }
+
+    // Strict defined adjacency order check (FIFO & left-to-right / alphabetical)
+    if (nodeId !== unvisitedNeighbors[0]) {
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
+      if (window.soundManager) soundManager.playError();
+      this.showMistakeGuidance({
+        title: "⚠️ Adjacency Order Violation",
+        explanation: `According to the defined adjacency order (left-to-right / alphabetical), neighbor '${unvisitedNeighbors[0]}' must be enqueued before '${nodeId}'.`,
+        fix: `Enqueue '${unvisitedNeighbors[0]}' into the Queue first before '${nodeId}'.`
       });
       return;
     }
@@ -297,6 +360,7 @@ class GameEngine {
     this.addScore(15);
     if (window.soundManager) soundManager.playEnqueue();
 
+    this.clearError();
     this.stepHistory.push({
       type: "enqueue",
       text: `Discovered '${nodeId}' via '${parentNode}' ➔ Added Tree Edge (${parentNode} → ${nodeId}) at Level ${childDist}`
@@ -314,13 +378,74 @@ class GameEngine {
   /**
    * Main Dequeue Interaction (Drag FRONT node to Explorer Station or Click "Dequeue Front")
    */
-  handleDequeueExplore() {
+  handleDequeueExplore(targetNodeId = null) {
     if (this.isLevelCompleted) return;
 
-    if (this.queue.length === 0) {
+    // Reject attempt to dequeue a non-front waiting node
+    if (targetNodeId && this.queue.length > 0 && this.queue[0] !== targetNodeId) {
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
       if (window.soundManager) soundManager.playError();
-      this.showToast("Queue is currently empty! All reachable nodes may be visited.", "info");
+      this.showMistakeGuidance({
+        title: "⚠️ FIFO Violation: Dequeue Wrong Node",
+        explanation: `Cannot dequeue '${targetNodeId}'. In a FIFO (First-In, First-Out) Queue, only the node at the FRONT ('${this.queue[0]}') can be dequeued next. Node '${targetNodeId}' must wait until it reaches the front!`,
+        fix: `Dequeue front node '${this.queue[0]}' first.`
+      });
+      return;
+    }
+
+    // 1. Check mistake: Start node not yet enqueued into empty queue
+    if (!this.currentExplorerNode && this.queue.length === 0 && !this.discovered.has(this.currentLevelData.startNode)) {
+      this.mistakesCount++;
+      this.streak = 0;
+      this.updateStatsUI();
+      if (window.soundManager) soundManager.playError();
+      this.showMistakeGuidance({
+        title: "⚠️ Queue is Empty — Enqueue Source Node First",
+        explanation: `Cannot dequeue because the Queue is empty. BFS must start by enqueuing the source/root node '${this.currentLevelData.startNode}'.`,
+        fix: `Drag or click source node '${this.currentLevelData.startNode}' to add it to the Queue first.`
+      });
+      return;
+    }
+
+    // 2. Check mistake: Active node still has unvisited neighbors that MUST be enqueued first
+    if (this.currentExplorerNode) {
+      const neighbors = this.graphEngine.getNeighbors(this.currentExplorerNode);
+      const unvisitedNeighbors = neighbors.filter(n => {
+        const nodeObj = this.currentLevelData.graph.nodes.find(node => node.id === n);
+        if (nodeObj && nodeObj.isUnreachable) return false;
+        return !this.visited.has(n) && !this.discovered.has(n) && !this.queue.includes(n);
+      });
+
+      if (unvisitedNeighbors.length > 0) {
+        this.mistakesCount++;
+        this.streak = 0;
+        this.updateStatsUI();
+        if (window.soundManager) soundManager.playError();
+        this.showMistakeGuidance({
+          title: "⚠️ Unvisited Neighbors Must Be Enqueued First",
+          explanation: `Active node '${this.currentExplorerNode}' still has ${unvisitedNeighbors.length} unvisited neighbor(s): [${unvisitedNeighbors.join(', ')}]. In BFS, all unvisited neighbors of the active node must be discovered and enqueued into the FIFO Queue before moving on to dequeue the next node!`,
+          fix: `Click or drag unvisited neighbor(s) ${unvisitedNeighbors.map(n => `'${n}'`).join(', ')} into the Queue (REAR) before dequeuing.`
+        });
+        return;
+      }
+    }
+
+    // 3. Check mistake: Queue is empty
+    if (this.queue.length === 0) {
       this.checkLevelCompletion();
+      if (!this.isLevelCompleted) {
+        this.mistakesCount++;
+        this.streak = 0;
+        this.updateStatsUI();
+        if (window.soundManager) soundManager.playError();
+        this.showMistakeGuidance({
+          title: "⚠️ Queue is Empty",
+          explanation: "There are no nodes currently waiting in the FIFO Queue to dequeue.",
+          fix: "All reachable nodes from the current component may have been explored, or check for unvisited nodes."
+        });
+      }
       return;
     }
 
@@ -344,6 +469,7 @@ class GameEngine {
     this.addScore(10);
     if (window.soundManager) soundManager.playDequeue();
 
+    this.clearError();
     this.stepHistory.push({
       type: "dequeue",
       text: `Dequeued '${nextNode}' from FRONT ➔ Current Explorer Node (Level ${this._getNodeLevel(nextNode)})`
@@ -408,6 +534,9 @@ class GameEngine {
   }
 
   showMistakeGuidance(diagnosis) {
+    this.currentError = diagnosis;
+    this.displayStepError(diagnosis);
+
     const modal = document.getElementById("guidance-modal");
     const titleEl = document.getElementById("guidance-title");
     const expEl = document.getElementById("guidance-explanation");
@@ -421,6 +550,33 @@ class GameEngine {
       modal.classList.add("flex");
     } else {
       this.showToast(`${diagnosis.title}: ${diagnosis.explanation}`, "warning");
+    }
+  }
+
+  displayStepError(diagnosis) {
+    const errorBox = document.getElementById("game-step-error-box");
+    const titleEl = document.getElementById("game-step-error-title");
+    const textEl = document.getElementById("game-step-error-text");
+
+    if (errorBox && titleEl && textEl) {
+      titleEl.textContent = diagnosis.title || "Traversal Mistake";
+      textEl.textContent = `${diagnosis.explanation} ${diagnosis.fix ? "→ " + diagnosis.fix : ""}`;
+      errorBox.classList.remove("hidden");
+      errorBox.style.display = "block";
+    }
+  }
+
+  clearError() {
+    this.currentError = null;
+    const errorBox = document.getElementById("game-step-error-box");
+    if (errorBox) {
+      errorBox.classList.add("hidden");
+      errorBox.style.display = "none";
+    }
+    const modal = document.getElementById("guidance-modal");
+    if (modal) {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
     }
   }
 
@@ -834,10 +990,14 @@ class GameEngine {
             <span class="chip-id">${nodeId}</span>
           `;
           if (idx === 0) {
-            item.setAttribute("title", "Drag me to Active Explorer Station to Dequeue (or click Dequeue Front)!");
+            item.setAttribute("title", "Click or drag to Active Explorer Station to Dequeue (or click Dequeue Front)!");
             item.setAttribute("draggable", "true");
             item.addEventListener("mousedown", (e) => this.dragDropEngine.startQueueFrontDrag(nodeId, e));
             item.addEventListener("touchstart", (e) => this.dragDropEngine.startQueueFrontDrag(nodeId, e), { passive: true });
+            item.addEventListener("click", () => this.handleDequeueExplore(nodeId));
+          } else {
+            item.setAttribute("title", `Waiting node '${nodeId}' (position ${idx + 1}). In FIFO order, front node must be dequeued first.`);
+            item.addEventListener("click", () => this.handleDequeueExplore(nodeId));
           }
           queueSlotsContainer.appendChild(item);
         });

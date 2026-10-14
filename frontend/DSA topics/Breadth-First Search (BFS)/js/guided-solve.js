@@ -10,7 +10,30 @@ class GuidedSolveEngine {
     this.isAutoPlaying = false;
     this.autoPlayInterval = null;
     this.stepSpeedMs = 1800;
-    this.deductedActions = new Set();
+    this.sessionId = null;
+    this.hasChargedForCurrentSession = false;
+  }
+
+  setSessionId(sessionId) {
+    this.sessionId = sessionId;
+    this.hasChargedForCurrentSession = false;
+  }
+
+  ensureSessionPenaltyCharged() {
+    if (this.hasChargedForCurrentSession) return;
+    const lvlNum = this.game ? (this.game.currentLevelIndex !== undefined ? this.game.currentLevelIndex + 1 : 1) : 1;
+    const isCompleted = (typeof window.app !== "undefined" && typeof window.app.isLevelCompleted === "function")
+      ? window.app.isLevelCompleted(lvlNum)
+      : false;
+
+    if (isCompleted) {
+      return;
+    }
+
+    this.hasChargedForCurrentSession = true;
+    if (typeof window.app !== "undefined" && typeof window.app.recordGuidedPenalty === "function") {
+      window.app.recordGuidedPenalty(lvlNum, this.sessionId);
+    }
   }
 
   toggle(enable) {
@@ -22,14 +45,13 @@ class GuidedSolveEngine {
       return false;
     }
 
-    // Opening Guided Solve alone must not deduct points
     this.isActive = true;
+    this.ensureSessionPenaltyCharged();
     return this.isActive;
   }
 
   reset() {
     this.isActive = false;
-    this.deductedActions.clear();
     this.pauseAutoPlay();
     if (this.game && typeof this.game.updateGuidedSolveUI === "function") {
       this.game.updateGuidedSolveUI();
@@ -37,13 +59,37 @@ class GuidedSolveEngine {
   }
 
   getNextActionDescription() {
+    if (!this.game || !this.game.currentLevelData) return null;
+    if (this.game.isLevelCompleted) {
+      return {
+        actionType: "complete",
+        targetNode: null,
+        buttonText: `Level Complete!`,
+        headline: `Queue is empty — Traversal Finished!`,
+        explanation: `All reachable nodes at every level have been fully explored.`,
+        queuePreview: `[]`
+      };
+    }
+
     const queue = [...this.game.queue];
     const current = this.game.currentExplorerNode;
     const visited = this.game.visited;
     const levelData = this.game.currentLevelData;
 
+    // Check if targetNode reached (e.g. Level 9 EXIT)
+    if (levelData.targetNode && (visited.has(levelData.targetNode) || this.game.discovered.has(levelData.targetNode))) {
+      return {
+        actionType: "complete",
+        targetNode: null,
+        buttonText: `Target '${levelData.targetNode}' Reached!`,
+        headline: `Goal reached at '${levelData.targetNode}'!`,
+        explanation: `Shortest path discovered to the target node.`,
+        queuePreview: `[${queue.join(", ")}]`
+      };
+    }
+
     // Case 1: Level not yet initialized with start node
-    if (!current && queue.length === 0 && !visited.has(levelData.startNode)) {
+    if (!current && queue.length === 0 && !visited.has(levelData.startNode) && !this.game.discovered.has(levelData.startNode)) {
       return {
         actionType: "enqueue_start",
         targetNode: levelData.startNode,
@@ -67,10 +113,14 @@ class GuidedSolveEngine {
       };
     }
 
-    // Case 3: Currently exploring a node -> check for unvisited neighbors
+    // Case 3: Currently exploring a node -> check for unvisited neighbors in defined adjacency order
     if (current) {
       const neighbors = this.game.graphEngine.getNeighbors(current);
-      const unvisitedNeighbors = neighbors.filter(n => !visited.has(n) && !this.game.discovered.has(n) && !queue.includes(n));
+      const unvisitedNeighbors = neighbors.filter(n => {
+        const nodeObj = levelData.graph.nodes.find(node => node.id === n);
+        if (nodeObj && nodeObj.isUnreachable) return false;
+        return !visited.has(n) && !this.game.discovered.has(n) && !queue.includes(n);
+      });
 
       if (unvisitedNeighbors.length > 0) {
         const nextNeighbor = unvisitedNeighbors[0];
@@ -80,7 +130,7 @@ class GuidedSolveEngine {
           targetNode: nextNeighbor,
           buttonText: `Step: Enqueue Neighbor '${nextNeighbor}'`,
           headline: `Discover neighbor '${nextNeighbor}' from '${current}'`,
-          explanation: `Checking doors from '${current}'. Room '${nextNeighbor}' is unvisited, so we add it to the back of the Queue.`,
+          explanation: `Checking doors from '${current}'. Room '${nextNeighbor}' is unvisited, so we add it to the back (REAR) of the Queue in defined adjacency order.`,
           queuePreview: `[${updatedQueue.join(", ")}]`
         };
       } else {
@@ -119,22 +169,10 @@ class GuidedSolveEngine {
   }
 
   performSingleStep() {
+    this.ensureSessionPenaltyCharged();
+
     const nextAction = this.getNextActionDescription();
     if (!nextAction) return;
-
-    // Apply existing Guided Solve deduction only when advancing a step on an uncompleted level without duplicates
-    const lvlNum = this.game ? (this.game.currentLevelIndex !== undefined ? this.game.currentLevelIndex + 1 : 1) : 1;
-    const isCompleted = (typeof window.app !== "undefined" && typeof window.app.isLevelCompleted === "function")
-      ? window.app.isLevelCompleted(lvlNum)
-      : false;
-
-    const actionKey = `${lvlNum}-${nextAction.actionType}-${nextAction.targetNode}`;
-    if (!isCompleted && !this.deductedActions.has(actionKey)) {
-      this.deductedActions.add(actionKey);
-      if (typeof window.app !== "undefined" && typeof window.app.recordGuidedPenalty === "function") {
-        window.app.recordGuidedPenalty(lvlNum);
-      }
-    }
 
     if (nextAction.actionType === "enqueue_start" || nextAction.actionType === "enqueue_neighbor") {
       this.game.handleNodeEnqueueAttempt(nextAction.targetNode);
@@ -215,11 +253,19 @@ class GuidedSolveEngine {
       }
       if (current) {
         const neighbors = this.game.graphEngine.getNeighbors(current);
+        const unvisitedNeighbors = neighbors.filter(n => !visited.has(n) && !this.game.discovered.has(n) && !queue.includes(n));
         if (!neighbors.includes(attemptedNodeId)) {
           return {
             title: "⚠️ Disconnected Node Mistake",
             explanation: `Node '${attemptedNodeId}' is not connected to active node '${current}'.`,
             fix: `BFS only adds direct immediate neighbors of the current active room. Choose one of: [${neighbors.join(", ")}].`
+          };
+        }
+        if (unvisitedNeighbors.length > 0 && attemptedNodeId !== unvisitedNeighbors[0]) {
+          return {
+            title: "⚠️ Adjacency Order Violation",
+            explanation: `According to the defined adjacency order, neighbor '${unvisitedNeighbors[0]}' must be enqueued before '${attemptedNodeId}'.`,
+            fix: `Enqueue '${unvisitedNeighbors[0]}' first.`
           };
         }
       }

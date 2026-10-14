@@ -81,7 +81,7 @@ router.post('/signup', async (req, res) => {
 
     const cleanRegdNo = regdNo.trim().toUpperCase();
 
-    // Reject lowercase, spaces, punctuation, or length != 10
+    // Reject invalid format or length != 10
     if (!REGEX_REGD_NO.test(cleanRegdNo) || cleanRegdNo.length !== 10) {
       return res.status(400).json({
         error: 'Registration Number must contain exactly 10 characters consisting only of uppercase letters (A–Z) and digits (0–9).',
@@ -97,8 +97,13 @@ router.post('/signup', async (req, res) => {
 
     const cleanPassword = password.trim();
 
-    // 5. Check if Registration Number already exists
-    const existingStudent = await Student.findOne({ regdNo: cleanRegdNo });
+    // 5. Check if Registration Number already exists (exact or case-insensitive)
+    const existingStudent = await Student.findOne({
+      $or: [
+        { regdNo: cleanRegdNo },
+        { regdNo: new RegExp('^' + cleanRegdNo + '$', 'i') },
+      ],
+    });
     if (existingStudent) {
       return res.status(400).json({
         error: 'Registration Number is already registered to another student account.',
@@ -110,9 +115,26 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(cleanPassword, salt);
 
     // 7. Create unique session identifier
-    const sessionId = crypto.randomUUID();
+    const sessionId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
 
-    // 8. Store new student record in MongoDB with active session claimed
+    // 8. Default progress initialized across all 13 DSA topics
+    const defaultProgress = {
+      stack: 0,
+      hashing: 0,
+      'linear-search': 0,
+      'binary-search': 0,
+      sorting: 0,
+      sll: 0,
+      dll: 0,
+      cll: 0,
+      queue: 0,
+      bfs: 0,
+      trees: 0,
+      bst: 0,
+      'dsa-types': 0,
+    };
+
+    // 9. Store new student record in MongoDB with active session claimed
     const newStudent = new Student({
       name: cleanName,
       branch: cleanBranch,
@@ -123,14 +145,14 @@ router.post('/signup', async (req, res) => {
       topicsStarted: 0,
       topicsCompleted: 0,
       overallProgress: 0,
-      progress: {},
+      progress: defaultProgress,
       activeSessionId: sessionId,
       sessionLastActive: new Date(),
     });
 
     await newStudent.save();
 
-    // 9. Generate authentication session token
+    // 10. Generate authentication session token
     const token = generateToken({
       id: newStudent._id.toString(),
       regdNo: newStudent.regdNo,
@@ -139,7 +161,11 @@ router.post('/signup', async (req, res) => {
       sessionId,
     });
 
-    setSessionCookie(res, token);
+    try {
+      setSessionCookie(res, token);
+    } catch (cookieErr) {
+      console.warn('Warning: Could not set session cookie:', cookieErr.message);
+    }
 
     return res.status(201).json({
       success: true,
@@ -150,12 +176,12 @@ router.post('/signup', async (req, res) => {
         name: newStudent.name,
         branch: newStudent.branch,
         regdNo: newStudent.regdNo,
-        role: newStudent.role,
+        role: newStudent.role || 'student',
         xp: 0,
         topicsStarted: 0,
         topicsCompleted: 0,
         overallProgress: 0,
-        progress: {},
+        progress: defaultProgress,
       },
     });
   } catch (error) {
@@ -167,6 +193,7 @@ router.post('/signup', async (req, res) => {
     }
     return res.status(500).json({
       error: 'An unexpected database error occurred during registration. Please try again.',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
     });
   }
 });
@@ -180,9 +207,10 @@ router.post('/register', async (req, res, next) => {
 // -------------------------------------------------------------
 // POST /api/auth/login (Student Sign-In)
 // Required fields: Registration Number, Password
-// RULE: ONE ACTIVE LOGIN SESSION PER REGISTRATION NUMBER.
-// If an active session exists, the new login is REJECTED without overwriting the existing session.
-// Concurrent logins are protected via atomic MongoDB findOneAndUpdate.
+// POLICY: Single active session per student with automatic takeover.
+// When a user enters valid credentials, sign-in succeeds immediately
+// regardless of whether another session exists. The new device receives
+// an authenticated session and the prior session is replaced atomically.
 // -------------------------------------------------------------
 router.post('/login', async (req, res) => {
   try {
@@ -210,10 +238,17 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Query MongoDB for student account
-    const student = await Student.findOne({ regdNo: cleanRegdNo });
+    const cleanPassword = password.trim();
 
-    // If student does not have an account, reject login
+    // Query MongoDB for student account (with case-insensitive fallback)
+    let student = await Student.findOne({ regdNo: cleanRegdNo });
+    if (!student) {
+      student = await Student.findOne({
+        regdNo: new RegExp('^' + cleanRegdNo + '$', 'i'),
+      });
+    }
+
+    // If student does not have an account, reject login with 404
     if (!student) {
       return res.status(404).json({
         error: 'Account not found. Please sign up first.',
@@ -221,10 +256,18 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Guard against malformed records missing a password hash
+    if (!student.password) {
+      console.error(`Student record ${cleanRegdNo} has no password hash stored.`);
+      return res.status(401).json({
+        error: 'Account password not configured. Please contact administrator or sign up.',
+      });
+    }
+
     // Verify password against stored bcrypt hash
-    const isMatch = await bcrypt.compare(password.trim(), student.password);
+    const isMatch = await bcrypt.compare(cleanPassword, student.password);
     if (!isMatch) {
-      const isMatchUpper = await bcrypt.compare(password.trim().toUpperCase(), student.password);
+      const isMatchUpper = await bcrypt.compare(cleanPassword.toUpperCase(), student.password);
       if (!isMatchUpper) {
         return res.status(401).json({
           error: 'Invalid credentials. Please check your password.',
@@ -232,26 +275,40 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // Issue 13: Single Active Student Session — New Login Takes Over
-    // When a valid login occurs, generate a new unpredictable session ID.
-    // This atomically replaces the student's activeSessionId in MongoDB,
-    // thereby invalidating the previous session (e.g. laptop) on its next check.
-    const newSessionId = crypto.randomUUID();
+    // Single Active Session Takeover:
+    // Generate new unique session ID and atomically update the student record.
+    // This replaces any previous activeSessionId without blocking the user.
+    const newSessionId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
 
-    const claimedStudent = await Student.findByIdAndUpdate(
+    let claimedStudent = await Student.findByIdAndUpdate(
       student._id,
       {
         $set: {
           activeSessionId: newSessionId,
           sessionLastActive: new Date(),
+          regdNo: cleanRegdNo, // Ensure canonical uppercase format
         },
       },
       { returnDocument: 'after' }
     );
 
     if (!claimedStudent) {
+      await Student.updateOne(
+        { _id: student._id },
+        {
+          $set: {
+            activeSessionId: newSessionId,
+            sessionLastActive: new Date(),
+            regdNo: cleanRegdNo,
+          },
+        }
+      );
+      claimedStudent = await Student.findById(student._id);
+    }
+
+    if (!claimedStudent) {
       return res.status(500).json({
-        error: 'Failed to update student session.',
+        error: 'Failed to establish student session.',
       });
     }
 
@@ -264,28 +321,45 @@ router.post('/login', async (req, res) => {
       sessionId: newSessionId,
     });
 
-    setSessionCookie(res, token);
+    try {
+      setSessionCookie(res, token);
+    } catch (cookieErr) {
+      console.warn('Warning: Could not set session cookie:', cookieErr.message);
+    }
+
+    const studentProgress = (claimedStudent.progress && typeof claimedStudent.progress === 'object')
+      ? claimedStudent.progress
+      : {};
 
     return res.json({
       success: true,
       token,
       student: {
         id: claimedStudent._id.toString(),
-        name: claimedStudent.name,
-        branch: claimedStudent.branch,
+        name: claimedStudent.name || 'Student',
+        branch: claimedStudent.branch || '',
         regdNo: claimedStudent.regdNo,
         role: claimedStudent.role || 'student',
-        xp: claimedStudent.xp || 0,
-        topicsStarted: claimedStudent.topicsStarted || 0,
-        topicsCompleted: claimedStudent.topicsCompleted || 0,
-        overallProgress: claimedStudent.overallProgress || 0,
-        progress: claimedStudent.progress || {},
+        xp: typeof claimedStudent.xp === 'number' ? claimedStudent.xp : 0,
+        topicsStarted: typeof claimedStudent.topicsStarted === 'number' ? claimedStudent.topicsStarted : 0,
+        topicsCompleted: typeof claimedStudent.topicsCompleted === 'number' ? claimedStudent.topicsCompleted : 0,
+        overallProgress: typeof claimedStudent.overallProgress === 'number' ? claimedStudent.overallProgress : 0,
+        progress: studentProgress,
       },
     });
   } catch (error) {
-    console.error('Sign-in error:', error);
+    console.error('Sign-in error for regdNo:', req.body?.regdNo ? String(req.body.regdNo).trim().toUpperCase() : 'unknown', error);
+    const isDbError =
+      error.name === 'MongoServerSelectionError' ||
+      error.name === 'MongoNetworkError' ||
+      error.name === 'MongoTimeoutError' ||
+      error.name === 'MongooseServerSelectionError';
+
     return res.status(500).json({
-      error: 'An unexpected database error occurred during sign in. Please try again.',
+      error: isDbError
+        ? 'Database connection timeout. Please check your network and try again.'
+        : 'An unexpected database error occurred during sign in. Please try again.',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
     });
   }
 });
@@ -364,10 +438,19 @@ router.post('/recover-session', async (req, res) => {
     }
 
     const cleanRegdNo = regdNo.trim().toUpperCase();
-    const student = await Student.findOne({ regdNo: cleanRegdNo });
+    let student = await Student.findOne({ regdNo: cleanRegdNo });
+    if (!student) {
+      student = await Student.findOne({
+        regdNo: new RegExp('^' + cleanRegdNo + '$', 'i'),
+      });
+    }
 
     if (!student) {
       return res.status(404).json({ error: 'Account not found.' });
+    }
+
+    if (!student.password) {
+      return res.status(401).json({ error: 'Password not set for account.' });
     }
 
     const isMatch = await bcrypt.compare(password.trim(), student.password);
@@ -383,7 +466,9 @@ router.post('/recover-session', async (req, res) => {
       { $set: { activeSessionId: null, sessionLastActive: null } }
     );
 
-    clearSessionCookie(res);
+    try {
+      clearSessionCookie(res);
+    } catch (e) { }
 
     return res.json({
       success: true,
@@ -529,7 +614,7 @@ router.get('/me', async (req, res) => {
     }
 
     // Validate that token's session ID matches the currently active session in DB
-    if (!student.activeSessionId || student.activeSessionId !== decoded.sessionId) {
+    if (decoded.sessionId && student.activeSessionId && student.activeSessionId !== decoded.sessionId) {
       return res.status(401).json({
         error: 'Session expired, revoked, or replaced. Please log in again.',
         sessionRevoked: true,

@@ -12,6 +12,32 @@
     content="Interactive Breadth First Search (BFS) Traversal Engine and DSA learning platform with visualizations, games, and quizzes.">
   <link rel="stylesheet" href="css/styles.css?v=20261009-3">
   <link rel="stylesheet" href="css/extra-styles.css?v=20261010-1">
+  <style>
+    .game-step-error-box {
+      background: #fef2f2;
+      border: 1.5px solid #f87171;
+      color: #991b1b;
+      transition: all 0.2s ease;
+    }
+    .dark-theme .game-step-error-box,
+    [data-theme="dark"] .game-step-error-box {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(239, 68, 68, 0.5) !important;
+      color: #fca5a5 !important;
+    }
+    .dark-theme #game-step-error-title,
+    [data-theme="dark"] #game-step-error-title {
+      color: #f87171 !important;
+    }
+    .dark-theme #game-step-error-text,
+    [data-theme="dark"] #game-step-error-text {
+      color: #fecaca !important;
+    }
+    .dark-theme #game-step-error-dismiss,
+    [data-theme="dark"] #game-step-error-dismiss {
+      color: #fca5a5 !important;
+    }
+  </style>
   <script>
     (function() {
       var currentTheme = 'dark';
@@ -1291,6 +1317,23 @@
                 <!-- Column 2 (Center): FIFO Queue & Active Node Hub (Directly Next to Graph) -->
                 <section class="center-pane">
                   <div class="panel-card" style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+                    <!-- Inline Step Error Notification (Beside Current Step & Queue) -->
+                    <div id="game-step-error-box" class="game-step-error-box hidden"
+                      style="display: none; border-radius: 8px; padding: 10px 12px; margin-bottom: 2px;">
+                      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                          <span style="font-size: 1.1rem; line-height: 1;">⚠️</span>
+                          <div>
+                            <div id="game-step-error-title" style="font-weight: 800; font-size: 0.85rem;"></div>
+                            <div id="game-step-error-text" style="font-weight: 500; font-size: 0.78rem; margin-top: 3px; line-height: 1.35;"></div>
+                          </div>
+                        </div>
+                        <button type="button" id="game-step-error-dismiss"
+                          style="background: none; border: none; font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 4px;"
+                          title="Dismiss">&times;</button>
+                      </div>
+                    </div>
+
                     <!-- FIFO Queue Box -->
                     <div class="queue-box-container">
                       <div class="queue-header-row"
