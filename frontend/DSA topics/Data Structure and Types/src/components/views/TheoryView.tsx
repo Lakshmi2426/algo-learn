@@ -299,7 +299,9 @@ export const TheoryView: React.FC<TheoryViewProps> = ({
                     ) : isActive ? (
                       <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse block" title="Active" />
                     ) : (
-                      <Circle className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700" title="Not Started" />
+                      <span title="Not Started">
+                        <Circle className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700" />
+                      </span>
                     )}
                   </div>
                 </button>

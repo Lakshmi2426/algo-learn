@@ -108,10 +108,12 @@ export default function App() {
 
         if (latestEntry && latestEntry.id !== lastNotifiedEntryIdRef.current) {
           lastNotifiedEntryIdRef.current = latestEntry.id;
-          const isDeduction = latestEntry.delta < 0 || pointsDiff < 0;
-          const displayPts = latestEntry.delta !== 0 ? (latestEntry.delta > 0 ? `+${latestEntry.delta}` : `${latestEntry.delta}`) : (pointsDiff > 0 ? `+${pointsDiff}` : `${pointsDiff}`);
-          const msg = `${displayPts} Points — ${latestEntry.action}`;
-          setToastInfo({ text: msg, isDeduction });
+          if (latestEntry.category !== 'theory') {
+            const isDeduction = latestEntry.delta < 0 || pointsDiff < 0;
+            const displayPts = latestEntry.delta !== 0 ? (latestEntry.delta > 0 ? `+${latestEntry.delta}` : `${latestEntry.delta}`) : (pointsDiff > 0 ? `+${pointsDiff}` : `${pointsDiff}`);
+            const msg = `${displayPts} Points — ${latestEntry.action}`;
+            setToastInfo({ text: msg, isDeduction });
+          }
         } else if (pointsDiff !== 0 && !latestEntry) {
           const isDeduction = pointsDiff < 0;
           const displayPts = pointsDiff > 0 ? `+${pointsDiff}` : `${pointsDiff}`;

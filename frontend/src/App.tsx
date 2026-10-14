@@ -32,6 +32,7 @@ import {
 
 const MainAppContent: React.FC = () => {
   const initialNav = parseInitialRoute();
+  const [initialModuleRoutePending, setInitialModuleRoutePending] = useState(() => Boolean(initialNav.moduleId));
   const [activeTab, setActiveTab] = useState<NavigationTab>(initialNav.tab);
   const [activeModule, setActiveModule] = useState<ModuleRouteConfig | null>(null);
   const [teacherInitialTopic, setTeacherInitialTopic] = useState<string>('');
@@ -87,6 +88,7 @@ const MainAppContent: React.FC = () => {
     } else {
       navigateTo(initial.tab, initial.moduleId, true);
     }
+    setInitialModuleRoutePending(false);
 
     const handlePopState = (event: PopStateEvent) => {
       const state: NavigationState = event.state || parseInitialRoute();
@@ -150,7 +152,10 @@ const MainAppContent: React.FC = () => {
   }, [activeTab]);
 
   return (
-    <div className="relative min-h-screen bg-[#f6f9fe] dark:bg-[#070b14] text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-600 selection:text-white transition-colors duration-300">
+    <div
+      className="relative min-h-screen bg-[#f6f9fe] dark:bg-[#070b14] text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-600 selection:text-white transition-colors duration-300"
+      style={{ visibility: initialModuleRoutePending ? 'hidden' : 'visible' }}
+    >
       {/* Persistent Module Viewer for Integrated Topics — Zero Reloading Delay */}
       <div
         className="fixed inset-0 z-50"
