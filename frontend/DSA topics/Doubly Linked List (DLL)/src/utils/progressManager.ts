@@ -782,13 +782,96 @@ class ProgressManager {
   }
 
   /**
+   * Helper: Determine DLL level number from taskId.
+   */
+  public getDllTaskLevel(taskId: string): number | null {
+    if (!taskId) return null;
+    const match = taskId.match(/(?:task|dll-task)-(\d+)-\d+/i);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    if (taskId.includes('-1-') || taskId.startsWith('task-1') || taskId.startsWith('dll-task-1')) return 1;
+    if (taskId.includes('-2-') || taskId.startsWith('task-2') || taskId.startsWith('dll-task-2')) return 2;
+    if (taskId.includes('-3-') || taskId.startsWith('task-3') || taskId.startsWith('dll-task-3')) return 3;
+    return null;
+  }
+
+  /**
+   * Helper: Check if a DLL task belongs to an already permanently completed level.
+   */
+  public isDllTaskInCompletedLevel(taskId: string): boolean {
+    const levelId = this.getDllTaskLevel(taskId);
+    if (levelId === null) return false;
+    return this.isDllLevelCompleted(levelId);
+  }
+
+  /**
+   * Check if a DLL level has been permanently completed.
+   */
+  public isDllLevelCompleted(levelId: number): boolean {
+    if (this.state.levelsCompleted && this.state.levelsCompleted.includes(levelId)) {
+      return true;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const permRaw = localStorage.getItem('dll_completed_levels_permanent_v1');
+        if (permRaw) {
+          const list: number[] = JSON.parse(permRaw);
+          if (Array.isArray(list) && list.includes(levelId)) {
+            return true;
+          }
+        }
+        const tasksRaw = localStorage.getItem('dll_master_game_completed_tasks_v4');
+        if (tasksRaw) {
+          const taskIds: string[] = JSON.parse(tasksRaw);
+          const lvl1Tasks = ['task-1-1', 'task-1-2', 'task-1-3'];
+          const lvl2Tasks = ['task-2-1', 'task-2-2', 'task-2-3'];
+          const lvl3Tasks = ['task-3-1', 'task-3-2', 'task-3-3'];
+          if (levelId === 1 && lvl1Tasks.every((id) => taskIds.includes(id) || taskIds.includes(`dll-${id}`))) return true;
+          if (levelId === 2 && lvl2Tasks.every((id) => taskIds.includes(id) || taskIds.includes(`dll-${id}`))) return true;
+          if (levelId === 3 && lvl3Tasks.every((id) => taskIds.includes(id) || taskIds.includes(`dll-${id}`))) return true;
+        }
+      } catch {}
+    }
+    return false;
+  }
+
+  /**
+   * Mark a DLL level as permanently completed.
+   */
+  public markDllLevelCompleted(levelId: number): void {
+    if (!this.state.levelsCompleted) {
+      this.state.levelsCompleted = [];
+    }
+    if (!this.state.levelsCompleted.includes(levelId)) {
+      this.state.levelsCompleted.push(levelId);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const permRaw = localStorage.getItem('dll_completed_levels_permanent_v1');
+        const list: number[] = permRaw ? JSON.parse(permRaw) : [];
+        if (!list.includes(levelId)) {
+          list.push(levelId);
+          localStorage.setItem('dll_completed_levels_permanent_v1', JSON.stringify(list));
+        }
+      } catch {}
+    }
+    this.saveState();
+  }
+
+  /**
    * Complete Game Task: +6 raw points awarded ONLY once per unique task.
+   * If the DLL level was already completed, retakes must NOT award any points.
    */
   public recordGameTaskCompleted(
     topicId: string,
     taskId: string,
     attemptId?: string
   ): boolean {
+    if (topicId === 'dll' && this.isDllTaskInCompletedLevel(taskId)) {
+      return false; // Retakes of already completed DLL levels must NOT award any points
+    }
+
     const recorded = this.recordScoringEvent({
       participantId: this.participantId,
       topicId,
@@ -807,13 +890,17 @@ class ProgressManager {
 
   /**
    * Hint Used: −1 raw point deduction applied to Game section.
-   * Deducted once per unique task/hint key to prevent duplicate deductions on re-render.
+   * If the DLL level was already completed, retakes must NOT deduct any points.
    */
   public recordHintUsed(
     topicId: string,
     taskId: string,
     hintId: string = 'default'
   ): boolean {
+    if (topicId === 'dll' && this.isDllTaskInCompletedLevel(taskId)) {
+      return false; // Retakes of already completed DLL levels must NOT apply hint penalties
+    }
+
     const recorded = this.recordScoringEvent({
       participantId: this.participantId,
       topicId,
@@ -831,14 +918,51 @@ class ProgressManager {
   }
 
   /**
+   * Guided Solve Session Used: −2 raw points deduction applied to Game section.
+   * If the DLL level was already completed, retakes must NOT deduct any points.
+   */
+  public recordGuidedSolveSessionUsed(
+    topicId: string,
+    taskId: string,
+    sessionId: string
+  ): boolean {
+    if (topicId === 'dll' && this.isDllTaskInCompletedLevel(taskId)) {
+      return false; // Retakes of already completed DLL levels must NOT apply Guided Solve penalty
+    }
+
+    const recorded = this.recordScoringEvent({
+      participantId: this.participantId,
+      topicId,
+      activityType: 'GAME',
+      activityId: taskId,
+      attemptId: `session_${sessionId}`,
+      scoreDelta: -2,
+      reason: 'GUIDED_SOLVE_STEP',
+      metadata: { sessionId },
+    });
+
+    if (recorded) {
+      this.saveState();
+    }
+    return recorded;
+  }
+
+  /**
    * Guided Solve Step Used: −2 raw points deduction applied to Game section.
-   * Deducted once per unique task step index to prevent duplicate deductions.
+   * If the DLL level was already completed, retakes must NOT deduct any points.
    */
   public recordGuidedSolveStepUsed(
     topicId: string,
     taskId: string,
-    stepNumber: number
+    stepNumber: number,
+    sessionId?: string
   ): boolean {
+    if (topicId === 'dll' && this.isDllTaskInCompletedLevel(taskId)) {
+      return false; // Retakes of already completed DLL levels must NOT apply Guided Solve penalty
+    }
+    if (sessionId) {
+      return this.recordGuidedSolveSessionUsed(topicId, taskId, sessionId);
+    }
     const recorded = this.recordScoringEvent({
       participantId: this.participantId,
       topicId,
@@ -1387,6 +1511,17 @@ class ProgressManager {
       this.state.levelsMastered.push(levelId);
     }
 
+    if (typeof window !== 'undefined') {
+      try {
+        const permRaw = localStorage.getItem('dll_completed_levels_permanent_v1');
+        const permList: number[] = permRaw ? JSON.parse(permRaw) : [];
+        if (!permList.includes(levelId)) {
+          permList.push(levelId);
+          localStorage.setItem('dll_completed_levels_permanent_v1', JSON.stringify(permList));
+        }
+      } catch {}
+    }
+
     this.saveState();
   }
 
@@ -1461,6 +1596,7 @@ class ProgressManager {
         // Clear Game storage
         localStorage.removeItem('dll_master_game_completed_tasks_v4');
         localStorage.removeItem('dsa_game_completed_tasks_v1');
+        localStorage.removeItem('dll_completed_levels_permanent_v1');
         // Clear Scoring & Synced events storage
         localStorage.removeItem(SCORING_EVENTS_KEY);
         localStorage.removeItem('algolearn_synced_events_v1');
