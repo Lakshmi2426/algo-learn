@@ -43,8 +43,10 @@ export const MyProgressView: React.FC<MyProgressViewProps> = ({ onNavigateToTab 
   const gameMax = 50;
   const quizMax = 30;
 
+  // Game card displays net points; the topic total already accounts for these deductions.
+  const gameNetPoints = points.gamePoints - points.hintPenalties - points.guidedSolvePenalties;
   const visualizePercent = Math.min(100, Math.max(0, Math.round((points.visualizePoints / visualizeMax) * 100)));
-  const gamePercent = Math.min(100, Math.max(0, Math.round((points.gamePoints / gameMax) * 100)));
+  const gamePercent = Math.min(100, Math.max(0, Math.round((gameNetPoints / gameMax) * 100)));
   const quizPercent = Math.min(100, Math.max(0, Math.round((Math.max(0, points.quizPoints) / quizMax) * 100)));
 
   return (
@@ -199,7 +201,7 @@ export const MyProgressView: React.FC<MyProgressViewProps> = ({ onNavigateToTab 
                 <div>
                   <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Game</div>
                   <div className="text-base sm:text-lg font-extrabold font-mono text-slate-900 dark:text-white leading-tight">
-                    {points.gamePoints} / {gameMax} pts
+                    {gameNetPoints} / {gameMax} pts
                   </div>
                 </div>
               </div>
