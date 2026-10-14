@@ -26,6 +26,14 @@ export const GameHintCard: React.FC<GameHintCardProps> = ({
   currentProbeStep,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [, setPointsTick] = useState<number>(0);
+
+  React.useEffect(() => {
+    return pointsManager.subscribe(() => setPointsTick((t) => t + 1));
+  }, []);
+
+  const isLevelAlreadyCompleted = pointsManager.isLevelCompleted(level.id);
+  const isHintDeducted = pointsManager.isHintAlreadyDeducted(level.id);
 
   if (currentKey === null) return null;
 
@@ -116,8 +124,12 @@ export const GameHintCard: React.FC<GameHintCardProps> = ({
             <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider font-mono">
               Field Hint // What should I do next?
             </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
-              −2 pts
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+              isLevelAlreadyCompleted
+                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40'
+                : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40'
+            }`}>
+              {isLevelAlreadyCompleted ? '0 pts (Replay)' : '−2 pts'}
             </span>
           </div>
 
