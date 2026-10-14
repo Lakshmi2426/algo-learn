@@ -113,6 +113,75 @@
           applyCurrentTheme(e.data.theme);
         }
       });
+
+      function navigateParent(tab) {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'ALGOLEARN_NAVIGATE', tab: tab }, '*');
+            return;
+          }
+        } catch(e) {}
+        if (tab === 'home') window.location.href = '/';
+        else if (tab === 'ask-teacher') window.location.href = '/#ask-teacher';
+      }
+
+      function getLogoContainer(el) {
+        if (!el || typeof el.closest !== 'function') return null;
+        if (el.closest('button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn')) return null;
+        var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]');
+        if (sel) return sel;
+        var txt = (el.textContent || '').trim();
+        var parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
+        if ((txt.includes('Algo') && txt.includes('earn')) || (parentTxt.includes('Algo') && parentTxt.includes('earn')) || txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) {
+          return el.closest('div, a') || el;
+        }
+        return null;
+      }
+
+      function isCapLogoClick(e, logoEl) {
+        if (!logoEl || !e) return false;
+        var rect = logoEl.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+        var clickX = e.clientX - rect.left;
+        var clickY = e.clientY - rect.top;
+        if (clickY < -6 || clickY > rect.height + 6) return false;
+        var capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
+        capBoundary = Math.max(28, Math.min(52, capBoundary));
+        return clickX >= 0 && clickX <= capBoundary;
+      }
+
+      document.addEventListener('mousemove', function(e) {
+        var target = e.target;
+        var logoEl = getLogoContainer(target);
+        if (logoEl) {
+          if (isCapLogoClick(e, logoEl)) {
+            logoEl.style.cursor = 'pointer';
+            logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
+          } else {
+            logoEl.style.cursor = 'default';
+            logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
+          }
+        }
+      }, true);
+
+      document.addEventListener('click', function(e) {
+        var target = e.target;
+        if (!target) return;
+
+        var logoEl = getLogoContainer(target);
+        if (logoEl) {
+          if (isCapLogoClick(e, logoEl)) {
+            e.preventDefault();
+            e.stopPropagation();
+            navigateParent('home');
+            return;
+          } else {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+      }, true);
     })();
   </script>
 </head>
@@ -248,8 +317,7 @@
           </button>
 
           <div class="topbar-brand-logo-left" title="AlgoLearn — Your DSA Journey"
-            style="cursor: pointer; position: relative; height: 36px; width: 156px; display: inline-block;"
-            onclick="if (typeof navigateParent === 'function') navigateParent('home'); else if (window.parent &amp;&amp; window.parent !== window) window.parent.postMessage({ type: 'ALGOLEARN_NAVIGATE', tab: 'home' }, '*'); else window.location.href = '/';">
+            style="position: relative; height: 36px; width: 156px; display: inline-block;">
             <img src="logo-light.png" onerror="if (this.src !== '/logo-light.png') this.src='/logo-light.png';"
               alt="AlgoLearn - YOUR DSA JOURNEY" class="brand-logo-img logo-light-img"
               draggable="false" />

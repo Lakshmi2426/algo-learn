@@ -10,6 +10,7 @@ import {
   clearActiveModuleKeys,
   snapshotActiveModuleKeys,
   getActiveStudentKey,
+  initNewStudentProgress,
 } from '../utils/topicProgress';
 import { apiUrl } from '../config/api';
 import { navigateAlgoLearn } from '../utils/navigation';
@@ -751,12 +752,36 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const studentKey = student.regdNo.toLowerCase();
 
         if (typeof window !== 'undefined') {
+          // Snapshot previous student's active keys before switching accounts
+          const prevKey = localStorage.getItem('algolearn_active_student_marker');
+          if (prevKey && prevKey !== studentKey) {
+            const snap = snapshotActiveModuleKeys();
+            const existingRaw = localStorage.getItem(`algolearn_student_progress_${prevKey}`);
+            let existing: any = {};
+            try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
+            existing.moduleKeys = snap;
+            localStorage.setItem(`algolearn_student_progress_${prevKey}`, JSON.stringify(existing));
+            clearActiveModuleKeys();
+          } else if (!prevKey || prevKey !== studentKey) {
+            clearActiveModuleKeys();
+          }
+
           localStorage.setItem('algolearn_auth', 'true');
           localStorage.setItem('algolearn_token', data.token);
           localStorage.setItem('algolearn_role', 'student');
           localStorage.setItem('dsa_user_email', `${student.regdNo.toLowerCase()}@algolearn.edu`);
           localStorage.setItem('current_user', `${student.regdNo.toLowerCase()}@algolearn.edu`);
-          restoreStudentModuleKeys(studentKey);
+
+          const existingProg = localStorage.getItem(`algolearn_student_progress_${studentKey}`);
+          const hasServerProg = student.progress && typeof student.progress === 'object' && Object.keys(student.progress).length > 0;
+          const hasServerXp = typeof student.xp === 'number' && student.xp > 0;
+
+          if (!existingProg && !hasServerProg && !hasServerXp) {
+            // New student with 0 points and 0 progress
+            initNewStudentProgress(studentKey);
+          } else {
+            restoreStudentModuleKeys(studentKey);
+          }
         }
 
         if (student.progress && typeof student.progress === 'object') {
@@ -771,7 +796,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
         setRole('student');
 
-        const updatedUser = syncUserProfileWithTopicProgress({
+        const baseProfile: UserProfile = {
           ...defaultUser,
           id: student.id,
           name: student.name,
@@ -780,7 +805,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: student.regdNo.toLowerCase(),
           email: `${student.regdNo.toLowerCase()}@algolearn.edu`,
           xp: student.xp !== undefined && student.xp !== null ? student.xp : 0,
-        });
+        };
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('algolearn_user', JSON.stringify(baseProfile));
+        }
+
+        const updatedUser = syncUserProfileWithTopicProgress(baseProfile);
 
         setUser(updatedUser);
         if (typeof window !== 'undefined') {
@@ -889,15 +920,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Newly registered student starts with ZERO progress and ZERO earned points
         if (typeof window !== 'undefined') {
+          const prevKey = localStorage.getItem('algolearn_active_student_marker');
+          if (prevKey && prevKey !== studentKey) {
+            const snap = snapshotActiveModuleKeys();
+            const existingRaw = localStorage.getItem(`algolearn_student_progress_${prevKey}`);
+            let existing: any = {};
+            try { if (existingRaw) existing = JSON.parse(existingRaw); } catch {}
+            existing.moduleKeys = snap;
+            localStorage.setItem(`algolearn_student_progress_${prevKey}`, JSON.stringify(existing));
+          }
+
           clearActiveModuleKeys();
-          localStorage.setItem(
-            `algolearn_student_progress_${studentKey}`,
-            JSON.stringify({
-              topicScores: {},
-              moduleKeys: {},
-              xp: 0,
-            })
-          );
+          initNewStudentProgress(studentKey);
+
           localStorage.setItem('algolearn_auth', 'true');
           localStorage.setItem('algolearn_token', resData.token);
           localStorage.setItem('algolearn_role', 'student');
@@ -908,7 +943,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
         setRole('student');
 
-        const newUser = syncUserProfileWithTopicProgress({
+        const newUserBase: UserProfile = {
           ...defaultUser,
           id: student.id,
           name: student.name,
@@ -917,7 +952,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: student.regdNo.toLowerCase(),
           email: `${student.regdNo.toLowerCase()}@algolearn.edu`,
           xp: 0,
-        });
+        };
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('algolearn_user', JSON.stringify(newUserBase));
+        }
+
+        const newUser = syncUserProfileWithTopicProgress(newUserBase);
 
         setUser(newUser);
         if (typeof window !== 'undefined') {

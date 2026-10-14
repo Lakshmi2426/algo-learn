@@ -291,10 +291,8 @@ export const VideoTutorialsView: React.FC = () => {
     setIsPlaying(false);
     if (selectedLesson) {
       soundManager.playVideoComplete();
-      const newlyCompleted = progressManager.completeVideo(selectedLesson.id);
-      if (newlyCompleted) {
-        pointsManager.recordVideoCompleted(selectedLesson.id);
-      }
+      pointsManager.recordVideoCompleted(selectedLesson.id);
+      progressManager.completeVideo(selectedLesson.id);
     }
   };
 

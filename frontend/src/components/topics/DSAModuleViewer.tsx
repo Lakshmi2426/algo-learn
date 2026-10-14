@@ -126,30 +126,55 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       const doc = iframe.contentDocument;
       if (!doc) return;
 
-      const isLogoElement = (el: HTMLElement | null): boolean => {
-        if (!el) return false;
-        if (el.closest('button[id*="theme"], button[id*="sound"], button[id*="toggle"], button[id*="menu"], #header-hamburger-btn, #topbar-menu-toggle')) {
-          return false;
+      const getLogoContainer = (el: HTMLElement | null): HTMLElement | null => {
+        if (!el || typeof el.closest !== 'function') return null;
+        if (
+          el.closest(
+            'button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn'
+          )
+        ) {
+          return null;
         }
 
         const sel = el.closest(
-          '#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, [aria-label*="AlgoLearn" i], [aria-label*="Logo" i], [title*="AlgoLearn" i], a[href="/"]'
-        );
-        if (sel) return true;
+          '#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]'
+        ) as HTMLElement | null;
+        if (sel) return sel;
 
         const txt = (el.textContent || '').trim();
         const parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
-        if (txt.includes('Algo') && txt.includes('earn')) return true;
-        if (txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) return true;
-        if (txt === 'AlgoLearn' || parentTxt === 'AlgoLearn') return true;
+        if (
+          (txt.includes('Algo') && txt.includes('earn')) ||
+          (parentTxt.includes('Algo') && parentTxt.includes('earn')) ||
+          txt.includes('YOUR DSA JOURNEY') ||
+          parentTxt.includes('YOUR DSA JOURNEY')
+        ) {
+          return (el.closest('div, a') || el) as HTMLElement;
+        }
 
-        return false;
+        return null;
+      };
+
+      const isCapLogoClick = (e: MouseEvent, logoEl: HTMLElement): boolean => {
+        if (!logoEl || !e) return false;
+        const rect = logoEl.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        if (clickY < -6 || clickY > rect.height + 6) return false;
+
+        // In the AlgoLearn logo, the graduation cap icon strictly occupies the left section (up to ~30% width)
+        let capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
+        capBoundary = Math.max(28, Math.min(52, capBoundary));
+
+        return clickX >= 0 && clickX <= capBoundary;
       };
 
       const isChatElement = (el: HTMLElement | null): boolean => {
         if (!el) return false;
         // Never intercept guided solve or game hint controls
-        if (el.closest('[title*="Guided Solve" i], [id*="guided-solve" i], .guided-solve-btn')) {
+        if (el.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], button, [role="button"]')) {
           return false;
         }
         const sel = el.closest(
@@ -159,16 +184,47 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       };
 
       doc.addEventListener(
+        'mousemove',
+        (e: MouseEvent) => {
+          const target = e.target as HTMLElement | null;
+          const logoEl = getLogoContainer(target);
+          if (logoEl) {
+            if (isCapLogoClick(e, logoEl)) {
+              logoEl.style.cursor = 'pointer';
+              logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
+            } else {
+              logoEl.style.cursor = 'default';
+              logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
+            }
+          }
+        },
+        true
+      );
+
+      doc.addEventListener(
         'click',
         (e: MouseEvent) => {
           const target = e.target as HTMLElement | null;
           if (!target) return;
 
-          if (isLogoElement(target)) {
-            e.preventDefault();
-            e.stopPropagation();
-            onNavigateHome();
+          // Never intercept or redirect clicks on Guided Solve, Hint, or in-game controls
+          if (target.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
             return;
+          }
+
+          const logoEl = getLogoContainer(target);
+          if (logoEl) {
+            if (isCapLogoClick(e, logoEl)) {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigateHome();
+              return;
+            } else {
+              // Clicked outside the cap icon (on logo text/subtitle): strictly do NOT redirect
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
           }
 
           if (isChatElement(target)) {

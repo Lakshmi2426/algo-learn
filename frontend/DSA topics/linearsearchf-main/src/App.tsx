@@ -565,8 +565,8 @@ export default function App() {
                               key={`linear-search-level-${currentLevel.id}`}
                               level={currentLevel}
                               onLevelComplete={(lvlId, _lvlScore) => {
-                                progressManager.markLevelCompleted(lvlId, 100, true);
                                 pointsManager.recordGameCompleted(lvlId);
+                                progressManager.markLevelCompleted(lvlId, 100, true);
                                 setShowLevelCompleteModal(true);
                               }}
                               onScoreUpdate={(delta) => setScore((s) => s + delta)}

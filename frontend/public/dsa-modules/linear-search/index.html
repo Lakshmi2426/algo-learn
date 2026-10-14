@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light">
   <head>
-  <base href="/dsa-modules/linear-search/">
+    <base href="/dsa-modules/linear-search/">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlgoLearn – Interactive Linear Search Learning Platform</title>
@@ -77,11 +77,6 @@
       ]
     }
     </script>
-    <script type="module" crossorigin src="./assets/index-DGE4ncTn.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/vendor-icons-ukLWa3zB.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-react-D8A4VcJo.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-animation-oQXWb4Lk.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-DerpfUQQ.css">
   
     <script>
       (function() {
@@ -175,32 +170,32 @@
                 var cGames = p.completedGameLevels || [];
                 var g1 = gScores[1] !== undefined ? gScores[1] : (cGames.indexOf(1) !== -1 ? 20 : 0);
                 var g2 = gScores[2] !== undefined ? gScores[2] : (cGames.indexOf(2) !== -1 ? 20 : 0);
-                var gPts = Math.min(40, g1 + g2);
+                var gPts = Math.min(40, Math.max(0, g1 + g2));
                 var qScores = p.quizQuestionScores || {};
                 var qSum = 0;
                 Object.keys(qScores).forEach(function(k) { qSum += Number(qScores[k]) || 0; });
-                var qPts = Math.min(40, qSum);
-                score = Math.min(100, vPts + gPts + qPts);
+                var qPts = Math.min(40, Math.max(0, qSum));
+                score = Math.min(100, Math.max(0, vPts + gPts + qPts));
               }
             } else if (mid === 'hashing') {
-              var pts = null;
+              var pts = 0;
               for (var i = 0; i < localStorage.length; i++) {
                 var k = localStorage.key(i);
                 if (k && (k.indexOf('hash_user_points_') === 0 || k === 'hash_quest_points_system_v2')) {
-                  try { var pObj = JSON.parse(localStorage.getItem(k)); if (pObj && pObj.totalPoints !== undefined) pts = pts === null ? pObj.totalPoints : Math.max(pts, pObj.totalPoints); } catch(e) {}
+                  try { var pObj = JSON.parse(localStorage.getItem(k)); if (pObj && pObj.totalPoints) pts = Math.max(pts, pObj.totalPoints); } catch(e) {}
                 }
               }
-              score = pts !== null ? Math.min(100, pts) : 0;
+              score = Math.min(100, Math.max(0, pts));
             } else if (mid === 'linear-search') {
               var pts = 0;
-              try { var ptsObj = JSON.parse(localStorage.getItem('algo_quest_points_system_v3')); if (ptsObj && ptsObj.totalPoints !== undefined) pts = ptsObj.totalPoints; } catch(e) {}
-              score = Math.min(100, pts);
+              try { var ptsObj = JSON.parse(localStorage.getItem('algo_quest_points_system_v3')); if (ptsObj && ptsObj.totalPoints) pts = ptsObj.totalPoints; } catch(e) {}
+              score = Math.min(100, Math.max(0, pts));
             } else if (mid === 'binary-search') {
               try {
                 var p = JSON.parse(localStorage.getItem('binary_search_user_progress_v4'));
                 if (p) {
-                  var tEarned = (p.topicPoints && p.topicPoints.totalEarned) !== undefined ? p.topicPoints.totalEarned : 0;
-                  score = Math.min(100, tEarned);
+                  var tEarned = (p.topicPoints && p.topicPoints.totalEarned) || 0;
+                  score = Math.min(100, Math.max(0, tEarned));
                 }
               } catch(e) {}
             } else if (mid === 'sorting') {
@@ -211,9 +206,9 @@
                     var p = JSON.parse(localStorage.getItem(k));
                     if (p) {
                       var led = p.pointsLedger || {};
-                      var vz = Math.min(15, led.visualizationPoints || 0);
-                      var gm = Math.min(45, (led.gamePoints || 0) - ((led.hintDeductions || 0) + (led.guidedSolveDeductions || 0)));
-                      var qz = Math.min(40, (led.quizPoints || 0) - (led.wrongQuizDeductions || 0));
+                      var vz = Math.min(15, Math.max(0, led.visualizationPoints || 0));
+                      var gm = Math.min(45, Math.max(0, (led.gamePoints || 0) - ((led.hintDeductions || 0) + (led.guidedSolveDeductions || 0))));
+                      var qz = Math.min(40, Math.max(0, (led.quizPoints || 0) - (led.wrongQuizDeductions || 0)));
                       score = Math.min(100, vz + gm + qz);
                       break;
                     }
@@ -226,19 +221,19 @@
                 if (p) {
                   var vz = Math.min(2, (p.completedLabs || []).length);
                   var gm = Math.min(4, (p.completedGameLevels || []).length);
-                  var qPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : (p.quizScore !== undefined ? p.quizScore : 0);
+                  var qPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : 0;
                   score = Math.min(100, vz * 10 + gm * 10 + qPts);
                 }
               } catch(e) {}
             } else if (mid === 'sll') {
               try {
                 var p = JSON.parse(localStorage.getItem('algolearn_sll_100_points_progress_v4'));
-                if (p) score = Math.min(100, p.totalPoints !== undefined ? p.totalPoints : 0);
+                if (p) score = Math.min(100, Math.max(0, p.totalPoints || 0));
               } catch(e) {}
             } else if (mid === 'cll') {
               try {
                 var pts = JSON.parse(localStorage.getItem('cll-learning-points-v5') || '{}');
-                score = Math.min(100, pts.totalPoints !== undefined ? pts.totalPoints : 0);
+                score = Math.min(100, Math.max(0, pts.totalPoints || 0));
               } catch(e) {}
             } else if (mid === 'bfs') {
               try {
@@ -260,7 +255,7 @@
                   if (k && k.indexOf('video_completed') !== -1 && localStorage.getItem(k) === 'true') isVid = true;
                   if (k && k.indexOf('quiz_score') !== -1) {
                     var q = JSON.parse(localStorage.getItem(k));
-                    if (q && q.score !== undefined) qVal = qVal === 0 ? q.score : Math.max(qVal, q.score);
+                    if (q && q.score) qVal = Math.max(qVal, q.score);
                   }
                 }
                 score = Math.min(100, (isVid ? 30 : 0) + Math.min(70, qVal));
@@ -268,16 +263,16 @@
             } else if (mid === 'bst') {
               try {
                 var p = JSON.parse(localStorage.getItem('bst_explorer_user_stats_main'));
-                if (p) score = Math.min(100, p.totalTopicPoints !== undefined ? p.totalTopicPoints : 0);
+                if (p) score = Math.min(100, Math.max(0, p.totalTopicPoints || 0));
               } catch(e) {}
             } else if (mid === 'dsa-types') {
               try {
                 var p = JSON.parse(localStorage.getItem('algo_ds_types_progress_v1'));
-                if (p && p.topicData) score = Math.min(100, p.topicData.overallTopicScore !== undefined ? p.topicData.overallTopicScore : 0);
+                if (p && p.topicData) score = Math.min(100, Math.max(0, p.topicData.overallTopicScore || 0));
               } catch(e) {}
             }
           } catch(err) {}
-          return Math.min(100, Math.round(score));
+          return Math.min(100, Math.max(0, Math.round(score)));
         }
 
         var lastBroadcastScore = -1;
@@ -334,34 +329,79 @@
           else if (tab === 'ask-teacher') window.location.href = '/#ask-teacher';
         }
 
-        function isLogoElement(el) {
-          if (!el) return false;
-          if (el.closest('button[id*="theme"], button[id*="sound"], button[id*="toggle"], button[id*="menu"], #header-hamburger-btn, #topbar-menu-toggle')) return false;
-          var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, [aria-label*="AlgoLearn" i], [aria-label*="Logo" i], [title*="AlgoLearn" i], [title*="Overview" i], a[href="/"]');
-          if (sel) return true;
+        function getLogoContainer(el) {
+          if (!el || typeof el.closest !== 'function') return null;
+          if (el.closest('button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn')) return null;
+          var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]');
+          if (sel) return sel;
           var txt = (el.textContent || '').trim();
           var parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
-          if (txt.includes('Algo') && txt.includes('earn')) return true;
-          if (txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) return true;
-          if (txt === 'AlgoLearn' || parentTxt === 'AlgoLearn') return true;
-          return false;
+          if ((txt.includes('Algo') && txt.includes('earn')) || (parentTxt.includes('Algo') && parentTxt.includes('earn')) || txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) {
+            return el.closest('div, a') || el;
+          }
+          return null;
+        }
+
+        function isCapLogoClick(e, logoEl) {
+          if (!logoEl || !e) return false;
+          var rect = logoEl.getBoundingClientRect();
+          if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+          var clickX = e.clientX - rect.left;
+          var clickY = e.clientY - rect.top;
+          if (clickY < -6 || clickY > rect.height + 6) return false;
+          var capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
+          capBoundary = Math.max(28, Math.min(52, capBoundary));
+          return clickX >= 0 && clickX <= capBoundary;
         }
 
         function isChatElement(el) {
           if (!el) return false;
-          var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [aria-label*="Teacher" i], [aria-label*="Assistant" i], [aria-label*="Chatbot" i], [title*="Ask a Teacher" i], [title*="Teacher" i], [title*="Assistant" i], [title*="Chatbot" i]');
+          // Never intercept guided solve, hints, or game action controls
+          if (el.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i], button, [role="button"]')) {
+            return false;
+          }
+          var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i]');
           return !!sel;
         }
+
+        document.addEventListener('mousemove', function(e) {
+          var target = e.target;
+          var logoEl = getLogoContainer(target);
+          if (logoEl) {
+            if (isCapLogoClick(e, logoEl)) {
+              logoEl.style.cursor = 'pointer';
+              logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
+            } else {
+              logoEl.style.cursor = 'default';
+              logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
+            }
+          }
+        }, true);
 
         document.addEventListener('click', function(e) {
           var target = e.target;
           if (!target) return;
-          if (isLogoElement(target)) {
-            e.preventDefault();
-            e.stopPropagation();
-            navigateParent('home');
+
+          // Never intercept or redirect clicks on Guided Solve, Hint, or in-game controls
+          if (target.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop')) {
             return;
           }
+
+          var logoEl = getLogoContainer(target);
+          if (logoEl) {
+            if (isCapLogoClick(e, logoEl)) {
+              e.preventDefault();
+              e.stopPropagation();
+              navigateParent('home');
+              return;
+            } else {
+              // Clicked on logo text or non-cap area: strictly prevent redirection
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+          }
+
           if (isChatElement(target)) {
             e.preventDefault();
             e.stopPropagation();
@@ -371,22 +411,11 @@
         }, true);
       })();
     </script>
-
-    <style id="algolearn-hide-internal-chat">
-      #ai-bot-floating-button,
-      #floating-chat-bubble-container,
-      #floating-chat-bubble-icon,
-      #floating-chat-badge,
-      #ai-assistant-container,
-      #ai-assistant-fab,
-      .ai-fab-btn,
-      .floating-chatbot-container {
-        display: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        opacity: 0 !important;
-      }
-    </style>
+    <script type="module" crossorigin src="./assets/index-qzade35n.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor-icons-Cchdosg7.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-react-zm6gAsNf.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-animation-oQXWb4Lk.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-BIozOnsU.css">
   </head>
   <body class="bg-[#F8FAFC] text-[#111827] antialiased selection:bg-[#2563EB] selection:text-white">
     <div id="root"></div>

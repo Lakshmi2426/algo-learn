@@ -9,20 +9,23 @@ import { progressManager } from './progressManager';
 
 const POINTS_STORAGE_KEY = 'algo_quest_points_system_v3';
 
-const INITIAL_POINTS_STATE: PointsState = {
-  version: 3,
+const createInitialPointsState = (): PointsState => ({
+  version: 4,
   completedTheoryIds: [],
   completedVisualizeIds: [],
   completedGameLevelIds: [],
   answeredQuizQuestionIds: [],
+  quizCompleted: false,
   quizScore: 0,
+  deductedHintLevelIds: [],
+  deductedGuidedSolveLevelIds: [],
   hintPenaltiesTotal: 0,
   hintUsesCount: 0,
   guidedSolvePenaltiesTotal: 0,
   guidedSolveUsesCount: 0,
   totalPoints: 0,
   history: [],
-};
+});
 
 type PointsListener = (state: PointsState) => void;
 type PointsNotificationListener = (notification: PointsNotification) => void;
@@ -39,7 +42,7 @@ class PointsManager {
   }
 
   private loadState(): PointsState {
-    if (typeof window === 'undefined') return { ...INITIAL_POINTS_STATE };
+    if (typeof window === 'undefined') return createInitialPointsState();
     try {
       const stored = localStorage.getItem(POINTS_STORAGE_KEY);
       if (!stored) {
@@ -49,7 +52,7 @@ class PointsManager {
           const v2Parsed = JSON.parse(v2Stored);
           if (v2Parsed) {
             return {
-              version: 3,
+              version: 4,
               completedTheoryIds: Array.isArray(v2Parsed.completedTheoryIds)
                 ? Array.from(new Set(v2Parsed.completedTheoryIds))
                 : [],
@@ -60,7 +63,10 @@ class PointsManager {
                 ? Array.from(new Set(v2Parsed.completedGameLevelIds))
                 : [],
               answeredQuizQuestionIds: [],
+              quizCompleted: false,
               quizScore: Number(v2Parsed.quizScore) || 0,
+              deductedHintLevelIds: [],
+              deductedGuidedSolveLevelIds: [],
               hintPenaltiesTotal: Math.max(0, Number(v2Parsed.hintPenaltiesTotal) || 0),
               hintUsesCount: Math.max(0, Number(v2Parsed.hintUsesCount) || 0),
               guidedSolvePenaltiesTotal: Math.max(0, Number(v2Parsed.guidedSolvePenaltiesTotal) || 0),
@@ -70,7 +76,7 @@ class PointsManager {
             };
           }
         }
-        return { ...INITIAL_POINTS_STATE };
+        return createInitialPointsState();
       }
 
       const parsed = JSON.parse(stored);
@@ -82,7 +88,7 @@ class PointsManager {
         // If answeredQuizIds is not yet populated, check existing quiz answers in localStorage
         if (answeredQuizIds.length === 0 && typeof window !== 'undefined') {
           try {
-            const rawAnswers = localStorage.getItem('hash_quest_quiz_answers_v4');
+            const rawAnswers = localStorage.getItem('linear_search_quiz_answers_v1') || localStorage.getItem('hash_quest_quiz_answers_v4');
             if (rawAnswers) {
               const parsedAns = JSON.parse(rawAnswers);
               if (parsedAns && typeof parsedAns === 'object') {
@@ -94,8 +100,10 @@ class PointsManager {
           }
         }
 
+        const isQuizDone = Boolean(parsed.quizCompleted) && answeredQuizIds.length >= POINTS_CONFIG.TOTAL_QUIZ_QUESTIONS;
+
         return {
-          version: 3,
+          version: 4,
           completedTheoryIds: Array.isArray(parsed.completedTheoryIds)
             ? Array.from(new Set(parsed.completedTheoryIds))
             : [],
@@ -106,7 +114,14 @@ class PointsManager {
             ? Array.from(new Set(parsed.completedGameLevelIds))
             : [],
           answeredQuizQuestionIds: answeredQuizIds,
+          quizCompleted: isQuizDone,
           quizScore: Number(parsed.quizScore) || 0,
+          deductedHintLevelIds: Array.isArray(parsed.deductedHintLevelIds)
+            ? Array.from(new Set(parsed.deductedHintLevelIds))
+            : [],
+          deductedGuidedSolveLevelIds: Array.isArray(parsed.deductedGuidedSolveLevelIds)
+            ? Array.from(new Set(parsed.deductedGuidedSolveLevelIds))
+            : [],
           hintPenaltiesTotal: Math.max(0, Number(parsed.hintPenaltiesTotal) || 0),
           hintUsesCount: Math.max(0, Number(parsed.hintUsesCount) || 0),
           guidedSolvePenaltiesTotal: Math.max(0, Number(parsed.guidedSolvePenaltiesTotal) || 0),
@@ -115,9 +130,9 @@ class PointsManager {
           history: Array.isArray(parsed.history) ? parsed.history : [],
         };
       }
-      return { ...INITIAL_POINTS_STATE };
+      return createInitialPointsState();
     } catch {
-      return { ...INITIAL_POINTS_STATE };
+      return createInitialPointsState();
     }
   }
 
@@ -159,6 +174,19 @@ class PointsManager {
         }
       }
 
+      // Sync quiz submission status: strictly only complete if all 10 questions were answered!
+      const isQuizFullyDone = Boolean(pState.quizSubmitted) &&
+        Array.isArray(this.state.answeredQuizQuestionIds) &&
+        this.state.answeredQuizQuestionIds.length >= POINTS_CONFIG.TOTAL_QUIZ_QUESTIONS;
+
+      if (isQuizFullyDone && !this.state.quizCompleted) {
+        this.state.quizCompleted = true;
+        changed = true;
+      } else if (!isQuizFullyDone && this.state.quizCompleted) {
+        this.state.quizCompleted = false;
+        changed = true;
+      }
+
       const prevTotal = this.state.totalPoints;
       this.recalculateTotal();
       if (changed || this.state.totalPoints !== prevTotal) {
@@ -183,7 +211,6 @@ class PointsManager {
   /**
    * Recalculates total points without clamping negative balances to zero.
    * Total = Theory + Quiz + Visualize + Games - (Hint Penalties + Guided Solve Penalties)
-   * Example: 0 - 2 = -2. If -2 + 6 = 4.
    */
   private recalculateTotal() {
     const theory = 0; // Learn/Theory contributes 0 points to Linear Search
@@ -200,7 +227,6 @@ class PointsManager {
     const gross = quiz + visualize + game;
     const deductions = this.state.hintPenaltiesTotal + this.state.guidedSolvePenaltiesTotal;
 
-    // Do NOT clamp to zero! Negative balances are fully supported.
     this.state.totalPoints = Math.min(POINTS_CONFIG.MAX_TOTAL_POINTS, gross - deductions);
   }
 
@@ -208,7 +234,6 @@ class PointsManager {
     if (!Array.isArray(this.state.history)) {
       this.state.history = [];
     }
-    // Prepend so newest events appear first
     this.state.history.unshift(event);
   }
 
@@ -271,11 +296,59 @@ class PointsManager {
   }
 
   // =========================================================================
-  // ACTIONS
+  // LEVEL STATUS & DEDUCTION CHECKS
+  // =========================================================================
+
+  private extractLevelId(levelIdOrContext?: number | string): number | null {
+    if (typeof levelIdOrContext === 'number' && !isNaN(levelIdOrContext) && levelIdOrContext > 0) {
+      return levelIdOrContext;
+    }
+    if (typeof levelIdOrContext === 'string') {
+      const match = levelIdOrContext.match(/level\s*(\d+)/i) || levelIdOrContext.match(/lvl\s*(\d+)/i);
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Checks if a level has already been completed.
+   */
+  public isLevelCompleted(levelId: number): boolean {
+    if (this.state.completedGameLevelIds.includes(levelId)) return true;
+    try {
+      const pState = progressManager.getState();
+      if (Array.isArray(pState.levelsCompleted) && pState.levelsCompleted.includes(levelId)) {
+        return true;
+      }
+    } catch {
+      // Ignore
+    }
+    return false;
+  }
+
+  /**
+   * Checks if hint penalty has already been deducted for this level.
+   */
+  public isHintAlreadyDeducted(levelId: number): boolean {
+    return this.state.deductedHintLevelIds.includes(levelId);
+  }
+
+  /**
+   * Checks if guided solve penalty has already been deducted for this level.
+   */
+  public isGuidedSolveAlreadyDeducted(levelId: number): boolean {
+    return this.state.deductedGuidedSolveLevelIds.includes(levelId);
+  }
+
+  // =========================================================================
+  // ACTIONS: UNIQUE & SINGLE-TIME POINT MARKING AND DEDUCTIONS
   // =========================================================================
 
   /**
-   * Complete Theory Module: 0 Points (Theory contributes zero points in Linear Search)
+   * Complete Theory Module: 0 Points (Marked once)
    */
   public recordTheoryCompleted(moduleId: string, _title?: string): boolean {
     if (!moduleId || this.state.completedTheoryIds.includes(moduleId)) {
@@ -287,11 +360,11 @@ class PointsManager {
   }
 
   /**
-   * Complete Visualize / Video Module (First time only): +4 Points (Max 8)
+   * Complete Visualize Module: +10 Points (One time only)
    */
   public recordVideoCompleted(videoId: string, title?: string): boolean {
     if (!videoId || this.state.completedVisualizeIds.includes(videoId)) {
-      return false; // Already awarded
+      return false; // Already awarded once
     }
     this.state.completedVisualizeIds.push(videoId);
 
@@ -323,11 +396,12 @@ class PointsManager {
   }
 
   /**
-   * Complete Game Level (First time only): +9 Points (Max 36)
+   * Complete Game Level: +10 Points (One time only)
+   * If played again after completing, no points awarded.
    */
   public recordGameCompleted(levelId: number): boolean {
     if (!levelId || this.state.completedGameLevelIds.includes(levelId)) {
-      return false; // Already awarded
+      return false; // Already awarded once! Playing again awards no points.
     }
     this.state.completedGameLevelIds.push(levelId);
 
@@ -357,25 +431,126 @@ class PointsManager {
     return true;
   }
 
+  public recordVisualizeCompleted(videoId: string, title?: string): boolean {
+    return this.recordVideoCompleted(videoId, title);
+  }
+
+  /**
+   * Hint Used: -2 Points per use while level is not completed.
+   * - If level is not completed: deducts -2 each time hint is clicked.
+   * - Once level is completed: NO points are deducted if played again!
+   */
+  public recordHintUsed(levelIdOrContext?: number | string, contextStr?: string): boolean {
+    const lvl = this.extractLevelId(levelIdOrContext) || this.extractLevelId(contextStr);
+    const context = typeof levelIdOrContext === 'string' ? levelIdOrContext : (contextStr || (lvl ? `Level ${lvl}` : 'Game'));
+
+    // Once a level is completed, playing it again deducts ZERO points!
+    if (lvl && this.isLevelCompleted(lvl)) {
+      return false;
+    }
+
+    const debounceKey = `hint_${lvl || context || 'act'}`;
+    if (this.isDebounced(debounceKey, 150)) return false;
+
+    this.state.hintPenaltiesTotal += POINTS_CONFIG.HINT_PENALTY;
+    this.state.hintUsesCount += 1;
+
+    this.addHistoryEvent({
+      id: `hint_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      type: 'HINT_USED',
+      description: context ? `Used Hint: ${context}` : 'Used Hint',
+      categoryLabel: 'HINT USED',
+      pointsChange: -POINTS_CONFIG.HINT_PENALTY,
+      timestamp: Date.now(),
+    });
+
+    this.recalculateTotal();
+    this.saveState();
+
+    this.triggerNotification({
+      id: `toast_hint_${Date.now()}`,
+      pointsChange: -POINTS_CONFIG.HINT_PENALTY,
+      title: `-${POINTS_CONFIG.HINT_PENALTY} Points`,
+      message: 'Hint Used (-2 pts)',
+      type: 'penalty',
+      timestamp: Date.now(),
+    });
+
+    return true;
+  }
+
+  /**
+   * Guided Solve Used: -4 Points per use while level is not completed.
+   * - If level is not completed: deducts -4 each time guided solve is activated.
+   * - Once level is completed: NO points are deducted if played again!
+   */
+  public recordGuidedSolveUsed(levelId?: number, context?: string): boolean {
+    const lvl = levelId || this.extractLevelId(context);
+
+    // Once a level is completed, playing it again deducts ZERO points!
+    if (lvl && this.isLevelCompleted(lvl)) {
+      return false;
+    }
+
+    const debounceKey = `guided_${lvl || 'lvl'}_${context || 'act'}`;
+    if (this.isDebounced(debounceKey, 150)) return false;
+
+    this.state.guidedSolvePenaltiesTotal += POINTS_CONFIG.GUIDED_SOLVE_PENALTY;
+    this.state.guidedSolveUsesCount += 1;
+
+    const desc = lvl
+      ? context
+        ? `Used Guided Solve: Level ${lvl} (${context})`
+        : `Used Guided Solve: Level ${lvl}`
+      : 'Used Guided Solve';
+
+    this.addHistoryEvent({
+      id: `guided_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      type: 'GUIDED_SOLVE_USED',
+      description: desc,
+      categoryLabel: 'GUIDED SOLVE USED',
+      pointsChange: -POINTS_CONFIG.GUIDED_SOLVE_PENALTY,
+      timestamp: Date.now(),
+    });
+
+    this.recalculateTotal();
+    this.saveState();
+
+    this.triggerNotification({
+      id: `toast_guided_${Date.now()}`,
+      pointsChange: -POINTS_CONFIG.GUIDED_SOLVE_PENALTY,
+      title: `-${POINTS_CONFIG.GUIDED_SOLVE_PENALTY} Points`,
+      message: 'Guided Solve Used (-4 pts)',
+      type: 'penalty',
+      timestamp: Date.now(),
+    });
+
+    return true;
+  }
+
   /**
    * Quiz Question Answer:
-   * - Correct: +2 Points
-   * - Wrong: -1 Point
-   * - Category Cap: Max 20 Points
-   * Prevents duplicate scoring for the same question.
+   * - Correct: +4 Points
+   * - Wrong: -3 Points
+   * - Maximum Quiz Score: 40 Points
+   * Rules:
+   * 1. If quiz is already completed, no points awarded or deducted on retake!
+   * 2. Each question can only be scored once.
    */
   public recordQuizAnswer(questionId: number, isCorrect: boolean): boolean {
     if (!Array.isArray(this.state.answeredQuizQuestionIds)) {
       this.state.answeredQuizQuestionIds = [];
     }
 
-    // 1. Prevent duplicate scoring for this question
-    if (this.state.answeredQuizQuestionIds.includes(questionId)) {
+    // Rule 1: If quiz has already been completed, no scoring on replay!
+    if (this.state.quizCompleted) {
       return false;
     }
 
-    const debounceKey = `quiz_${questionId}`;
-    if (this.isDebounced(debounceKey, 200)) return false;
+    // Rule 2: Prevent duplicate scoring for the same question
+    if (this.state.answeredQuizQuestionIds.includes(questionId)) {
+      return false;
+    }
 
     const prevQuiz = this.state.quizScore;
     let targetQuiz: number;
@@ -385,15 +560,8 @@ class PointsManager {
       targetQuiz = Math.min(POINTS_CONFIG.MAX_QUIZ, prevQuiz + POINTS_CONFIG.QUIZ_CORRECT);
       actualDelta = targetQuiz - prevQuiz;
     } else {
-      targetQuiz = prevQuiz + POINTS_CONFIG.QUIZ_WRONG; // -1 point
-      actualDelta = POINTS_CONFIG.QUIZ_WRONG; // -1
-    }
-
-    // If cap prevented any points from being added (e.g. already at Max 20)
-    if (isCorrect && actualDelta <= 0) {
-      this.state.answeredQuizQuestionIds.push(questionId);
-      this.saveState();
-      return false; // No points added due to cap; avoid misleading toast
+      targetQuiz = prevQuiz + POINTS_CONFIG.QUIZ_WRONG;
+      actualDelta = POINTS_CONFIG.QUIZ_WRONG;
     }
 
     this.state.answeredQuizQuestionIds.push(questionId);
@@ -429,15 +597,14 @@ class PointsManager {
   }
 
   /**
-   * Quiz Question Timeout or Unanswered: 0 Points
-   * Prevents duplicate scoring for this question.
+   * Quiz Question Timeout: 0 Points (Marked once)
    */
   public recordQuizTimeout(questionId: number): boolean {
     if (!Array.isArray(this.state.answeredQuizQuestionIds)) {
       this.state.answeredQuizQuestionIds = [];
     }
 
-    if (this.state.answeredQuizQuestionIds.includes(questionId)) {
+    if (this.state.quizCompleted || this.state.answeredQuizQuestionIds.includes(questionId)) {
       return false;
     }
 
@@ -467,9 +634,25 @@ class PointsManager {
   }
 
   /**
-   * Resets quiz question tracking and quiz score on quiz retake.
+   * Marks the entire Quiz as completed.
+   * Locks the quiz points so replay/retake gives 0 points and deducts 0 points.
    */
-  public resetQuizAttempt() {
+  public recordQuizCompleted(): void {
+    if (!this.state.quizCompleted) {
+      this.state.quizCompleted = true;
+      this.saveState();
+    }
+  }
+
+  /**
+   * Called when student retakes quiz for practice.
+   * If quiz has already been completed, points and scoring are LOCKED (not reset).
+   */
+  public resetQuizAttempt(): void {
+    if (this.state.quizCompleted) {
+      // Points remain locked: practicing does not alter existing score
+      return;
+    }
     this.state.answeredQuizQuestionIds = [];
     this.state.quizScore = 0;
     this.recalculateTotal();
@@ -477,89 +660,11 @@ class PointsManager {
   }
 
   /**
-   * Hint Used: -2 Points per genuine click
-   * Accumulates with repeated uses.
-   */
-  public recordHintUsed(context?: string): boolean {
-    const debounceKey = `hint_${context || 'act'}`;
-    if (this.isDebounced(debounceKey, 150)) return false;
-
-    this.state.hintPenaltiesTotal += POINTS_CONFIG.HINT_PENALTY;
-    this.state.hintUsesCount += 1;
-
-    this.addHistoryEvent({
-      id: `hint_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      type: 'HINT_USED',
-      description: context ? `Used Hint: ${context}` : 'Used Hint',
-      categoryLabel: 'HINT USED',
-      pointsChange: -POINTS_CONFIG.HINT_PENALTY,
-      timestamp: Date.now(),
-    });
-
-    this.recalculateTotal();
-    this.saveState();
-
-    this.triggerNotification({
-      id: `toast_hint_${Date.now()}`,
-      pointsChange: -POINTS_CONFIG.HINT_PENALTY,
-      title: `-${POINTS_CONFIG.HINT_PENALTY} Points`,
-      message: 'Hint Used',
-      type: 'penalty',
-      timestamp: Date.now(),
-    });
-
-    return true;
-  }
-
-  /**
-   * Guided Solve Used: -3 Points per genuine activation
-   * Accumulates with repeated uses.
-   */
-  public recordGuidedSolveUsed(levelId?: number, context?: string): boolean {
-    const debounceKey = `guided_${levelId || 'lvl'}_${context || 'act'}`;
-    if (this.isDebounced(debounceKey, 150)) return false;
-
-    this.state.guidedSolvePenaltiesTotal += POINTS_CONFIG.GUIDED_SOLVE_PENALTY;
-    this.state.guidedSolveUsesCount += 1;
-
-    const desc = levelId
-      ? context
-        ? `Used Guided Solve: Level ${levelId} (${context})`
-        : `Used Guided Solve: Level ${levelId}`
-      : 'Used Guided Solve';
-
-    this.addHistoryEvent({
-      id: `guided_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      type: 'GUIDED_SOLVE_USED',
-      description: desc,
-      categoryLabel: 'GUIDED SOLVE USED',
-      pointsChange: -POINTS_CONFIG.GUIDED_SOLVE_PENALTY,
-      timestamp: Date.now(),
-    });
-
-    this.recalculateTotal();
-    this.saveState();
-
-    this.triggerNotification({
-      id: `toast_guided_${Date.now()}`,
-      pointsChange: -POINTS_CONFIG.GUIDED_SOLVE_PENALTY,
-      title: `-${POINTS_CONFIG.GUIDED_SOLVE_PENALTY} Points`,
-      message: 'Guided Solve Used',
-      type: 'penalty',
-      timestamp: Date.now(),
-    });
-
-    return true;
-  }
-
-  /**
-   * Completely resets all points, activity history, and penalties.
+   * Resets all points, activity history, and penalties.
    */
   public resetAllPoints() {
-    this.state = {
-      ...INITIAL_POINTS_STATE,
-      history: [],
-    };
+    this.lastActionTimestamps.clear();
+    this.state = createInitialPointsState();
     this.saveState();
     this.notifyListeners();
   }
@@ -568,13 +673,13 @@ class PointsManager {
    * Returns current Points breakdown according to the 100-point curriculum
    */
   public getBreakdown(): PointsBreakdown {
-    const theoryScore = 0; // Learn/Theory contributes 0 points to Linear Search
+    const theoryScore = 0;
     const quizScore = this.state.quizScore;
     const visualizeScore = Math.min(
       POINTS_CONFIG.MAX_VISUALIZE,
       this.state.completedVisualizeIds.length * POINTS_CONFIG.VISUALIZE_PER_MODULE
     );
-    const gameScore = Math.min(
+    const grossGameScore = Math.min(
       POINTS_CONFIG.MAX_GAME,
       this.state.completedGameLevelIds.length * POINTS_CONFIG.GAME_PER_LEVEL
     );
@@ -582,6 +687,9 @@ class PointsManager {
     const hintPenalties = this.state.hintPenaltiesTotal;
     const guidedSolvePenalties = this.state.guidedSolvePenaltiesTotal;
     const penaltiesTotal = hintPenalties + guidedSolvePenalties;
+
+    // Net Game Score considers guided solve and hint deductions
+    const gameScore = grossGameScore - penaltiesTotal;
 
     return {
       theoryScore,
