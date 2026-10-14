@@ -104,8 +104,27 @@ export function parseInitialRoute(): NavigationState {
 }
 
 /**
- * Keeps the browser address bar strictly at the origin ('/')
- * while persisting navigation state for Back/Forward and page refresh.
+ * Resolves canonical URL corresponding to a NavigationState.
+ * Keeps topic URLs like #/topics/Stack, #/topics/BFS preserved.
+ */
+export function getRouteUrl(state: NavigationState): string {
+  if (state.tab === 'topics') {
+    if (state.moduleId) {
+      const cfg = INTEGRATED_MODULES[state.moduleId] || getIntegratedModuleForTopic(state.moduleId);
+      return cfg ? cfg.routeHash : `#/topics/${state.moduleId}`;
+    }
+    return '#/topics';
+  }
+  if (state.tab === 'leaderboard') return '#/leaderboard';
+  if (state.tab === 'ask-teacher') return '#/ask-teacher';
+  if (state.tab === 'about') return '#/about';
+  if (state.tab === 'admin') return '#/admin';
+  return '/';
+}
+
+/**
+ * Synchronizes browser address bar and history state with current navigation.
+ * Preserves topic routes and selected module state across refresh and back/forward.
  */
 export function syncAddressBar(state: NavigationState, replace = false): void {
   if (typeof window === 'undefined') return;
@@ -114,16 +133,23 @@ export function syncAddressBar(state: NavigationState, replace = false): void {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {}
 
-  const targetUrl = '/';
+  const targetUrl = getRouteUrl(state);
+  const currentHash = window.location.hash || '';
+  const currentPath = window.location.pathname || '/';
+
   if (replace) {
     window.history.replaceState(state, '', targetUrl);
   } else {
     const currentHist = window.history.state;
-    if (
-      !currentHist ||
-      currentHist.tab !== state.tab ||
-      currentHist.moduleId !== state.moduleId
-    ) {
+    const sameState =
+      currentHist &&
+      currentHist.tab === state.tab &&
+      currentHist.moduleId === state.moduleId;
+    const sameUrl =
+      (targetUrl === '/' && (currentPath === '/' && !currentHash)) ||
+      (targetUrl !== '/' && (currentHash === targetUrl || `${currentPath}${currentHash}` === targetUrl));
+
+    if (!sameState || !sameUrl) {
       window.history.pushState(state, '', targetUrl);
     }
   }

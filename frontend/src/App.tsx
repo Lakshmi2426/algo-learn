@@ -66,19 +66,10 @@ const MainAppContent: React.FC = () => {
     setShowAuthModal(true);
   };
 
-  // Synchronize URL and history: keeps visible address bar at origin ('/')
+  // Synchronize URL and history state on initial mount
   useEffect(() => {
     const initial = parseInitialRoute();
-    if (initial.moduleId && !isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('algolearn_pending_module', initial.moduleId);
-      }
-      navigateTo('topics', null, true);
-      setAuthModalMode('login');
-      setShowAuthModal(true);
-    } else {
-      navigateTo(initial.tab, initial.moduleId, true);
-    }
+    navigateTo(initial.tab, initial.moduleId, true);
 
     const handlePopState = (event: PopStateEvent) => {
       const state: NavigationState = event.state || parseInitialRoute();

@@ -742,9 +742,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return {
           success: false,
           notFound: data?.notFound || res.status === 404,
+          isRateLimited: res.status === 429,
           message:
             data?.error ||
-            'Invalid credentials. Please check your password.',
+            (res.status === 429
+              ? 'Too many attempts. Try again later.'
+              : 'Invalid credentials. Please check your password.'),
         };
       }
 
@@ -885,7 +888,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!res.ok) {
         return {
           success: false,
-          message: resData?.error || 'Registration failed.',
+          isRateLimited: res.status === 429,
+          message:
+            resData?.error ||
+            (res.status === 429
+              ? 'Too many attempts. Try again later.'
+              : 'Registration failed.'),
         };
       }
 

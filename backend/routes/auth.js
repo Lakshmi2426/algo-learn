@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
+const { resetAuthRateLimit } = require('../middleware/auth');
 
 const REGEX_REGD_NO = /^[A-Z0-9]{10}$/;
 
@@ -166,6 +167,8 @@ router.post('/signup', async (req, res) => {
     } catch (cookieErr) {
       console.warn('Warning: Could not set session cookie:', cookieErr.message);
     }
+
+    resetAuthRateLimit(req);
 
     return res.status(201).json({
       success: true,
@@ -330,6 +333,8 @@ router.post('/login', async (req, res) => {
     const studentProgress = (claimedStudent.progress && typeof claimedStudent.progress === 'object')
       ? claimedStudent.progress
       : {};
+
+    resetAuthRateLimit(req);
 
     return res.json({
       success: true,

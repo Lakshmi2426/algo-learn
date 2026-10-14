@@ -126,80 +126,39 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       const doc = iframe.contentDocument;
       if (!doc) return;
 
-      const getLogoContainer = (el: HTMLElement | null): HTMLElement | null => {
-        if (!el || typeof el.closest !== 'function') return null;
+      const isExplicitLogoClick = (el: HTMLElement | null): boolean => {
+        if (!el || typeof el.closest !== 'function') return false;
+
+        // Never intercept buttons, tabs, links with hash, form controls, or nav items
         if (
           el.closest(
-            'button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn'
+            'button, [role="button"], [role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], [id*="tab"], [id*="toggle"], [id*="menu"], [id*="close"], [title*="Overview" i], [aria-label*="Overview" i], [id*="overview" i], [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel'
           )
         ) {
-          return null;
+          return false;
         }
 
-        const sel = el.closest(
-          '#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]'
-        ) as HTMLElement | null;
-        if (sel) return sel;
-
-        const txt = (el.textContent || '').trim();
-        const parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
-        if (
-          (txt.includes('Algo') && txt.includes('earn')) ||
-          (parentTxt.includes('Algo') && parentTxt.includes('earn')) ||
-          txt.includes('YOUR DSA JOURNEY') ||
-          parentTxt.includes('YOUR DSA JOURNEY')
-        ) {
-          return (el.closest('div, a') || el) as HTMLElement;
-        }
-
-        return null;
-      };
-
-      const isCapLogoClick = (e: MouseEvent, logoEl: HTMLElement): boolean => {
-        if (!logoEl || !e) return false;
-        const rect = logoEl.getBoundingClientRect();
-        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
-
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-        if (clickY < -6 || clickY > rect.height + 6) return false;
-
-        // In the AlgoLearn logo, the graduation cap icon strictly occupies the left section (up to ~30% width)
-        let capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
-        capBoundary = Math.max(28, Math.min(52, capBoundary));
-
-        return clickX >= 0 && clickX <= capBoundary;
+        // Only match designated brand home logo elements
+        const logo = el.closest(
+          '#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]'
+        );
+        return !!logo;
       };
 
       const isChatElement = (el: HTMLElement | null): boolean => {
-        if (!el) return false;
-        // Never intercept guided solve or game hint controls
-        if (el.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], button, [role="button"]')) {
+        if (!el || typeof el.closest !== 'function') return false;
+        if (
+          el.closest(
+            'button, [role="button"], [role="tab"], input, select, textarea, form, [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i]'
+          )
+        ) {
           return false;
         }
         const sel = el.closest(
-          '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i]'
+          '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn'
         );
         return !!sel;
       };
-
-      doc.addEventListener(
-        'mousemove',
-        (e: MouseEvent) => {
-          const target = e.target as HTMLElement | null;
-          const logoEl = getLogoContainer(target);
-          if (logoEl) {
-            if (isCapLogoClick(e, logoEl)) {
-              logoEl.style.cursor = 'pointer';
-              logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
-            } else {
-              logoEl.style.cursor = 'default';
-              logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
-            }
-          }
-        },
-        true
-      );
 
       doc.addEventListener(
         'click',
@@ -207,24 +166,11 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
           const target = e.target as HTMLElement | null;
           if (!target) return;
 
-          // Never intercept or redirect clicks on Guided Solve, Hint, or in-game controls
-          if (target.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
+          if (isExplicitLogoClick(target)) {
+            e.preventDefault();
+            e.stopPropagation();
+            onNavigateHome();
             return;
-          }
-
-          const logoEl = getLogoContainer(target);
-          if (logoEl) {
-            if (isCapLogoClick(e, logoEl)) {
-              e.preventDefault();
-              e.stopPropagation();
-              onNavigateHome();
-              return;
-            } else {
-              // Clicked outside the cap icon (on logo text/subtitle): strictly do NOT redirect
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
           }
 
           if (isChatElement(target)) {

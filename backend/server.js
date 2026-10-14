@@ -50,44 +50,8 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: '5mb' }));
 
-// Lightweight in-memory rate limiter specifically for login and signup brute-force protection
-const authRateLimitMap = new Map();
-const authRateLimiter = (req, res, next) => {
-  // Never block OPTIONS preflight checks
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
-
-  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-  const maxRequests = 60; // 60 requests per minute per IP
-
-  const record = authRateLimitMap.get(ip);
-  if (!record || now - record.startTime > windowMs) {
-    authRateLimitMap.set(ip, { count: 1, startTime: now });
-    return next();
-  }
-
-  record.count += 1;
-  if (record.count > maxRequests) {
-    return res.status(429).json({
-      error: 'Too many requests. Please try again after a minute.',
-    });
-  }
-
-  next();
-};
-
-// Periodic cleanup of rate limiter entries
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, record] of authRateLimitMap.entries()) {
-    if (now - record.startTime > 60000) {
-      authRateLimitMap.delete(ip);
-    }
-  }
-}, 120000).unref();
+// Import authRateLimiter specifically for login and signup brute-force protection
+const { authRateLimiter } = require('./middleware/auth');
 
 // Root & Health Check
 app.get('/', (_req, res) => {

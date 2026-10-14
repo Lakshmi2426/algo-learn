@@ -275,77 +275,33 @@ function getBridgeScript(moduleId) {
           else if (tab === 'ask-teacher') window.location.href = '/#ask-teacher';
         }
 
-        function getLogoContainer(el) {
-          if (!el || typeof el.closest !== 'function') return null;
-          if (el.closest('button, [role="button"], #btn-sidebar-toggle, #nav-toggle-btn, #topbar-menu-toggle, #header-theme-toggle-btn, #btn-theme-toggle, #theme-toggle-btn, #header-sound-toggle-btn, #btn-sound-toggle, #sound-toggle-btn, #header-hamburger-btn')) return null;
-          var sel = el.closest('#header-algolearn-logo, #btn-logo-home, .brand-title-wrap, #topbar-brand-logo-img, .sidebar-brand-left, .algolearn-logo, .topbar-brand-logo-left, #algolearn-brand-logo, [aria-label*="AlgoLearn Logo" i], [aria-label="AlgoLearn" i], [title*="AlgoLearn" i], [title*="Overview" i], .brand-logo-img, img[src*="logo"], a[href="/"]');
-          if (sel) return sel;
-          var txt = (el.textContent || '').trim();
-          var parentTxt = (el.parentElement ? el.parentElement.textContent || '' : '').trim();
-          if ((txt.includes('Algo') && txt.includes('earn')) || (parentTxt.includes('Algo') && parentTxt.includes('earn')) || txt.includes('YOUR DSA JOURNEY') || parentTxt.includes('YOUR DSA JOURNEY')) {
-            return el.closest('div, a') || el;
+        function isExplicitLogoClick(el) {
+          if (!el || typeof el.closest !== 'function') return false;
+          if (el.closest('button, [role="button"], [role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], [id*="tab"], [id*="toggle"], [id*="menu"], [id*="close"], [title*="Overview" i], [aria-label*="Overview" i], [id*="overview" i], [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
+            return false;
           }
-          return null;
-        }
-
-        function isCapLogoClick(e, logoEl) {
-          if (!logoEl || !e) return false;
-          var rect = logoEl.getBoundingClientRect();
-          if (!rect || rect.width <= 0 || rect.height <= 0) return false;
-          var clickX = e.clientX - rect.left;
-          var clickY = e.clientY - rect.top;
-          if (clickY < -6 || clickY > rect.height + 6) return false;
-          var capBoundary = Math.min(rect.width * 0.30, rect.height * 1.30);
-          capBoundary = Math.max(28, Math.min(52, capBoundary));
-          return clickX >= 0 && clickX <= capBoundary;
+          var logo = el.closest('#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]');
+          return !!logo;
         }
 
         function isChatElement(el) {
-          if (!el) return false;
-          // Never intercept guided solve, hints, or game action controls
-          if (el.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i], button, [role="button"]')) {
+          if (!el || typeof el.closest !== 'function') return false;
+          if (el.closest('button, [role="button"], [role="tab"], input, select, textarea, form, [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i]')) {
             return false;
           }
-          var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i]');
+          var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn');
           return !!sel;
         }
-
-        document.addEventListener('mousemove', function(e) {
-          var target = e.target;
-          var logoEl = getLogoContainer(target);
-          if (logoEl) {
-            if (isCapLogoClick(e, logoEl)) {
-              logoEl.style.cursor = 'pointer';
-              logoEl.setAttribute('title', 'Return to AlgoLearn Main Website');
-            } else {
-              logoEl.style.cursor = 'default';
-              logoEl.setAttribute('title', 'AlgoLearn - YOUR DSA JOURNEY');
-            }
-          }
-        }, true);
 
         document.addEventListener('click', function(e) {
           var target = e.target;
           if (!target) return;
 
-          // Never intercept or redirect clicks on Guided Solve, Hint, or in-game controls
-          if (target.closest('[id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
+          if (isExplicitLogoClick(target)) {
+            e.preventDefault();
+            e.stopPropagation();
+            navigateParent('home');
             return;
-          }
-
-          var logoEl = getLogoContainer(target);
-          if (logoEl) {
-            if (isCapLogoClick(e, logoEl)) {
-              e.preventDefault();
-              e.stopPropagation();
-              navigateParent('home');
-              return;
-            } else {
-              // Clicked on logo text or non-cap area: strictly prevent redirection
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
           }
 
           if (isChatElement(target)) {

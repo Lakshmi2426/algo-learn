@@ -196,20 +196,7 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
 
   const handleCardClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (integratedModule) {
-      if (!isAuthenticated) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('algolearn_pending_module', integratedModule.moduleId);
-        }
-        setAuthModalMode('login');
-        setShowAuthModal(true);
-        return;
-      }
       navigateAlgoLearn('topics', integratedModule.moduleId);
-      return;
-    }
-    if (!isAuthenticated) {
-      setAuthModalMode('login');
-      setShowAuthModal(true);
       return;
     }
     onSelect(topic);

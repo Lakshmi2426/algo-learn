@@ -67,6 +67,73 @@ const verifyAuth = async (req, res, next) => {
   }
 };
 
+// In-memory rate limiter specifically for login and signup brute-force protection
+const authRateLimitMap = new Map();
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    const first = forwarded.split(',')[0].trim();
+    if (first) return first;
+  }
+  return req.headers['x-real-ip'] || req.ip || req.connection?.remoteAddress || 'unknown';
+}
+
+function getRateLimitKey(req) {
+  const clientIp = getClientIp(req);
+  const regdNo = (req.body?.regdNo || req.body?.username || req.body?.name || '')
+    .toString()
+    .trim()
+    .toUpperCase();
+  return regdNo ? `${clientIp}:${regdNo}` : clientIp;
+}
+
+const authRateLimiter = (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
+
+  const key = getRateLimitKey(req);
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 120; // 120 requests per minute per key
+
+  const record = authRateLimitMap.get(key);
+  if (!record || now - record.startTime > windowMs) {
+    authRateLimitMap.set(key, { count: 1, startTime: now });
+    return next();
+  }
+
+  record.count += 1;
+  if (record.count > maxRequests) {
+    const retrySecs = Math.max(1, Math.ceil((windowMs - (now - record.startTime)) / 1000));
+    res.setHeader('Retry-After', retrySecs);
+    return res.status(429).json({
+      error: 'Too many attempts. Try again later.',
+      isRateLimited: true,
+      retryAfter: retrySecs,
+    });
+  }
+
+  next();
+};
+
+function resetAuthRateLimit(req) {
+  try {
+    const key = getRateLimitKey(req);
+    authRateLimitMap.delete(key);
+  } catch (e) {}
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of authRateLimitMap.entries()) {
+    if (now - record.startTime > 60000) {
+      authRateLimitMap.delete(key);
+    }
+  }
+}, 120000).unref();
+
 module.exports = {
   verifyAuth,
+  authRateLimiter,
+  resetAuthRateLimit,
 };
