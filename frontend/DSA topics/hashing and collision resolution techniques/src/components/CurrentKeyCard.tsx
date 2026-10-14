@@ -44,6 +44,15 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
   const [manualInput, setManualInput] = useState<string>('');
   const [inputError, setInputError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState<boolean>(false);
+  const [, setPointsTick] = useState(0);
+
+  useEffect(() => {
+    return pointsManager.subscribe(() => setPointsTick((t) => t + 1));
+  }, []);
+
+  const isLevelAlreadyCompleted = pointsManager.isLevelCompleted(level.id);
+  const isHintDeducted = pointsManager.isHintAlreadyDeducted(level.id);
+  const isGuidedSolveDeducted = pointsManager.isGuidedSolveAlreadyDeducted(level.id);
 
   useEffect(() => {
     setManualInput('');
@@ -185,9 +194,11 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                       <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${
                         isGuidedSolveActive
                           ? 'bg-blue-800 text-blue-100 border-blue-600'
+                          : isLevelAlreadyCompleted
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
                           : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
                       }`}>
-                        −4 pts
+                        {isLevelAlreadyCompleted ? '0 pts (Replay)' : '−4 pts'}
                       </span>
                     </button>
                   </form>
@@ -245,11 +256,15 @@ export const CurrentKeyCard: React.FC<CurrentKeyCardProps> = ({
                         setShowHint(!showHint);
                       }}
                       className="btn-modern-secondary px-2.5 py-2 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
-                      title="Hint (−2 pts)"
+                      title={isLevelAlreadyCompleted ? 'Hint (0 pts - Replay)' : 'Hint (−2 pts)'}
                     >
                       <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                      <span className="text-[10px] font-mono font-bold px-1 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40">
-                        −2 pts
+                      <span className={`text-[10px] font-mono font-bold px-1 py-0.5 rounded border ${
+                        isLevelAlreadyCompleted
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40'
+                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40'
+                      }`}>
+                        {isLevelAlreadyCompleted ? '0 pts' : '−2 pts'}
                       </span>
                     </button>
                   </div>
