@@ -38,22 +38,30 @@ export interface PointsState {
 }
 
 interface StoredPointsData {
-  version: 2;
+  version: 3;
   userId?: string;
   topicId?: string;
   quizPoints: number;
   processedQuizQuestionIds: number[];
+  completedGameLevelIds: number[];
+  completedVideoIds: string[];
+  deductedHintLevelIds: number[];
+  deductedGuidedSolveLevelIds: number[];
   hintUsesCount: number;
   guidedSolveUsesCount: number;
   activities: PointActivityEvent[];
 }
 
 const DEFAULT_STORED_DATA: StoredPointsData = {
-  version: 2,
+  version: 3,
   userId: 'user_alice',
   topicId: 'hashing',
   quizPoints: 0,
   processedQuizQuestionIds: [],
+  completedGameLevelIds: [],
+  completedVideoIds: [],
+  deductedHintLevelIds: [],
+  deductedGuidedSolveLevelIds: [],
   hintUsesCount: 0,
   guidedSolveUsesCount: 0,
   activities: [],
@@ -114,15 +122,51 @@ class PointsManager {
     try {
       const pState = progressManager.getState();
       if (Array.isArray(pState.completedVideos)) {
-        pState.completedVideos.forEach((v) => this.knownCompletedVideos.add(v));
+        pState.completedVideos.forEach((v) => {
+          this.knownCompletedVideos.add(v);
+          if (!this.data.completedVideoIds.includes(v)) {
+            this.data.completedVideoIds.push(v);
+          }
+        });
       }
       if (Array.isArray(pState.levelsCompleted)) {
-        pState.levelsCompleted.forEach((l) => this.knownCompletedLevels.add(l));
+        pState.levelsCompleted.forEach((l) => {
+          this.knownCompletedLevels.add(l);
+          if (!this.data.completedGameLevelIds.includes(l)) {
+            this.data.completedGameLevelIds.push(l);
+          }
+        });
       }
     } catch {
       // Ignore
     }
     this.syncProgressActivities(false);
+  }
+
+  public isLevelCompleted(levelId?: number): boolean {
+    if (typeof levelId !== 'number' || isNaN(levelId)) return false;
+    if (this.data.completedGameLevelIds && this.data.completedGameLevelIds.includes(levelId)) {
+      return true;
+    }
+    try {
+      const pState = progressManager.getState();
+      if (Array.isArray(pState.levelsCompleted) && pState.levelsCompleted.includes(levelId)) {
+        return true;
+      }
+    } catch {
+      // Ignore
+    }
+    return false;
+  }
+
+  public isHintAlreadyDeducted(levelId?: number): boolean {
+    if (typeof levelId !== 'number' || isNaN(levelId)) return false;
+    return Boolean(this.data.deductedHintLevelIds && this.data.deductedHintLevelIds.includes(levelId));
+  }
+
+  public isGuidedSolveAlreadyDeducted(levelId?: number): boolean {
+    if (typeof levelId !== 'number' || isNaN(levelId)) return false;
+    return Boolean(this.data.deductedGuidedSolveLevelIds && this.data.deductedGuidedSolveLevelIds.includes(levelId));
   }
 
   private loadData(userId: string = this.currentUserId): StoredPointsData {
@@ -138,15 +182,88 @@ class PointsManager {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.version === 2) {
+        if (parsed) {
+          // Initialize completed game levels
+          let completedGameLevelIds: number[] = Array.isArray(parsed.completedGameLevelIds)
+            ? Array.from(new Set(parsed.completedGameLevelIds.map(Number).filter((n: number) => n >= 1 && n <= 5)))
+            : [];
+          if (completedGameLevelIds.length === 0) {
+            try {
+              const pLvl = progressManager.getState().levelsCompleted;
+              if (Array.isArray(pLvl)) {
+                completedGameLevelIds = Array.from(new Set(pLvl.filter((n) => n >= 1 && n <= 5)));
+              }
+            } catch {
+              // Ignore
+            }
+          }
+
+          // Initialize completed videos
+          let completedVideoIds: string[] = Array.isArray(parsed.completedVideoIds)
+            ? Array.from(new Set(parsed.completedVideoIds.map(String)))
+            : [];
+          if (completedVideoIds.length === 0) {
+            try {
+              const pVid = progressManager.getState().completedVideos;
+              if (Array.isArray(pVid)) {
+                completedVideoIds = Array.from(new Set(pVid.map(String)));
+              }
+            } catch {
+              // Ignore
+            }
+          }
+
+          // Initialize deducted hint levels
+          let deductedHintLevelIds: number[] = Array.isArray(parsed.deductedHintLevelIds)
+            ? Array.from(new Set(parsed.deductedHintLevelIds.map(Number).filter((n: number) => n >= 1 && n <= 5)))
+            : [];
+
+          // Initialize deducted guided solve levels
+          let deductedGuidedSolveLevelIds: number[] = Array.isArray(parsed.deductedGuidedSolveLevelIds)
+            ? Array.from(new Set(parsed.deductedGuidedSolveLevelIds.map(Number).filter((n: number) => n >= 1 && n <= 5)))
+            : [];
+
+          // If migrating from legacy counts, deduce level numbers from existing activities
+          if (deductedHintLevelIds.length === 0 && typeof parsed.hintUsesCount === 'number' && parsed.hintUsesCount > 0 && Array.isArray(parsed.activities)) {
+            parsed.activities.forEach((act: any) => {
+              if (act.typeLabel === 'HINT USED' || act.activityType === 'HINT') {
+                const match = (act.title || act.activityId || '').match(/(\d+)/);
+                if (match) {
+                  const lNum = parseInt(match[1], 10);
+                  if (lNum >= 1 && lNum <= 5 && !deductedHintLevelIds.includes(lNum)) {
+                    deductedHintLevelIds.push(lNum);
+                  }
+                }
+              }
+            });
+          }
+
+          if (deductedGuidedSolveLevelIds.length === 0 && typeof parsed.guidedSolveUsesCount === 'number' && parsed.guidedSolveUsesCount > 0 && Array.isArray(parsed.activities)) {
+            parsed.activities.forEach((act: any) => {
+              if (act.typeLabel === 'GUIDED SOLVE USED' || act.activityType === 'GUIDED_SOLVE') {
+                const match = (act.title || act.activityId || '').match(/(\d+)/);
+                if (match) {
+                  const lNum = parseInt(match[1], 10);
+                  if (lNum >= 1 && lNum <= 5 && !deductedGuidedSolveLevelIds.includes(lNum)) {
+                    deductedGuidedSolveLevelIds.push(lNum);
+                  }
+                }
+              }
+            });
+          }
+
           return {
-            version: 2,
+            version: 3,
             userId,
             topicId: 'hashing',
             quizPoints: typeof parsed.quizPoints === 'number' ? Math.min(30, parsed.quizPoints) : 0,
             processedQuizQuestionIds: Array.isArray(parsed.processedQuizQuestionIds) ? parsed.processedQuizQuestionIds : [],
-            hintUsesCount: typeof parsed.hintUsesCount === 'number' && parsed.hintUsesCount >= 0 ? parsed.hintUsesCount : 0,
-            guidedSolveUsesCount: typeof parsed.guidedSolveUsesCount === 'number' && parsed.guidedSolveUsesCount >= 0 ? parsed.guidedSolveUsesCount : 0,
+            completedGameLevelIds,
+            completedVideoIds,
+            deductedHintLevelIds,
+            deductedGuidedSolveLevelIds,
+            hintUsesCount: typeof parsed.hintUsesCount === 'number' ? parsed.hintUsesCount : deductedHintLevelIds.length,
+            guidedSolveUsesCount: typeof parsed.guidedSolveUsesCount === 'number' ? parsed.guidedSolveUsesCount : deductedGuidedSolveLevelIds.length,
             activities: Array.isArray(parsed.activities)
               ? parsed.activities.map((a: any) => ({
                   ...a,
@@ -269,36 +386,52 @@ class PointsManager {
   /**
    * Syncs completed video (10 pts each, max 20) and game activities (10 pts each, max 50) from progressManager.
    * Learn/Theory contributes 0 points.
+   * Ensures points are unique and added for single time only!
    */
   private syncProgressActivities(emitNotification: boolean = false) {
     try {
       const pState = progressManager.getState();
       let hasChanges = false;
 
+      // Handle progress reset synchronization
+      if (
+        Array.isArray(pState.levelsCompleted) &&
+        pState.levelsCompleted.length === 0 &&
+        Array.isArray(pState.completedVideos) &&
+        pState.completedVideos.length === 0 &&
+        this.knownCompletedLevels.size > 0
+      ) {
+        this.resetAll();
+        return;
+      }
+
       // 1. Game Levels Completed (5 levels, 10 pts each = max 50 pts)
       if (Array.isArray(pState.levelsCompleted)) {
         pState.levelsCompleted.forEach((lvl) => {
           if (lvl >= 1 && lvl <= 5) {
-            const isNewToKnown = !this.knownCompletedLevels.has(lvl);
-            this.knownCompletedLevels.add(lvl);
+            const isFirstTimeCompleted = !this.data.completedGameLevelIds.includes(lvl);
+            if (isFirstTimeCompleted) {
+              this.data.completedGameLevelIds.push(lvl);
+              this.knownCompletedLevels.add(lvl);
 
-            const eventId = `game-lvl-${lvl}`;
-            if (!this.data.activities.some((a) => a.id === eventId)) {
-              this.data.activities.unshift({
-                id: eventId,
-                title: `Completed Game Level ${lvl}`,
-                typeLabel: 'GAME COMPLETED',
-                points: 10,
-                timestamp: Date.now(),
-                userId: this.currentUserId,
-                topicId: 'hashing',
-                activityId: `game-lvl-${lvl}`,
-                activityType: 'GAME',
-                completionStatus: 'COMPLETED',
-              });
+              const eventId = `game-lvl-${lvl}`;
+              if (!this.data.activities.some((a) => a.id === eventId)) {
+                this.data.activities.unshift({
+                  id: eventId,
+                  title: `Completed Game Level ${lvl}`,
+                  typeLabel: 'GAME COMPLETED',
+                  points: 10,
+                  timestamp: Date.now(),
+                  userId: this.currentUserId,
+                  topicId: 'hashing',
+                  activityId: `game-lvl-${lvl}`,
+                  activityType: 'GAME',
+                  completionStatus: 'COMPLETED',
+                });
+              }
               hasChanges = true;
 
-              if (emitNotification && isNewToKnown) {
+              if (emitNotification) {
                 this.emitNotification({
                   id: `notif-${Date.now()}-${Math.random()}`,
                   amount: 10,
@@ -308,6 +441,8 @@ class PointsManager {
                   timestamp: Date.now(),
                 });
               }
+            } else {
+              this.knownCompletedLevels.add(lvl);
             }
           }
         });
@@ -316,27 +451,30 @@ class PointsManager {
       // 2. Visualization Modules Completed (2 modules, 10 pts each = max 20 pts)
       if (Array.isArray(pState.completedVideos)) {
         pState.completedVideos.forEach((vid) => {
-          const isNewToKnown = !this.knownCompletedVideos.has(vid);
-          this.knownCompletedVideos.add(vid);
+          const isFirstTimeCompleted = !this.data.completedVideoIds.includes(vid);
+          if (isFirstTimeCompleted) {
+            this.data.completedVideoIds.push(vid);
+            this.knownCompletedVideos.add(vid);
 
-          const eventId = `video-${vid}`;
-          if (!this.data.activities.some((a) => a.id === eventId)) {
-            const vidNum = vid.includes('02') || vid.includes('collision') ? '2' : '1';
-            this.data.activities.unshift({
-              id: eventId,
-              title: `Completed Visualization Module ${vidNum}`,
-              typeLabel: 'VISUALIZATION COMPLETED',
-              points: 10,
-              timestamp: Date.now(),
-              userId: this.currentUserId,
-              topicId: 'hashing',
-              activityId: `video-${vid}`,
-              activityType: 'VISUALIZATION',
-              completionStatus: 'COMPLETED',
-            });
+            const eventId = `video-${vid}`;
+            if (!this.data.activities.some((a) => a.id === eventId)) {
+              const vidNum = vid.includes('02') || vid.includes('collision') ? '2' : '1';
+              this.data.activities.unshift({
+                id: eventId,
+                title: `Completed Visualization Module ${vidNum}`,
+                typeLabel: 'VISUALIZATION COMPLETED',
+                points: 10,
+                timestamp: Date.now(),
+                userId: this.currentUserId,
+                topicId: 'hashing',
+                activityId: `video-${vid}`,
+                activityType: 'VISUALIZATION',
+                completionStatus: 'COMPLETED',
+              });
+            }
             hasChanges = true;
 
-            if (emitNotification && isNewToKnown) {
+            if (emitNotification) {
               this.emitNotification({
                 id: `notif-${Date.now()}-${Math.random()}`,
                 amount: 10,
@@ -346,6 +484,8 @@ class PointsManager {
                 timestamp: Date.now(),
               });
             }
+          } else {
+            this.knownCompletedVideos.add(vid);
           }
         });
       }
@@ -402,8 +542,8 @@ class PointsManager {
    * Centralized Points Calculation
    * Visualization (20) + Game (50) + Quiz (30) = 100 max positive points.
    * Learn / Theory contributes 0 points.
-   * Guided Solve penalty: −4 pts per actual use.
-   * Hint penalty: −2 pts per actual use.
+   * Guided Solve penalty: −4 pts per uniquely deducted level.
+   * Hint penalty: −2 pts per uniquely deducted level.
    */
   public getPoints(): PointsState {
     // 1. Theory Modules: 0 points (Learn/Theory contributes zero points)
@@ -413,18 +553,32 @@ class PointsManager {
     const quizPoints = Math.min(30, this.data.quizPoints);
 
     // 3. Visualize Modules: 2 modules, +10 points each (max 20)
-    const videoStats = progressManager.getVideoStats();
-    const visualizePoints = Math.min(20, Math.max(0, videoStats.completed * 10));
+    const uniqueVideosCount = Math.min(
+      2,
+      Math.max(
+        this.data.completedVideoIds ? this.data.completedVideoIds.length : 0,
+        progressManager.getVideoStats().completed
+      )
+    );
+    const visualizePoints = Math.min(20, uniqueVideosCount * 10);
 
     // 4. Game Levels: 5 levels, +10 points each (max 50)
-    const gameStats = progressManager.getGameStats();
-    const gamePoints = Math.min(50, Math.max(0, gameStats.completed * 10));
+    const uniqueLevelsCount = Math.min(
+      5,
+      Math.max(
+        this.data.completedGameLevelIds ? this.data.completedGameLevelIds.length : 0,
+        progressManager.getGameStats().completed
+      )
+    );
+    const gamePoints = Math.min(50, uniqueLevelsCount * 10);
 
-    // 5. Hint Penalties: 2 points per genuine hint use
-    const hintPenalties = this.data.hintUsesCount * 2;
+    // 5. Hint Penalties: 2 points per genuine hint use in incomplete levels
+    const hintCount = typeof this.data.hintUsesCount === 'number' ? this.data.hintUsesCount : 0;
+    const hintPenalties = hintCount * 2;
 
-    // 6. Guided-Solve Penalties: 4 points per genuine guided-solve use
-    const guidedSolvePenalties = this.data.guidedSolveUsesCount * 4;
+    // 6. Guided-Solve Penalties: 4 points per genuine guided-solve use in incomplete levels
+    const guidedSolveCount = typeof this.data.guidedSolveUsesCount === 'number' ? this.data.guidedSolveUsesCount : 0;
+    const guidedSolvePenalties = guidedSolveCount * 4;
 
     // Total points calculation (allows negative values, maximum positive 100)
     const rawTotal = theoryPoints + quizPoints + visualizePoints + gamePoints - hintPenalties - guidedSolvePenalties;
@@ -437,8 +591,8 @@ class PointsManager {
       gamePoints,
       hintPenalties,
       guidedSolvePenalties,
-      hintUsesCount: this.data.hintUsesCount,
-      guidedSolveUsesCount: this.data.guidedSolveUsesCount,
+      hintUsesCount: hintCount,
+      guidedSolveUsesCount: guidedSolveCount,
       totalPoints,
       userId: this.currentUserId,
       topicId: 'hashing',
@@ -548,30 +702,43 @@ class PointsManager {
   }
 
   /**
-   * Records a genuine hint activation. Deducts 2 points per actual use.
-   * Prevents duplicate deductions for the same event.
+   * Records a genuine hint activation.
+   * - If the level is already completed (replaying), NO points are deducted!
+   * - If the level is NOT completed, deducts 2 points each time it is clicked.
    */
-  public recordHintUse(levelId?: number) {
+  public recordHintUse(levelId?: number): boolean {
+    const lvl = typeof levelId === 'number' && !isNaN(levelId) ? levelId : null;
+
+    // Strict Rule: If replaying an already completed level, points must NOT be deducted!
+    if (lvl && this.isLevelCompleted(lvl)) {
+      return false;
+    }
+
     const now = Date.now();
-    if (now - this.lastHintTimestamp < 500) {
-      return; // Ignore duplicate click/event
+    if (now - this.lastHintTimestamp < 300) {
+      return false; // Debounce rapid clicks
     }
     this.lastHintTimestamp = now;
 
-    this.data.hintUsesCount += 1;
-    const lvlText = levelId ? `Level ${levelId}` : 'Game';
+    if (lvl && !this.data.deductedHintLevelIds.includes(lvl)) {
+      this.data.deductedHintLevelIds.push(lvl);
+    }
+    this.data.hintUsesCount = (this.data.hintUsesCount || 0) + 1;
+
+    const lvlText = lvl ? `Level ${lvl}` : 'Game';
     this.data.activities.unshift({
-      id: `hint-${Date.now()}-${Math.random()}`,
+      id: `hint-${lvl || 'act'}-${Date.now()}`,
       title: `Used Hint: ${lvlText}`,
       typeLabel: 'HINT USED',
       points: -2,
       timestamp: Date.now(),
       userId: this.currentUserId,
       topicId: 'hashing',
-      activityId: `hint-${levelId || 'game'}`,
+      activityId: `hint-${lvl || 'game'}`,
       activityType: 'HINT',
       completionStatus: 'PENALTY',
     });
+
     this.saveData();
     this.notifyListeners();
 
@@ -584,33 +751,48 @@ class PointsManager {
       type: 'penalty',
       timestamp: Date.now(),
     });
+
+    return true;
   }
 
   /**
-   * Records a genuine guided-solve activation. Deducts 4 points per actual use.
-   * Prevents duplicate deductions for the same event.
+   * Records a genuine guided-solve activation.
+   * - If the level is already completed (replaying), NO points are deducted!
+   * - If the level is NOT completed, deducts 4 points each time it is activated.
    */
-  public recordGuidedSolveUse(levelId?: number) {
+  public recordGuidedSolveUse(levelId?: number): boolean {
+    const lvl = typeof levelId === 'number' && !isNaN(levelId) ? levelId : null;
+
+    // Strict Rule: If replaying an already completed level, points must NOT be deducted!
+    if (lvl && this.isLevelCompleted(lvl)) {
+      return false;
+    }
+
     const now = Date.now();
-    if (now - this.lastGuidedSolveTimestamp < 500) {
-      return; // Ignore duplicate click/event
+    if (now - this.lastGuidedSolveTimestamp < 300) {
+      return false; // Debounce rapid clicks
     }
     this.lastGuidedSolveTimestamp = now;
 
-    this.data.guidedSolveUsesCount += 1;
-    const lvlText = levelId ? `Level ${levelId}` : 'Game';
+    if (lvl && !this.data.deductedGuidedSolveLevelIds.includes(lvl)) {
+      this.data.deductedGuidedSolveLevelIds.push(lvl);
+    }
+    this.data.guidedSolveUsesCount = (this.data.guidedSolveUsesCount || 0) + 1;
+
+    const lvlText = lvl ? `Level ${lvl}` : 'Game';
     this.data.activities.unshift({
-      id: `guided-${Date.now()}-${Math.random()}`,
+      id: `guided-${lvl || 'act'}-${Date.now()}`,
       title: `Used Guided Solve: ${lvlText}`,
       typeLabel: 'GUIDED SOLVE USED',
       points: -4,
       timestamp: Date.now(),
       userId: this.currentUserId,
       topicId: 'hashing',
-      activityId: `guided-${levelId || 'game'}`,
+      activityId: `guided-${lvl || 'game'}`,
       activityType: 'GUIDED_SOLVE',
       completionStatus: 'PENALTY',
     });
+
     this.saveData();
     this.notifyListeners();
 
@@ -623,6 +805,8 @@ class PointsManager {
       type: 'penalty',
       timestamp: Date.now(),
     });
+
+    return true;
   }
 
   /**
@@ -630,11 +814,15 @@ class PointsManager {
    */
   public resetAll() {
     this.data = {
-      version: 2,
+      version: 3,
       userId: this.currentUserId,
       topicId: 'hashing',
       quizPoints: 0,
       processedQuizQuestionIds: [],
+      completedGameLevelIds: [],
+      completedVideoIds: [],
+      deductedHintLevelIds: [],
+      deductedGuidedSolveLevelIds: [],
       hintUsesCount: 0,
       guidedSolveUsesCount: 0,
       activities: [],
