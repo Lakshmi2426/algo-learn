@@ -63,7 +63,7 @@ export interface UserProgress {
   quizHighScore: number;
   quizTotalQuestionsAnswered: number;
   completedLabs?: number[];
-  quizQuestionResults?: Record<number, 'correct' | 'incorrect' | 'timeout'>;
+  quizQuestionResults?: Record<number, 'correct' | 'incorrect' | 'unanswered'>;
   quizSession?: {
     currentIdx: number;
     answers: Record<number, any>;

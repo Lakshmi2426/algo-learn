@@ -1014,7 +1014,7 @@ export function getTopicScore(topicIdOrTitle: string, explicitUserKey?: string):
   }
   // If all sources are 0/null, finalScore remains 0 (correct for new users)
 
-  finalScore = Math.min(100, Math.max(0, finalScore));
+  finalScore = Math.min(100, finalScore);
 
   // Only persist the aligned value back into scoped keys if we derived a real non-zero result
   // from native data that belongs to this student. Never write stale data forward.

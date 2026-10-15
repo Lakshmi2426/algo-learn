@@ -265,7 +265,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const num = Number(scoreVal);
                 if (!isNaN(num)) {
                   const curScore = getTopicScore(tKey, activeKey);
-                  if (num > curScore) {
+                  if (num < 0 || num > curScore) {
                     setTopicScore(tKey, num, activeKey);
                   }
                 }
@@ -282,13 +282,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let serverTopicSum = 0;
             if (s.progress && typeof s.progress === 'object') {
               Object.values(s.progress).forEach((sc: any) => {
-                const n = Number(sc);
-                if (!isNaN(n)) serverTopicSum += Math.round(n);
+                const n = typeof sc === 'number' ? sc : Number(sc?.points ?? sc?.score);
+                if (Number.isFinite(n)) serverTopicSum += Math.round(n);
               });
             }
 
             const freshProg = isCurrent ? getAllTopicsProgress(activeKey || undefined) : null;
-            const userXp = isCurrent ? freshProg!.totalXP : (serverTopicSum > 0 ? serverTopicSum : (s.xp || 0));
+            const hasTopicScores = s.progress && typeof s.progress === 'object' && Object.keys(s.progress).length > 0;
+            const userXp = isCurrent ? freshProg!.totalXP : (hasTopicScores ? serverTopicSum : (s.xp ?? 0));
             const userMastered = isCurrent ? freshProg!.topicsMasteredCount : (s.topicsCompleted || 0);
             const userStarted = isCurrent ? freshProg!.topicsStartedCount : (s.topicsStarted || (userXp > 0 ? 1 : 0));
             const userProgress = s.overallProgress || 0;
@@ -369,9 +370,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (student.progress && typeof student.progress === 'object') {
               Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
                 const num = Number(scoreVal);
-                if (!isNaN(num) && num > 0) {
+                if (!isNaN(num) && (num < 0 || num > 0)) {
                   const cur = getTopicScore(tKey, studentKey);
-                  if (num > cur) {
+                  if (num < 0 || num > cur) {
                     setTopicScore(tKey, num, studentKey);
                   }
                 }

@@ -24,7 +24,7 @@ export interface QueueScoreBreakdown {
 
 type ProgressWithQueueData = UserProgress & {
   completedLabs?: number[];
-  quizQuestionResults?: Record<string, 'correct' | 'incorrect' | 'timeout'>;
+  quizQuestionResults?: Record<string, 'correct' | 'incorrect' | 'unanswered'>;
   queueDeductions?: number;
   queueScore?: number;
 };
@@ -56,7 +56,7 @@ export const getQueueScoreBreakdown = (progress: UserProgress): QueueScoreBreakd
   const quiz = Math.min(
     QUEUE_SCORING.quiz.total,
     results.filter((result) => result === 'correct').length * QUEUE_SCORING.quiz.pointsPerCorrect +
-      results.filter((result) => result === 'incorrect' || (result as any) === 'timeout').length * QUEUE_SCORING.quiz.pointsPerIncorrect
+      results.filter((result) => result === 'incorrect').length * QUEUE_SCORING.quiz.pointsPerIncorrect
   );
   return {
     learn,

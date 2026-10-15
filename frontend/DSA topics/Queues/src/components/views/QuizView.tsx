@@ -37,6 +37,7 @@ interface QuestionAnswerState {
   draggedOrder: string[];
   isSubmitted: boolean;
   isCorrect: boolean;
+  isAttempted?: boolean;
 }
 
 const QUIZ_STORAGE_ANSWERS_KEY = 'queue_quiz_answers_v1';
@@ -185,11 +186,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
       QUIZ_QUESTIONS.forEach((q, idx) => {
         const res = progress.quizQuestionResults?.[q.id];
         if (res) {
+          const savedAnswer = progress.quizSession?.answers?.[idx];
           reconstructed[idx] = {
-            selectedOption: res === 'correct' ? (typeof q.correctAnswer === 'string' ? q.correctAnswer : null) : null,
-            draggedOrder: Array.isArray(q.correctAnswer) ? (res === 'correct' ? [...q.correctAnswer] : [...(q.options || [])]) : [],
+            selectedOption: savedAnswer?.selectedOption ?? (res === 'correct' ? (typeof q.correctAnswer === 'string' ? q.correctAnswer : null) : null),
+            draggedOrder: savedAnswer?.draggedOrder || (Array.isArray(q.correctAnswer) ? (res === 'correct' ? [...q.correctAnswer] : [...(q.options || [])]) : []),
             isSubmitted: true,
             isCorrect: res === 'correct',
+            isAttempted: res === 'correct' || savedAnswer?.isAttempted === true,
           };
         }
       });
@@ -200,6 +203,61 @@ export const QuizView: React.FC<QuizViewProps> = ({
       }
     }
   }, [progress.quizCompleted, progress.quizQuestionResults]);
+
+  // Normalize old timeout results and require explicit submission evidence
+  // before a legacy incorrect result can continue to deduct points.
+  useEffect(() => {
+    const legacyUnansweredIds = QUIZ_QUESTIONS.filter((q, idx) => {
+      const answer = answers[idx] || initialSession?.answers?.[idx];
+      const result = String(progress.quizQuestionResults?.[q.id] || '');
+      if (result === 'timeout') return true;
+      if (result !== 'incorrect') return false;
+
+      const expiredCurrentQuestion =
+        initialSession?.currentIdx === idx && initialSession?.timeRemaining === 0;
+      const explicitlySubmittedIncorrectly =
+        answer?.isSubmitted === true && answer.isAttempted === true && answer.isCorrect === false;
+      return expiredCurrentQuestion || !explicitlySubmittedIncorrectly;
+    }).map((q) => q.id);
+
+    if (legacyUnansweredIds.length === 0) return;
+
+    setAnswers((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      legacyUnansweredIds.forEach((questionId) => {
+        const idx = QUIZ_QUESTIONS.findIndex((q) => q.id === questionId);
+        const answer = next[idx];
+        if (answer && answer.isAttempted !== false) {
+          next[idx] = { ...answer, isAttempted: false };
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+
+    onUpdateProgress((prev) => {
+      const results = { ...(prev.quizQuestionResults || {}) };
+      let migratedCount = 0;
+      let changed = false;
+      legacyUnansweredIds.forEach((questionId) => {
+        if (String(results[questionId]) === 'timeout') {
+          results[questionId] = 'unanswered';
+          changed = true;
+        } else if (results[questionId] === 'incorrect') {
+          results[questionId] = 'unanswered';
+          migratedCount++;
+          changed = true;
+        }
+      });
+      if (!changed) return prev;
+      return {
+        ...prev,
+        quizQuestionResults: results,
+        quizTotalQuestionsAnswered: Math.max(0, (prev.quizTotalQuestionsAnswered || 0) - migratedCount),
+      };
+    });
+  }, [answers, initialSession?.currentIdx, initialSession?.timeRemaining, onUpdateProgress, progress.quizQuestionResults]);
 
   // Save session state to localStorage on any state changes & unmount
   useEffect(() => {
@@ -223,25 +281,30 @@ export const QuizView: React.FC<QuizViewProps> = ({
     draggedOrder: [],
     isSubmitted: false,
     isCorrect: false,
+    isAttempted: false,
   };
 
   const handleTimeoutAnswer = () => {
     if (!quizStarted || currentAnswerState.isSubmitted) return;
     soundEffects.playError();
-    setAnswers((prev) => ({
-      ...prev,
-      [currentIdx]: {
-        ...(prev[currentIdx] || { selectedOption: null, draggedOrder: [] }),
-        isSubmitted: true,
-        isCorrect: false,
-      },
-    }));
-    onUpdateProgress((prev) => {
-      if (prev.quizQuestionResults?.[currentQ.id]) return prev;
+    setAnswers((prev) => {
+      if (prev[currentIdx]?.isSubmitted) return prev;
       return {
         ...prev,
-        quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'incorrect' },
-        quizTotalQuestionsAnswered: (prev.quizTotalQuestionsAnswered || 0) + 1,
+        [currentIdx]: {
+          ...(prev[currentIdx] || { selectedOption: null, draggedOrder: [] }),
+          isSubmitted: true,
+          isCorrect: false,
+          isAttempted: false,
+        },
+      };
+    });
+    onUpdateProgress((prev) => {
+      const existing = prev.quizQuestionResults?.[currentQ.id];
+      if (existing === 'correct' || existing === 'incorrect') return prev;
+      return {
+        ...prev,
+        quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'unanswered' },
       };
     });
   };
@@ -363,7 +426,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const handleSubmitAnswer = () => {
-    if (currentAnswerState.isSubmitted) return;
+    if (!quizStarted || currentAnswerState.isSubmitted) return;
+    if (currentQ.type !== 'drag-order' && !currentAnswerState.selectedOption) return;
     soundEffects.playClick();
 
     let isCorrect = false;
@@ -388,7 +452,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
 
     onUpdateProgress((prev) => {
-      if (prev.quizQuestionResults?.[currentQ.id]) return prev;
+      const existing = prev.quizQuestionResults?.[currentQ.id];
+      if (existing === 'correct' || existing === 'incorrect') return prev;
       return {
         ...prev,
         quizQuestionResults: {
@@ -399,17 +464,21 @@ export const QuizView: React.FC<QuizViewProps> = ({
       };
     });
 
-    setAnswers((prev) => ({
-      ...prev,
-      [currentIdx]: {
-        ...(prev[currentIdx] || {
-          selectedOption: null,
-        }),
-        draggedOrder: currentQ.type === 'drag-order' ? finalOrder : (prev[currentIdx]?.draggedOrder || []),
-        isSubmitted: true,
-        isCorrect,
-      },
-    }));
+    setAnswers((prev) => {
+      if (prev[currentIdx]?.isSubmitted) return prev;
+      return {
+        ...prev,
+        [currentIdx]: {
+          ...(prev[currentIdx] || {
+            selectedOption: null,
+          }),
+          draggedOrder: currentQ.type === 'drag-order' ? finalOrder : (prev[currentIdx]?.draggedOrder || []),
+          isSubmitted: true,
+          isCorrect,
+          isAttempted: true,
+        },
+      };
+    });
   };
 
   const handlePreviousQuestion = () => {
@@ -422,6 +491,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const handleNextQuestion = () => {
     soundEffects.playClick();
 
+    if (!currentAnswerState.isSubmitted) {
+      onUpdateProgress((prev) => {
+        const existing = prev.quizQuestionResults?.[currentQ.id];
+        if (existing === 'correct' || existing === 'incorrect' || existing === 'unanswered') return prev;
+        return {
+          ...prev,
+          quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'unanswered' },
+        };
+      });
+    }
+
     if (currentIdx + 1 < QUIZ_QUESTIONS.length) {
       setCurrentIdx((prev) => prev + 1);
     } else {
@@ -432,7 +512,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   const finishQuiz = () => {
     const totalCorrect = (Object.values(answers) as QuestionAnswerState[]).reduce(
-      (acc, ans) => acc + (ans?.isCorrect ? 1 : 0),
+      (acc, ans) => acc + (ans?.isSubmitted && ans.isCorrect ? 1 : 0),
       0
     );
 
@@ -457,6 +537,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
     onUpdateProgress((prev) => ({
       ...prev,
+      quizQuestionResults: QUIZ_QUESTIONS.reduce((results, question) => {
+        const result = prev.quizQuestionResults?.[question.id];
+        results[question.id] = result === 'correct' || result === 'incorrect' ? result : 'unanswered';
+        return results;
+      }, {} as NonNullable<UserProgress['quizQuestionResults']>),
       quizCompleted: true,
       quizHighScore: Math.max(prev.quizHighScore || 0, totalScorePercent),
     }));
@@ -482,6 +567,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
     onUpdateProgress((prev) => ({
       ...prev,
       quizSession: undefined,
+      quizQuestionResults: {},
+      quizTotalQuestionsAnswered: 0,
+      quizCompleted: false,
     }));
   };
 
@@ -509,9 +597,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   // Compute live score stats
   const answersList = Object.values(answers) as QuestionAnswerState[];
-  const totalAnswered = answersList.filter((a) => a?.isSubmitted).length;
-  const totalCorrect = answersList.filter((a) => a?.isCorrect).length;
-  const totalIncorrect = totalAnswered - totalCorrect;
+  const totalCorrect = answersList.filter((a) => a?.isSubmitted && a.isCorrect).length;
+  const totalIncorrect = answersList.filter(
+    (a) => a?.isSubmitted && a.isAttempted !== false && !a.isCorrect
+  ).length;
   const finalScorePercent = Math.round(
     (totalCorrect / QUIZ_QUESTIONS.length) * 100
   );
@@ -591,6 +680,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 if (ans.isCorrect) {
                   chipBg =
                     'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700';
+                } else if (ans.isAttempted === false) {
+                  chipBg =
+                    'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700';
                 } else {
                   chipBg =
                     'bg-rose-50 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700';
@@ -652,10 +744,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                     currentAnswerState.isCorrect
                       ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                      : currentAnswerState.isAttempted === false
+                      ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
                       : 'bg-rose-50 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700'
                   }`}
                 >
-                  {currentAnswerState.isCorrect ? '✓ Correct' : '✕ Incorrect'}
+                  {currentAnswerState.isCorrect
+                    ? '✓ Correct'
+                    : currentAnswerState.isAttempted === false
+                    ? 'Timed Out · 0 pts'
+                    : '✕ Incorrect'}
                 </span>
               )}
             </div>
@@ -1070,14 +1168,19 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <div className="space-y-3">
               {QUIZ_QUESTIONS.map((q, idx) => {
                 const ans = answers[idx];
-                const isCorrect = ans?.isCorrect ?? false;
+                const result = progress.quizQuestionResults?.[q.id];
+                const isCorrect = result ? result === 'correct' : (ans?.isCorrect ?? false);
+                const isAttempted = result
+                  ? result === 'correct' || result === 'incorrect'
+                  : Boolean(ans?.isSubmitted && ans.isAttempted !== false);
                 const isExpanded =
                   expandedQuestions[idx] !== undefined
                     ? expandedQuestions[idx]
                     : true;
 
-                const userChoiceText =
-                  q.type === 'drag-order'
+                const userChoiceText = !isAttempted
+                  ? 'No answer submitted'
+                  : q.type === 'drag-order'
                     ? ans?.draggedOrder && ans.draggedOrder.length > 0
                       ? ans.draggedOrder.join(' ➔ ')
                       : 'No order selected'
@@ -1093,7 +1196,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     className={`rounded-2xl border transition-all overflow-hidden ${
                       isCorrect
                         ? 'border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10'
-                        : 'border-rose-200/80 dark:border-rose-800/60 bg-rose-50/20 dark:bg-rose-950/10'
+                        : isAttempted
+                        ? 'border-rose-200/80 dark:border-rose-800/60 bg-rose-50/20 dark:bg-rose-950/10'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/20'
                     }`}
                   >
                     {/* Collapsible Card Header */}
@@ -1106,7 +1211,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
                           className={`w-7 h-7 rounded-xl flex items-center justify-center font-mono font-bold text-xs shrink-0 mt-0.5 sm:mt-0 ${
                             isCorrect
                               ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-rose-600 text-white shadow-xs'
+                              : isAttempted
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'bg-slate-400 dark:bg-slate-600 text-white shadow-xs'
                           }`}
                         >
                           {idx + 1}
@@ -1135,7 +1242,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
                               className={`font-semibold flex items-center gap-1 ${
                                 isCorrect
                                   ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-rose-600 dark:text-rose-400'
+                                  : isAttempted
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-slate-500 dark:text-slate-400'
                               }`}
                             >
                               {isCorrect ? (
@@ -1143,16 +1252,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                   <span>Solved Correctly</span>
                                 </>
-                              ) : (
+                              ) : isAttempted ? (
                                 <>
                                   <span className="font-black text-xs leading-none">✕</span>
                                   <span>Incorrect Answer</span>
                                 </>
+                              ) : (
+                <span>{ans?.isSubmitted && ans.isAttempted === false ? 'Timed Out · 0 points' : 'Unanswered · 0 points'}</span>
                               )}
                             </span>
                             <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
                             <span className="text-slate-500 dark:text-slate-400 truncate max-w-xs sm:max-w-sm">
-                              Your Choice: <span className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-medium' : 'text-rose-700 dark:text-rose-300 font-medium'}>{userChoiceText}</span>
+                              Your Choice: <span className={isCorrect ? 'text-emerald-700 dark:text-emerald-300 font-medium' : isAttempted ? 'text-rose-700 dark:text-rose-300 font-medium' : 'text-slate-600 dark:text-slate-300 font-medium'}>{userChoiceText}</span>
                             </span>
                           </div>
                         </div>
@@ -1195,15 +1306,19 @@ export const QuizView: React.FC<QuizViewProps> = ({
                             className={`p-3.5 rounded-xl border-2 space-y-1.5 ${
                               isCorrect
                                 ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400/80 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100'
-                                : 'bg-rose-50/70 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100'
+                                : isAttempted
+                                ? 'bg-rose-50/70 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100'
+                                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
                                 {isCorrect ? (
                                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                ) : (
+                                ) : isAttempted ? (
                                   <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                                ) : (
+                                  <AlertCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                                 )}
                                 <span>Option You Chose</span>
                               </span>
@@ -1211,10 +1326,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
                                 className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                                   isCorrect
                                     ? 'bg-emerald-600 text-white'
-                                    : 'bg-rose-600 text-white'
+                                    : isAttempted
+                                    ? 'bg-rose-600 text-white'
+                                    : 'bg-slate-500 text-white'
                                 }`}
                               >
-                                {isCorrect ? '✓ Correct Choice' : '✕ Incorrect'}
+                                {isCorrect ? '✓ Correct Choice' : isAttempted ? '✕ Incorrect' : '0 Points'}
                               </span>
                             </div>
                             <div className="font-mono text-xs sm:text-sm font-bold pt-1 break-words">

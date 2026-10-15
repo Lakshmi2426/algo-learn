@@ -2,10 +2,11 @@ import { LeaderboardUser, StudentProgressRecord, UserProfile } from '../types';
 import { isRealStudent } from '../context/UserContext';
 import { getAllTopicsProgress } from './topicProgress';
 
-export function getTierFromXP(xp: number): 'Diamond' | 'Platinum' | 'Gold' {
-  if (xp >= 800) return 'Diamond';
-  if (xp >= 400) return 'Platinum';
-  return 'Gold';
+export function getTierFromXP(xp: number): 'Diamond' | 'Platinum' | 'Gold' | '-' {
+  if (xp >= 1000) return 'Platinum';
+  if (xp >= 500) return 'Diamond';
+  if (xp >= 1) return 'Gold';
+  return '-';
 }
 
 export interface BuildLeaderboardParams {
@@ -37,8 +38,8 @@ export function buildAuthoritativeLeaderboard({
   const map = new Map<string, LeaderboardUser>();
 
   const getKey = (item: { regdNo?: string; id?: string; email?: string; username?: string; name?: string }) => {
-    if (item.regdNo && item.regdNo.trim()) return `REGD:${item.regdNo.trim().toUpperCase()}`;
     if (item.id && item.id.trim()) return `ID:${item.id.trim()}`;
+    if (item.regdNo && item.regdNo.trim()) return `REGD:${item.regdNo.trim().toUpperCase()}`;
     if (item.email && item.email.trim()) return `EMAIL:${item.email.trim().toLowerCase()}`;
     if (item.username && item.username.trim()) return `USER:${item.username.trim().toLowerCase()}`;
     return `NAME:${(item.name || '').trim().toLowerCase()}`;
@@ -47,7 +48,7 @@ export function buildAuthoritativeLeaderboard({
   // 1. Ingest server API leaderboard records
   serverLeaderboard.forEach((u) => {
     if (!isRealStudent(u) || u.role === 'admin') return;
-    const xp = u.xp || 0;
+    const xp = u.xp ?? 0;
     const solvedCount = u.solvedCount || u.topicsCompleted || 0;
     const key = getKey(u);
     const existing = map.get(key);
@@ -73,7 +74,7 @@ export function buildAuthoritativeLeaderboard({
     if (!isRealStudent(std) || std.role === 'admin') return;
     const key = getKey(std);
     const existing = map.get(key);
-    const xp = existing?.xp !== undefined ? existing.xp : (std.xp || 0);
+    const xp = existing?.xp !== undefined ? existing.xp : (std.xp ?? 0);
     const solvedCount = Math.max(std.topicsCompleted || 0, existing?.solvedCount || 0);
     const started = Math.max(std.topicsStarted || 0, existing?.topicsStarted || 0, xp > 0 ? 1 : 0);
     const overallProgress = std.overallProgress || existing?.overallProgress || 0;
@@ -140,7 +141,7 @@ export function buildAuthoritativeLeaderboard({
   // 4. Sort strictly descending by XP, with completed count as tie breaker, then creation date, then regdNo
   const sorted = Array.from(map.values()).sort(
     (a, b) =>
-      (b.xp || 0) - (a.xp || 0) ||
+      (b.xp ?? 0) - (a.xp ?? 0) ||
       (b.solvedCount || 0) - (a.solvedCount || 0) ||
       (a.createdAt ? new Date(a.createdAt).getTime() - new Date(b.createdAt || 0).getTime() : 0) ||
       (a.regdNo || '').localeCompare(b.regdNo || '') ||
@@ -150,7 +151,7 @@ export function buildAuthoritativeLeaderboard({
   // 5. Assign definitive ranks
   sorted.forEach((u, idx) => {
     u.rank = idx + 1;
-    u.tier = getTierFromXP(u.xp || 0);
+    u.tier = getTierFromXP(u.xp ?? 0);
   });
 
   return sorted;

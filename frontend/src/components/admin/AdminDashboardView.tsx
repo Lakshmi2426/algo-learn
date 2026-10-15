@@ -31,6 +31,7 @@ import { useTeachers } from '../../context/TeachersContext';
 import { useQuestions } from '../../context/QuestionsContext';
 import { AdminTeacherQuestionsView } from '../teacher/AdminTeacherQuestionsView';
 import { AdminTeacherManagementView } from './AdminTeacherManagementView';
+import { DivisionTierBadge } from '../common/DivisionTierBadge';
 import { StudentProgressRecord, NavigationTab, LeaderboardUser } from '../../types';
 import { DSA_TOPICS } from '../../data/dsaTopics';
 import { buildAuthoritativeLeaderboard } from '../../utils/leaderboardHelper';
@@ -41,19 +42,6 @@ const getStudentInitial = (name: string): string => {
   const trimmed = name.trim();
   if (!trimmed) return 'S';
   return trimmed.charAt(0).toUpperCase();
-};
-
-const getTierColor = (tier: string) => {
-  switch (tier) {
-    case 'Diamond':
-      return 'text-blue-500 bg-blue-500/10 border-blue-500/30';
-    case 'Platinum':
-      return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30';
-    case 'Gold':
-      return 'text-amber-500 bg-amber-500/10 border-amber-500/30';
-    default:
-      return 'text-slate-500 bg-slate-500/10 border-slate-500/30';
-  }
 };
 
 interface AdminDashboardViewProps {
@@ -468,9 +456,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                     {/* Tier */}
                     <td className="py-4 px-6 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold border ${getTierColor(std.tier)} shadow-2xs`}>
-                        {std.tier}
-                      </span>
+                      <DivisionTierBadge tier={std.tier} size="compact" />
                     </td>
 
                     {/* Started */}
@@ -534,9 +520,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                           {selectedStudent.name}
                         </h2>
-                        <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[10px] font-bold">
-                          {selectedStudent.tier || 'Gold'}
-                        </span>
+                        <DivisionTierBadge tier={selectedStudent.tier || 'Gold'} />
                       </div>
                       <p className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-1">
                         <Mail className="w-3 h-3 text-slate-400 shrink-0" />

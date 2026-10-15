@@ -3,17 +3,12 @@ import { motion } from 'motion/react';
 import {
   Trophy,
   Crown,
-  Flame,
-  Zap,
-  ShieldCheck,
   Search,
-  Users,
-  Award,
-  Sparkles,
 } from 'lucide-react';
 import { LEADERBOARD_USERS } from '../../data/leaderboardData';
 import { LeaderboardUser } from '../../types';
 import { UserAvatar } from '../common/UserAvatar';
+import { DivisionTierBadge } from '../common/DivisionTierBadge';
 import { useUser, isRealStudent } from '../../context/UserContext';
 import { getAllTopicsProgress } from '../../utils/topicProgress';
 import { buildAuthoritativeLeaderboard, getTierFromXP } from '../../utils/leaderboardHelper';
@@ -21,7 +16,6 @@ import { apiUrl } from '../../config/api';
 
 export const LeaderboardView: React.FC = () => {
   const { studentsList, user: currentUser, isAuthenticated, role } = useUser();
-  const [timeframe, setTimeframe] = useState<'weekly' | 'monthly' | 'allTime'>('weekly');
   const [selectedTier, setSelectedTier] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
@@ -105,19 +99,6 @@ export const LeaderboardView: React.FC = () => {
 
   const topThree = effectiveLeaderboard.slice(0, 3);
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'Diamond':
-        return 'text-blue-500 bg-blue-500/10 border-blue-500/30';
-      case 'Platinum':
-        return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30';
-      case 'Gold':
-        return 'text-amber-500 bg-amber-500/10 border-amber-500/30';
-      default:
-        return 'text-slate-500 bg-slate-500/10 border-slate-500/30';
-    }
-  };
-
   return (
     <div className="relative pt-28 pb-20 min-h-screen">
       {/* Light Mode Soft Ambient Glow */}
@@ -138,9 +119,9 @@ export const LeaderboardView: React.FC = () => {
           </p>
         </div>
 
-        {/* Top 3 Podium Cards */}
+        {/* Overall XP rankings */}
         {topThree.some(Boolean) && (
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 items-end">
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-4 items-end">
             {[topThree[1], topThree[0], topThree[2]].map((user, idx) => {
               if (!user) return null;
               const isFirst = user.rank === 1;
@@ -151,30 +132,29 @@ export const LeaderboardView: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: idx * 0.1 }}
                   whileHover={{ y: isFirst ? -8 : -4, scale: 1.01 }}
-                  className={`relative rounded-3xl p-6 bg-white dark:bg-slate-900 border transition-all duration-300 shadow-[0_4px_20px_-2px_rgba(37,99,235,0.08),0_2px_8px_-1px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_32px_-4px_rgba(37,99,235,0.16),0_6px_14px_-2px_rgba(99,102,241,0.08)] dark:shadow-none ${isFirst
-                    ? 'border-blue-400/90 dark:border-blue-500/50 md:-translate-y-4 ring-2 ring-blue-500/20'
-                    : 'border-blue-200/80 hover:border-blue-300 dark:border-slate-800'
+                  className={`relative rounded-3xl ${isFirst ? 'pt-8 pb-6 px-6 md:-translate-y-4' : 'pt-7 pb-6 px-6'} bg-white dark:bg-slate-900 border transition-colors duration-300 ${isFirst
+                    ? 'border-blue-500 dark:border-violet-400'
+                    : 'border-blue-200 dark:border-slate-700'
                     } flex flex-col items-center text-center`}
                 >
                   {isFirst && (
-                    <div className="absolute -top-5 w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30">
-                      <Crown className="w-5 h-5 fill-current" />
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-violet-700 text-white border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                      <Crown className="w-6 h-6 fill-current" />
                     </div>
                   )}
 
-                  <div className="relative mt-2 mb-4">
+                  <div className="relative mt-2 mb-2">
                     <UserAvatar
                       src={user.avatar}
                       name={user.name}
                       size="2xl"
-                      className="shadow-md"
                     />
-                    <div className="absolute -bottom-2 -right-2 w-7 h-7 rounded-lg bg-slate-900 text-white border border-slate-700 flex items-center justify-center font-mono font-bold text-xs shadow-sm">
+                    <div className="absolute -bottom-2 -right-2 min-w-9 h-9 px-1.5 rounded-xl bg-slate-900 dark:bg-slate-950 text-white border border-blue-300 dark:border-blue-500 flex items-center justify-center font-mono font-bold text-sm">
                       #{user.rank}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center gap-2 flex-wrap mb-0.5">
+                  <div className="flex flex-col items-center gap-1">
                     <span className="text-base font-bold text-slate-900 dark:text-white">
                       {user.name}
                     </span>
@@ -184,16 +164,13 @@ export const LeaderboardView: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">
+                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">
                     {user.regdNo || (user.username ? `@${user.username}` : '')}
                   </span>
 
-                  <div className={`mt-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-semibold border ${getTierColor(user.tier)} shadow-2xs`}>
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>{user.tier}</span>
-                  </div>
+                  <DivisionTierBadge tier={user.tier} className="mt-3" />
 
-                  <div className="w-full mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-around text-xs font-mono">
+                  <div className="w-full mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 text-center text-xs font-mono">
                     <div>
                       <span className="text-slate-400 text-[10px] block">XP</span>
                       <span className="font-bold text-blue-600 dark:text-blue-400">
@@ -217,27 +194,9 @@ export const LeaderboardView: React.FC = () => {
           </div>
         )}
 
-        {/* Compact Rankings Section: Controls & Table Grouped in max-w-5xl */}
-        <div className="max-w-5xl mx-auto space-y-6">
-          {/* Controls & Filter Bar */}
-          <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-blue-200/85 dark:border-slate-800 shadow-[0_4px_20px_-2px_rgba(37,99,235,0.06),0_2px_6px_-1px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-wrap items-center justify-between gap-4">
-            {/* Timeframe Pills */}
-            <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-transparent">
-              {(['weekly', 'monthly', 'allTime'] as const).map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${timeframe === tf
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-blue-600'
-                    }`}
-                >
-                  {tf === 'allTime' ? 'All-Time' : tf}
-                </button>
-              ))}
-            </div>
-
-            {/* Tier Pills */}
+        {/* Tier and search filters */}
+        <div className="max-w-5xl mx-auto mb-4">
+          <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-blue-200/85 dark:border-slate-800 shadow-[0_4px_20px_-2px_rgba(37,99,235,0.06),0_2px_6px_-1px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
               {tiers.map((t) => (
                 <button
@@ -253,7 +212,6 @@ export const LeaderboardView: React.FC = () => {
               ))}
             </div>
 
-            {/* Search */}
             <div className="relative w-full sm:w-64">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -265,7 +223,9 @@ export const LeaderboardView: React.FC = () => {
               />
             </div>
           </div>
+        </div>
 
+        {/* Full Rankings Table */}
           {/* Full Rankings Table Card with tight, balanced column spacing */}
           <div className="rounded-3xl bg-white dark:bg-slate-900 border border-blue-200/85 dark:border-slate-800 shadow-[0_8px_30px_-4px_rgba(37,99,235,0.08),0_4px_12px_-2px_rgba(99,102,241,0.04)] dark:shadow-none overflow-hidden">
             <div className="overflow-x-auto">
@@ -277,7 +237,7 @@ export const LeaderboardView: React.FC = () => {
                     <th className="py-3.5 px-4 w-32 sm:w-36 text-center">Division Tier</th>
                     <th className="py-3.5 px-4 w-28 sm:w-32 text-center">Topics Started</th>
                     <th className="py-3.5 px-4 w-28 sm:w-32 text-center">Topics Mastered</th>
-                    <th className="py-3.5 px-4 w-28 sm:w-32 text-right pr-6">Total XP</th>
+                    <th className="py-3.5 px-4 w-28 sm:w-32 text-right pr-6">Total POINTS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
@@ -289,16 +249,16 @@ export const LeaderboardView: React.FC = () => {
                     </tr>
                   )}
                   {filteredUsers.map((user) => {
-                    const isCurrent = user.isCurrentUser;
+                    const isCurrent = Boolean(isAuthenticated && currentUser?.id && user.id === currentUser.id);
                     return (
                       <tr
                         key={user.regdNo ? user.regdNo.toUpperCase() : user.id}
                         className={`transition-colors ${isCurrent
-                          ? 'bg-blue-50/80 dark:bg-blue-950/40 font-semibold'
+                          ? 'bg-blue-100/80 hover:bg-blue-100/90 dark:bg-blue-900/45 dark:hover:bg-blue-900/55 font-semibold shadow-[inset_0_0_0_1px_rgba(37,99,235,0.35)] dark:shadow-[inset_0_0_0_1px_rgba(96,165,250,0.45)]'
                           : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
                           }`}
                       >
-                        <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-500 dark:text-slate-400">
+                        <td className={`py-3.5 px-4 text-center font-mono font-bold text-slate-500 dark:text-slate-400 ${isCurrent ? 'shadow-[inset_4px_0_0_0_#1d4ed8] dark:shadow-[inset_4px_0_0_0_#60a5fa]' : ''}`}>
                           #{user.rank}
                         </td>
                         <td className="py-3.5 px-4">
@@ -327,13 +287,7 @@ export const LeaderboardView: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold border ${getTierColor(
-                              user.tier
-                            )}`}
-                          >
-                            {user.tier}
-                          </span>
+                          <DivisionTierBadge tier={user.tier} size="compact" />
                         </td>
                         <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 dark:text-slate-200">
                           {user.topicsStarted || 0}
@@ -351,7 +305,6 @@ export const LeaderboardView: React.FC = () => {
               </table>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

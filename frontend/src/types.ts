@@ -111,7 +111,7 @@ export interface LeaderboardUser {
   xp: number;
   streak: number;
   level: number;
-  tier: 'Diamond' | 'Platinum' | 'Gold';
+  tier: 'Diamond' | 'Platinum' | 'Gold' | '-';
   countryCode: string;
   solvedCount: number;
   badgeTitle: string;

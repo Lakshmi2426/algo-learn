@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Flame, Zap, ArrowRight, ShieldCheck, Crown } from 'lucide-react';
+import { Trophy, Flame, Zap, ArrowRight, Crown } from 'lucide-react';
 import { LEADERBOARD_USERS } from '../../data/leaderboardData';
 import { NavigationTab, LeaderboardUser } from '../../types';
 import { UserAvatar } from '../common/UserAvatar';
+import { DivisionTierBadge } from '../common/DivisionTierBadge';
 import { useUser, isRealStudent } from '../../context/UserContext';
 import { getAllTopicsProgress } from '../../utils/topicProgress';
 import { buildAuthoritativeLeaderboard } from '../../utils/leaderboardHelper';
@@ -215,10 +216,7 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
                     {user.regdNo || (user.username ? `@${user.username}` : '')}
                   </span>
 
-                  <div className="mt-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 dark:bg-blue-950/70 border border-blue-200/90 dark:border-blue-900/60 text-xs font-mono font-semibold text-blue-700 dark:text-blue-300 shadow-2xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-blue-400" />
-                    <span>{user.tier}</span>
-                  </div>
+                  <DivisionTierBadge tier={user.tier} className="mt-3" />
 
                   <div className="w-full mt-5 pt-4 border-t border-blue-100/90 dark:border-slate-800 flex items-center justify-around text-xs font-mono">
                     <div className="text-center">

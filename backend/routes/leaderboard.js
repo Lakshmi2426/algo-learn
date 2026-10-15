@@ -7,9 +7,10 @@ const jwt = require('jsonwebtoken');
  * Helper to compute division tier from XP
  */
 const getTier = (xp = 0) => {
-  if (xp >= 800) return 'Diamond';
-  if (xp >= 400) return 'Platinum';
-  return 'Gold';
+  if (xp >= 1000) return 'Platinum';
+  if (xp >= 500) return 'Diamond';
+  if (xp >= 1) return 'Gold';
+  return '-';
 };
 
 /**
@@ -71,10 +72,10 @@ const formatLeaderboardEntry = (s, idx) => ({
   regdNo: s.regdNo,
   branch: s.branch,
   avatar: '',
-  xp: s.xp || 0,
+  xp: s.xp ?? 0,
   streak: 1,
-  level: Math.floor((s.xp || 0) / 350) + 1,
-  tier: getTier(s.xp || 0),
+  level: Math.floor((s.xp ?? 0) / 350) + 1,
+  tier: getTier(s.xp ?? 0),
   countryCode: '',
   solvedCount: s.topicsCompleted || 0,
   topicsCompleted: s.topicsCompleted || 0,
