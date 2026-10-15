@@ -104,27 +104,15 @@ export function parseInitialRoute(): NavigationState {
 }
 
 /**
- * Resolves canonical URL corresponding to a NavigationState.
- * Keeps topic URLs like #/topics/Stack, #/topics/BFS preserved.
+ * All app views use the base URL; the selected route lives in history.state.
  */
-export function getRouteUrl(state: NavigationState): string {
-  if (state.tab === 'topics') {
-    if (state.moduleId) {
-      const cfg = INTEGRATED_MODULES[state.moduleId] || getIntegratedModuleForTopic(state.moduleId);
-      return cfg ? cfg.routeHash : `#/topics/${state.moduleId}`;
-    }
-    return '#/topics';
-  }
-  if (state.tab === 'leaderboard') return '#/leaderboard';
-  if (state.tab === 'ask-teacher') return '#/ask-teacher';
-  if (state.tab === 'about') return '#/about';
-  if (state.tab === 'admin') return '#/admin';
+export function getRouteUrl(_state: NavigationState): string {
   return '/';
 }
 
 /**
- * Synchronizes browser address bar and history state with current navigation.
- * Preserves topic routes and selected module state across refresh and back/forward.
+ * Keeps the address bar at the site root while storing the selected view in
+ * history.state and sessionStorage for refresh and back/forward navigation.
  */
 export function syncAddressBar(state: NavigationState, replace = false): void {
   if (typeof window === 'undefined') return;

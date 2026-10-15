@@ -24,7 +24,7 @@ import {
 import { QuizQuestion, UserProgress } from '../../types';
 import { QUIZ_QUESTIONS } from '../../data/quizData';
 import { soundEffects } from '../../services/sound';
-import { QUEUE_SCORING } from '../../services/queueScoring';
+import { getQueueQuizQuestionStatus, QUEUE_SCORING } from '../../services/queueScoring';
 
 interface QuizViewProps {
   progress: UserProgress;
@@ -79,6 +79,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
     }
     return {};
   });
+  const scoredQuestionsRef = useRef<Set<number>>(
+    new Set(Object.entries(answers)
+      .filter(([, answer]) => getQueueQuizQuestionStatus(answer) !== 'unanswered')
+      .map(([idx]) => Number(idx)))
+  );
 
   const [currentIdx, setCurrentIdx] = useState<number>(() => {
     try {
@@ -287,26 +292,30 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const handleTimeoutAnswer = () => {
     if (!quizStarted || currentAnswerState.isSubmitted) return;
     soundEffects.playError();
+    const timedOutAnswer: QuestionAnswerState = {
+      ...(answers[currentIdx] || { selectedOption: null, draggedOrder: [] }),
+      isSubmitted: true,
+      isCorrect: false,
+      isAttempted: false,
+    };
     setAnswers((prev) => {
       if (prev[currentIdx]?.isSubmitted) return prev;
       return {
         ...prev,
-        [currentIdx]: {
-          ...(prev[currentIdx] || { selectedOption: null, draggedOrder: [] }),
-          isSubmitted: true,
-          isCorrect: false,
-          isAttempted: false,
-        },
+        [currentIdx]: timedOutAnswer,
       };
     });
-    onUpdateProgress((prev) => {
-      const existing = prev.quizQuestionResults?.[currentQ.id];
-      if (existing === 'correct' || existing === 'incorrect') return prev;
-      return {
+    onUpdateProgress((prev) => ({
         ...prev,
         quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'unanswered' },
-      };
-    });
+        quizSession: {
+          currentIdx,
+          answers: { ...(prev.quizSession?.answers || {}), [currentIdx]: timedOutAnswer },
+          quizStarted: true,
+          quizFinished: prev.quizSession?.quizFinished || false,
+          timeRemaining: 0,
+        },
+      }));
   };
 
   const lastIdxRef = useRef<number>(currentIdx);
@@ -427,6 +436,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   const handleSubmitAnswer = () => {
     if (!quizStarted || currentAnswerState.isSubmitted) return;
+    if (scoredQuestionsRef.current.has(currentIdx)) return;
     if (currentQ.type !== 'drag-order' && !currentAnswerState.selectedOption) return;
     soundEffects.playClick();
 
@@ -451,9 +461,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
       soundEffects.playError();
     }
 
+    const submittedAnswer: QuestionAnswerState = {
+      ...currentAnswerState,
+      draggedOrder: currentQ.type === 'drag-order' ? finalOrder : (currentAnswerState.draggedOrder || []),
+      isSubmitted: true,
+      isCorrect,
+      isAttempted: true,
+    };
+    scoredQuestionsRef.current.add(currentIdx);
+
     onUpdateProgress((prev) => {
-      const existing = prev.quizQuestionResults?.[currentQ.id];
-      if (existing === 'correct' || existing === 'incorrect') return prev;
+      const existingAnswer = prev.quizSession?.answers?.[currentIdx];
+      if (getQueueQuizQuestionStatus(existingAnswer) !== 'unanswered') return prev;
       return {
         ...prev,
         quizQuestionResults: {
@@ -461,22 +480,21 @@ export const QuizView: React.FC<QuizViewProps> = ({
           [currentQ.id]: isCorrect ? 'correct' : 'incorrect',
         },
         quizTotalQuestionsAnswered: (prev.quizTotalQuestionsAnswered || 0) + 1,
+        quizSession: {
+          currentIdx,
+          answers: { ...(prev.quizSession?.answers || {}), [currentIdx]: submittedAnswer },
+          quizStarted: true,
+          quizFinished: prev.quizSession?.quizFinished || false,
+          timeRemaining,
+        },
       };
     });
 
     setAnswers((prev) => {
-      if (prev[currentIdx]?.isSubmitted) return prev;
+      if (getQueueQuizQuestionStatus(prev[currentIdx]) !== 'unanswered') return prev;
       return {
         ...prev,
-        [currentIdx]: {
-          ...(prev[currentIdx] || {
-            selectedOption: null,
-          }),
-          draggedOrder: currentQ.type === 'drag-order' ? finalOrder : (prev[currentIdx]?.draggedOrder || []),
-          isSubmitted: true,
-          isCorrect,
-          isAttempted: true,
-        },
+        [currentIdx]: submittedAnswer,
       };
     });
   };
@@ -492,14 +510,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
     soundEffects.playClick();
 
     if (!currentAnswerState.isSubmitted) {
-      onUpdateProgress((prev) => {
-        const existing = prev.quizQuestionResults?.[currentQ.id];
-        if (existing === 'correct' || existing === 'incorrect' || existing === 'unanswered') return prev;
-        return {
+      onUpdateProgress((prev) => ({
           ...prev,
           quizQuestionResults: { ...(prev.quizQuestionResults || {}), [currentQ.id]: 'unanswered' },
-        };
-      });
+          quizSession: {
+            currentIdx,
+            answers: { ...(prev.quizSession?.answers || {}), [currentIdx]: currentAnswerState },
+            quizStarted,
+            quizFinished: prev.quizSession?.quizFinished || false,
+            timeRemaining,
+          },
+        }));
     }
 
     if (currentIdx + 1 < QUIZ_QUESTIONS.length) {
@@ -512,7 +533,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   const finishQuiz = () => {
     const totalCorrect = (Object.values(answers) as QuestionAnswerState[]).reduce(
-      (acc, ans) => acc + (ans?.isSubmitted && ans.isCorrect ? 1 : 0),
+      (acc, ans) => acc + (getQueueQuizQuestionStatus(ans) === 'correct' ? 1 : 0),
       0
     );
 
@@ -537,13 +558,19 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
     onUpdateProgress((prev) => ({
       ...prev,
-      quizQuestionResults: QUIZ_QUESTIONS.reduce((results, question) => {
-        const result = prev.quizQuestionResults?.[question.id];
-        results[question.id] = result === 'correct' || result === 'incorrect' ? result : 'unanswered';
+      quizQuestionResults: QUIZ_QUESTIONS.reduce((results, question, idx) => {
+        results[question.id] = getQueueQuizQuestionStatus(answers[idx]);
         return results;
       }, {} as NonNullable<UserProgress['quizQuestionResults']>),
       quizCompleted: true,
       quizHighScore: Math.max(prev.quizHighScore || 0, totalScorePercent),
+      quizSession: {
+        currentIdx,
+        answers,
+        quizStarted: true,
+        quizFinished: true,
+        timeRemaining,
+      },
     }));
   };
 
@@ -551,6 +578,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     soundEffects.playClick();
     setCurrentIdx(0);
     setAnswers({});
+    scoredQuestionsRef.current.clear();
     setQuizFinished(false);
     setQuizStarted(false);
     setTimeRemaining(QUEUE_SCORING.quiz.timeLimitSeconds);
@@ -597,9 +625,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   // Compute live score stats
   const answersList = Object.values(answers) as QuestionAnswerState[];
-  const totalCorrect = answersList.filter((a) => a?.isSubmitted && a.isCorrect).length;
+  const totalCorrect = answersList.filter((a) => getQueueQuizQuestionStatus(a) === 'correct').length;
   const totalIncorrect = answersList.filter(
-    (a) => a?.isSubmitted && a.isAttempted !== false && !a.isCorrect
+    (a) => getQueueQuizQuestionStatus(a) === 'incorrect'
   ).length;
   const finalScorePercent = Math.round(
     (totalCorrect / QUIZ_QUESTIONS.length) * 100

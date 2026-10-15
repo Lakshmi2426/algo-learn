@@ -221,16 +221,6 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const p: any = safeJsonParse(raw);
         if (!p) return 0;
 
-        if (typeof p.queueScore === 'number') {
-          return Math.min(100, p.queueScore);
-        }
-        if (typeof p.totalTopicPoints === 'number') {
-          return Math.min(100, p.totalTopicPoints);
-        }
-        if (typeof p.totalPoints === 'number') {
-          return Math.min(100, p.totalPoints);
-        }
-
         // Authoritative QUEUE_SCORING rules:
         // learn: 0, visualize: 12 pts (6 per lab, max 2 labs),
         // game: 40 pts (lvl 1: 13, lvl 2: 13, lvl 3: 14), quiz: 48 pts (4 per correct, -2 per incorrect)
@@ -247,15 +237,20 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
         const deductions = Math.max(0, p.queueDeductions || 0);
         const gamePts = Math.min(40, rawGamePts) - deductions;
 
+        // Only saved answer evidence can contribute quiz points. Result labels
+        // may be stale from older timeout/skip handling, as can cached totals.
+        const answers = p.quizSession?.answers && typeof p.quizSession.answers === 'object'
+          ? p.quizSession.answers
+          : {};
         let quizPts = 0;
-        if (p.quizQuestionResults && typeof p.quizQuestionResults === 'object') {
-          const results = Object.values(p.quizQuestionResults);
-          const correct = results.filter((r) => r === 'correct').length;
-          const incorrect = results.filter((r) => r === 'incorrect').length;
-          quizPts = Math.min(48, correct * 4 - incorrect * 2);
-        } else if (p.quizHighScore !== undefined) {
-          quizPts = p.quizHighScore;
-        }
+        Object.entries(answers).forEach(([questionIndex, answer]: [string, any]) => {
+          const index = Number(questionIndex);
+          if (!Number.isInteger(index) || index < 0 || index >= 12) return;
+          if (answer?.isSubmitted !== true || answer?.isAttempted !== true) return;
+          if (answer.isCorrect === true) quizPts += 4;
+          else if (answer.isCorrect === false) quizPts -= 2;
+        });
+        quizPts = Math.min(48, quizPts);
 
         return Math.min(100, vizPts + gamePts + quizPts);
       }

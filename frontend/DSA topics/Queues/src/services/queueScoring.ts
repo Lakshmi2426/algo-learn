@@ -25,9 +25,36 @@ export interface QueueScoreBreakdown {
 type ProgressWithQueueData = UserProgress & {
   completedLabs?: number[];
   quizQuestionResults?: Record<string, 'correct' | 'incorrect' | 'unanswered'>;
+  quizSession?: UserProgress['quizSession'];
   queueDeductions?: number;
   queueScore?: number;
 };
+
+type QuizAnswerEvidence = {
+  isSubmitted?: boolean;
+  isAttempted?: boolean;
+  isCorrect?: boolean;
+};
+
+/** Only an explicitly submitted answer can earn points or incur a penalty. */
+export const getQueueQuizQuestionStatus = (
+  answer?: QuizAnswerEvidence
+): 'correct' | 'incorrect' | 'unanswered' => {
+  if (answer?.isSubmitted !== true || answer.isAttempted !== true) return 'unanswered';
+  if (answer.isCorrect === true) return 'correct';
+  if (answer.isCorrect === false) return 'incorrect';
+  return 'unanswered';
+};
+
+export const getQueueQuizPoints = (answers: Record<string, QuizAnswerEvidence> = {}): number =>
+  Object.entries(answers).reduce((points, [questionIndex, answer]) => {
+    const index = Number(questionIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= QUEUE_SCORING.quiz.questionCount) return points;
+    const status = getQueueQuizQuestionStatus(answer);
+    if (status === 'correct') return points + QUEUE_SCORING.quiz.pointsPerCorrect;
+    if (status === 'incorrect') return points + QUEUE_SCORING.quiz.pointsPerIncorrect;
+    return points;
+  }, 0);
 
 export const getQueueScoreBreakdown = (progress: UserProgress): QueueScoreBreakdown => {
   const data = progress as ProgressWithQueueData;
@@ -52,12 +79,9 @@ export const getQueueScoreBreakdown = (progress: UserProgress): QueueScoreBreakd
 
   const deductions = Math.max(0, data.queueDeductions || 0);
   const game = Math.max(0, completedGamePoints - deductions);
-  const results = Object.values(data.quizQuestionResults || {});
-  const quiz = Math.min(
-    QUEUE_SCORING.quiz.total,
-    results.filter((result) => result === 'correct').length * QUEUE_SCORING.quiz.pointsPerCorrect +
-      results.filter((result) => result === 'incorrect').length * QUEUE_SCORING.quiz.pointsPerIncorrect
-  );
+  // Results alone may contain legacy incorrect statuses from timeouts/skips.
+  // Award/deduct only when the session also contains explicit submitted-answer evidence.
+  const quiz = Math.min(QUEUE_SCORING.quiz.total, getQueueQuizPoints(data.quizSession?.answers || {}));
   return {
     learn,
     visualize,

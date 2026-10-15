@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'motion/react';
 import {
   Trophy,
-  BookOpen,
   Eye,
   Gamepad2,
   BrainCircuit,
@@ -49,7 +48,7 @@ export const PointsMasterySection: React.FC = () => {
             <span className="text-blue-600 dark:text-blue-400 font-extrabold">100 points.</span>
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Points are distributed across learning modules, visualizations, games, and quizzes based on the structure of each topic.
+            Points are distributed across visualizations, games, and quizzes based on the structure of each topic.
           </p>
         </div>
       </div>
@@ -69,7 +68,7 @@ export const PointsMasterySection: React.FC = () => {
             </h3>
           </div>
 
-          {/* Panel Content (Circle Graphic + SVG Connectors + 4 Activity Cards) */}
+          {/* Panel Content (Circle Graphic + SVG Connectors + 3 Activity Cards) */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 my-auto">
             
             {/* Circular Glowing Points Visual */}
@@ -114,11 +113,8 @@ export const PointsMasterySection: React.FC = () => {
                 <path d="M 12 18 H 28" stroke="#2563eb" strokeWidth="1.2" />
                 <circle cx="12" cy="18" r="2" fill="#2563eb" />
 
-                <path d="M 12 59 H 28" stroke="#7c3aed" strokeWidth="1.2" />
-                <circle cx="12" cy="59" r="2" fill="#7c3aed" />
-
-                <path d="M 12 101 H 28" stroke="#2563eb" strokeWidth="1.2" />
-                <circle cx="12" cy="101" r="2" fill="#2563eb" />
+                <path d="M 12 80 H 28" stroke="#7c3aed" strokeWidth="1.2" />
+                <circle cx="12" cy="80" r="2" fill="#7c3aed" />
 
                 <path d="M 12 142 H 28" stroke="#7c3aed" strokeWidth="1.2" />
                 <circle cx="12" cy="142" r="2" fill="#7c3aed" />
@@ -136,24 +132,9 @@ export const PointsMasterySection: React.FC = () => {
               </svg>
             </div>
 
-            {/* 4 Vertically Stacked Activity Cards */}
+            {/* 3 Vertically Stacked Point-Contributing Activities */}
             <div className="flex flex-col gap-2.5 w-full">
-              {/* Card 1 */}
-              <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#0b1330] border border-blue-100 dark:border-blue-900/70 flex items-center gap-3 shadow-xs hover:border-blue-400/60 transition-all">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/90 border border-blue-200 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[#0F172A] dark:text-white leading-tight">
-                    Learning Modules
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-none mt-1">
-                    Contribute to your topic score.
-                  </p>
-                </div>
-              </div>
-
-              {/* Card 2 */}
+              {/* Visualizations / Videos */}
               <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#0b1330] border border-blue-100 dark:border-blue-900/70 flex items-center gap-3 shadow-xs hover:border-violet-400/60 transition-all">
                 <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/90 border border-violet-200 dark:border-violet-800/60 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 shadow-xs">
                   <Eye className="w-4 h-4" />
@@ -168,7 +149,7 @@ export const PointsMasterySection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 3 */}
+              {/* Game Levels */}
               <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#0b1330] border border-blue-100 dark:border-blue-900/70 flex items-center gap-3 shadow-xs hover:border-blue-400/60 transition-all">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/90 border border-blue-200 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
                   <Gamepad2 className="w-4 h-4" />
@@ -183,7 +164,7 @@ export const PointsMasterySection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Card 4 */}
+              {/* Quizzes */}
               <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#0b1330] border border-blue-100 dark:border-blue-900/70 flex items-center gap-3 shadow-xs hover:border-violet-400/60 transition-all">
                 <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-950/90 border border-violet-200 dark:border-violet-800/60 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 shadow-xs">
                   <BrainCircuit className="w-4 h-4" />
@@ -239,7 +220,7 @@ export const PointsMasterySection: React.FC = () => {
                   Points are distributed dynamically.
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-1">
-                  The 100 points are divided based on the number of modules and activities in that topic.
+                  The 100 points are divided across visualizations, game levels, and quizzes in that topic.
                 </p>
               </div>
             </div>
@@ -254,7 +235,7 @@ export const PointsMasterySection: React.FC = () => {
                   Different topics have different distributions.
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-1">
-                  Not every topic has the same number of learning modules, visualizations, games, or quizzes.
+                  Not every topic has the same number of visualizations, game levels, or quizzes.
                 </p>
               </div>
             </div>
@@ -269,7 +250,7 @@ export const PointsMasterySection: React.FC = () => {
                   Complete all available activities to earn points.
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-1">
-                  Finish the learning modules, practice activities, games, and quizzes to get the full 100 points.
+                  Finish the available visualizations, game levels, and quizzes to get the full 100 points.
                 </p>
               </div>
             </div>

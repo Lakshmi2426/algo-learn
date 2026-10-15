@@ -11,8 +11,8 @@
     <meta property="og:description" content="Interactive Data Structures Learning Platform with drag-and-drop Queue simulations, FIFO operations, priority triage, deques, and stream dispatchers." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="module" crossorigin src="./assets/index-CEIs4MU4.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-IOW8nbPQ.css">
+    <script type="module" crossorigin src="./assets/index-CjGve3yw.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CAlw6i4v.css">
   
     <script>
       (function() {
@@ -155,10 +155,23 @@
               try {
                 var p = JSON.parse(localStorage.getItem('queue_master_user_progress_v2') || localStorage.getItem('stack_master_user_progress_v1'));
                 if (p) {
-                  var vz = Math.min(2, (p.completedLabs || []).length);
-                  var gm = Math.min(4, (p.completedGameLevels || []).length);
-                  var qPts = p.quizHighScore ? Math.round((p.quizHighScore / 100) * 40) : (p.quizScore !== undefined ? p.quizScore : 0);
-                  score = Math.min(100, vz * 10 + gm * 10 + qPts);
+                  var labs = new Set((p.completedLabs || []).filter(function(id) { return id === 1 || id === 2; }));
+                  var levels = new Set((p.completedGameLevels || []).filter(function(id) { return id >= 1 && id <= 3; }));
+                  var gamePoints = 0;
+                  levels.forEach(function(id) { gamePoints += id === 3 ? 14 : 13; });
+                  gamePoints = Math.max(0, Math.min(40, gamePoints) - Math.max(0, p.queueDeductions || 0));
+
+                  var quizPoints = 0;
+                  var answers = p.quizSession && p.quizSession.answers || {};
+                  Object.keys(answers).forEach(function(key) {
+                    var index = Number(key);
+                    var answer = answers[key];
+                    if (!Number.isInteger(index) || index < 0 || index >= 12) return;
+                    if (!answer || answer.isSubmitted !== true || answer.isAttempted !== true) return;
+                    if (answer.isCorrect === true) quizPoints += 4;
+                    else if (answer.isCorrect === false) quizPoints -= 2;
+                  });
+                  score = Math.min(100, labs.size * 6 + gamePoints + Math.min(48, quizPoints));
                 }
               } catch(e) {}
             } else if (mid === 'sll') {
