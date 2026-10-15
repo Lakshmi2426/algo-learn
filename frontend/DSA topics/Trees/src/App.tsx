@@ -27,11 +27,30 @@ const PUBLIC_LESSON_VIDEO_URL = '/videos/lesson.mp4';
 const PUBLIC_LESSON_VIDEO_NAME = 'Tree DSA Complete Visual Lesson';
 const PUBLIC_LESSON_VIDEO_SIZE = '2.0 MB';
 
+const getInitialThemeIsDark = (): boolean => {
+  try {
+    if (window.parent !== window) {
+      const parentRoot = window.parent.document.documentElement;
+      const parentTheme = parentRoot.getAttribute('data-theme');
+      if (parentTheme === 'dark' || parentTheme === 'light') return parentTheme === 'dark';
+      if (parentRoot.classList.contains('dark')) return true;
+      if (parentRoot.classList.contains('light')) return false;
+    }
+  } catch {}
+
+  try {
+    const savedTheme = localStorage.getItem('algolearn_theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme === 'dark';
+  } catch {}
+
+  return true;
+};
+
 export default function App() {
   const [currentNav, setCurrentNav] = useState<NavItem>('home');
   const [currentTopicId, setCurrentTopicId] = useState<TopicId>('basics');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Violet/purple dark theme default
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(getInitialThemeIsDark);
   const [isSoundOn, setIsSoundOn] = useState<boolean>(true);
 
   // Active isolated user state
@@ -93,6 +112,16 @@ export default function App() {
       document.documentElement.classList.add('light');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const handleParentThemeChange = (event: MessageEvent) => {
+      if (event.data?.type !== 'ALGOLEARN_THEME_CHANGE') return;
+      if (event.data.theme === 'dark') setIsDarkMode(true);
+      if (event.data.theme === 'light') setIsDarkMode(false);
+    };
+    window.addEventListener('message', handleParentThemeChange);
+    return () => window.removeEventListener('message', handleParentThemeChange);
+  }, []);
 
   // Visual Lesson Video State (Permanent public video bundled with the app)
   const [isVideoCompleted, setIsVideoCompleted] = useState<boolean>(() => {
@@ -520,7 +549,16 @@ export default function App() {
             onOpenProfile={() => setIsProfileModalOpen(true)}
             isSoundOn={isSoundOn}
             onToggleSound={() => setIsSoundOn((prev) => !prev)}
-            onNavigateHome={() => handleNavigate('home')}
+            onNavigateHome={() => {
+              if (window.parent !== window) {
+                window.parent.postMessage(
+                  { type: 'ALGOLEARN_NAVIGATE', tab: 'home' },
+                  window.location.origin
+                );
+              } else {
+                window.location.assign('/');
+              }
+            }}
           />
         )}
 
