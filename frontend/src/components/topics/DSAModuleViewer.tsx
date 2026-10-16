@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { ModuleRouteConfig, INTEGRATED_MODULES } from '../../utils/moduleRoutes';
 import { useTheme } from '../../context/ThemeContext';
-import { setTopicScore, setTopicCompletion, readNativeModuleCompletion, normalizeToModuleId } from '../../utils/topicProgress';
+import { setTopicScore, setTopicCompletion, readNativeModuleCompletion, readNativeModuleProgress, normalizeToModuleId } from '../../utils/topicProgress';
 
 interface DSAModuleViewerProps {
   moduleConfig: ModuleRouteConfig | null;
@@ -26,6 +26,13 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
   });
 
   const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
+
+  const syncNativeProgress = (moduleId: string) => {
+    const moduleKey = normalizeToModuleId(moduleId);
+    if (!moduleKey) return;
+    setTopicScore(moduleKey, readNativeModuleProgress(moduleKey));
+    setTopicCompletion(moduleKey, readNativeModuleCompletion(moduleKey));
+  };
 
   // Background pre-warm topic module endpoints during idle time so Vite pre-compiles them
   useEffect(() => {
@@ -112,9 +119,29 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       }
     };
 
+    const bfsProgressKeys = new Set([
+      'algolearn_completed_chapters',
+      'algolearn_completed_activities',
+      'algolearn_completed_videos',
+      'algolearn_completed_levels',
+      'algolearn_quiz_answers',
+      'algolearn_quiz_score',
+      'algolearn_quiz_completed',
+      'algolearn_game_assistance',
+      'algolearn_points_history',
+      'algolearn_score',
+    ]);
+    const handleStorage = (event: StorageEvent) => {
+      if (moduleConfig?.moduleId === 'bfs' && event.key && bfsProgressKeys.has(event.key)) {
+        syncNativeProgress('bfs');
+      }
+    };
+
     window.addEventListener('message', handleMessage);
+    window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [moduleConfig, onNavigateHome, onNavigateAskTeacher, setTheme]);
 
@@ -125,6 +152,8 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
     const iframe = iframeRefs.current[modId];
     if (!iframe) return;
 
+    if (modId === 'bfs') syncNativeProgress(modId);
+
     try {
       const doc = iframe.contentDocument;
       if (!doc) return;
@@ -132,33 +161,27 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       const isExplicitLogoClick = (el: HTMLElement | null): boolean => {
         if (!el || typeof el.closest !== 'function') return false;
 
-        // Never intercept buttons, tabs, links with hash, form controls, or nav items
+        const logo = el.closest(
+          '#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]'
+        );
+        if (!logo) return false;
+
+        // Never intercept buttons or inputs outside the brand logo
         if (
           el.closest(
-            'button, [role="button"], [role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], [id*="tab"], [id*="toggle"], [id*="menu"], [id*="close"], [title*="Overview" i], [aria-label*="Overview" i], [id*="overview" i], [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel'
+            '[role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], #topbar-menu-toggle'
           )
         ) {
           return false;
         }
 
-        // Only match designated brand home logo elements
-        const logo = el.closest(
-          '#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]'
-        );
-        return !!logo;
+        return true;
       };
 
       const isChatElement = (el: HTMLElement | null): boolean => {
         if (!el || typeof el.closest !== 'function') return false;
-        if (
-          el.closest(
-            'button, [role="button"], [role="tab"], input, select, textarea, form, [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i]'
-          )
-        ) {
-          return false;
-        }
         const sel = el.closest(
-          '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn'
+          '#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, #ai-assistant-container, [aria-label*="AI Assistant" i], [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i], [title*="AI Assistant" i]'
         );
         return !!sel;
       };

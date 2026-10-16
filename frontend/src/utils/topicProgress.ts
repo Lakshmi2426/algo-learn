@@ -92,6 +92,61 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
+/** Mirrors the BFS module's points and activity summary without changing its scoring rules. */
+function readBfsProgressSummary(): { score: number; completion: number } {
+  const completedVideos: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_videos')) || [];
+  const completedLevels = new Set<number>(safeJsonParse(localStorage.getItem('algolearn_completed_levels')) || []);
+  const quizAnswers: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_quiz_answers')) || {};
+  const assistance: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_game_assistance')) || {};
+  const pointsHistory: any = safeJsonParse(localStorage.getItem('algolearn_points_history')) || {};
+  const completedChapters: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_chapters')) || [];
+
+  const videoDone = new Set(completedVideos).size;
+  const visualScore = Math.min(16, videoDone * 8);
+  let gamePositive = 0;
+  let gamePenalties = 0;
+  let gameLevelsCleared = 0;
+  for (let slot = 1; slot <= 8; slot++) {
+    const completed = slot === 6
+      ? completedLevels.has(6) || completedLevels.has(7)
+      : slot === 7
+        ? completedLevels.has(8)
+        : slot === 8
+          ? completedLevels.has(9)
+          : completedLevels.has(slot);
+    if (completed) {
+      gamePositive += 8;
+      gameLevelsCleared++;
+    }
+    const usage = assistance[String(slot)] || {};
+    const hints = typeof usage.hintCount === 'number' ? usage.hintCount : (usage.hintUsed ? 1 : 0);
+    const guided = typeof usage.guidedCount === 'number' ? usage.guidedCount : (usage.guidedUsed ? 1 : 0);
+    gamePenalties += (hints + guided) * 3;
+  }
+
+  let correct = 0;
+  let incorrect = 0;
+  let timedOut = 0;
+  Object.values(quizAnswers).forEach((answer: any) => {
+    if (!answer) return;
+    if (answer.timedOut) timedOut++;
+    else if (answer.isCorrect === true) correct++;
+    else if (answer.isCorrect === false) incorrect++;
+  });
+  const quizScore = Math.max(0, Math.min(20, correct * 2 - incorrect));
+  const seedBonus = typeof pointsHistory.seedGameBonus === 'number' ? pointsHistory.seedGameBonus : 0;
+  const score = Math.max(0, Math.min(100, seedBonus + visualScore + Math.max(0, gamePositive - gamePenalties) + quizScore));
+
+  // Match the module's Progress page: 12 Learn Chapters + 2 Videos + 8 Game Levels + 10 Quiz Questions = 32 total activities
+  const learnDone = new Set(completedChapters).size;
+  const quizDone = correct + incorrect + timedOut;
+  const totalActivities = 32;
+  const completedActivities = Math.min(totalActivities, learnDone + videoDone + gameLevelsCleared + quizDone);
+  const completion = Math.min(100, Math.round((completedActivities / totalActivities) * 100));
+
+  return { score, completion };
+}
+
 /**
  * Reads and computes the actual inner module progress (0..100) directly
  * from the module's native storage data in localStorage.
@@ -305,33 +360,7 @@ export function readNativeModuleProgress(moduleId: CanonicalModuleId): number {
       }
 
       case 'bfs': {
-        const completedVideos: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_videos')) || [];
-        const completedLevels: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_levels')) || [];
-        const quizAnswers: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_quiz_answers')) || {};
-        const assistance: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_game_assistance')) || {};
-
-        const videoScore = Math.min(16, completedVideos.length * 8);
-
-        let gamePositive = Math.min(64, completedLevels.length * 8);
-        let gamePenalties = 0;
-        Object.values(assistance).forEach((ast: any) => {
-          if (!ast) return;
-          const hints = ast.hintCount || (ast.hintUsed ? 1 : 0);
-          const guided = ast.guidedCount || (ast.guidedUsed ? 1 : 0);
-          gamePenalties += hints * 3 + guided * 3;
-        });
-        const gameScore = gamePositive - gamePenalties;
-
-        let quizCorrect = 0;
-        let quizIncorrect = 0;
-        Object.values(quizAnswers).forEach((ans: any) => {
-          if (ans?.isCorrect === true) quizCorrect++;
-          else if (ans?.isCorrect === false) quizIncorrect++;
-        });
-        const quizScore = Math.min(20, quizCorrect * 2 - quizIncorrect * 1);
-
-        const finalScore = Math.min(100, videoScore + gameScore + quizScore);
-        return finalScore;
+        return readBfsProgressSummary().score;
       }
 
       case 'trees': {
@@ -551,16 +580,7 @@ export function readNativeModuleCompletion(moduleId: CanonicalModuleId): number 
       }
 
       case 'bfs': {
-        const completedVideos: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_videos')) || [];
-        const completedLevels: any[] = safeJsonParse(localStorage.getItem('algolearn_completed_levels')) || [];
-        const quizAnswers: Record<string, any> = safeJsonParse(localStorage.getItem('algolearn_quiz_answers')) || {};
-        const bfsProg: any = safeJsonParse(localStorage.getItem('bfs_learner_progress_v2')) || {};
-        const learnDone = Math.min(12, (bfsProg.completedChapters || []).length);
-        const videoDone = Math.min(2, completedVideos.length);
-        const gameDone = Math.min(8, completedLevels.length);
-        const quizDone = Math.min(10, Object.keys(quizAnswers).length);
-        const completed = learnDone + videoDone + gameDone + quizDone;
-        return Math.min(100, Math.max(0, Math.round((completed / 32) * 100)));
+        return readBfsProgressSummary().completion;
       }
 
       case 'trees': {
@@ -671,10 +691,17 @@ export const NATIVE_STORAGE_KEYS = [
   'cll_mastery_progress_v1',
   'cll-learning-points-v5',
   'bfs_learner_progress_v2',
+  'algolearn_completed_chapters',
+  'algolearn_completed_activities',
   'algolearn_completed_videos',
   'algolearn_completed_levels',
   'algolearn_quiz_answers',
+  'algolearn_quiz_score',
+  'algolearn_quiz_started',
+  'algolearn_quiz_completed',
   'algolearn_game_assistance',
+  'algolearn_points_history',
+  'algolearn_score',
   'trees_module_progress_v1',
   'bst_mastery_progress_v1',
   'bst_explorer_user_stats_main',

@@ -5,6 +5,7 @@ import './DivisionTierBadge.css';
 interface DivisionTierBadgeProps {
   tier: string;
   className?: string;
+  size?: 'default' | 'compact' | string;
 }
 
 const tierIcons = {
@@ -13,15 +14,20 @@ const tierIcons = {
   Gold: Trophy,
 } as const;
 
-export const DivisionTierBadge: React.FC<DivisionTierBadgeProps> = ({ tier, className = '' }) => {
+export const DivisionTierBadge: React.FC<DivisionTierBadgeProps> = ({
+  tier,
+  className = '',
+  size = 'default',
+}) => {
   const Icon = tierIcons[tier as keyof typeof tierIcons];
+  const sizeClass = size === 'compact' ? 'division-tier-badge--compact' : '';
 
   if (!Icon) {
-    return <span className={`division-tier-empty ${className}`.trim()}>{tier || '-'}</span>;
+    return <span className={`division-tier-empty ${sizeClass} ${className}`.trim()}>{tier || '-'}</span>;
   }
 
   return (
-    <span className={`division-tier-badge division-tier-badge--${tier.toLowerCase()} ${className}`.trim()}>
+    <span className={`division-tier-badge division-tier-badge--${tier.toLowerCase()} ${sizeClass} ${className}`.trim()}>
       <span className="division-tier-badge__emblem" aria-hidden="true">
         <Shield className="division-tier-badge__shield" />
         <Icon className="division-tier-badge__icon" />

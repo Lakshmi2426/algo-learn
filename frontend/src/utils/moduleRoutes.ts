@@ -58,7 +58,7 @@ export const INTEGRATED_MODULES: Record<string, ModuleRouteConfig> = {
   },
   bfs: {
     moduleId: 'bfs',
-    folderName: 'Breadth-First Search (BFS)',
+    folderName: 'BFS',
     title: 'Breadth-First Search (BFS)',
     routeHash: '#/topics/BFS',
   },

@@ -93,8 +93,8 @@ async function startServer() {
     "data-structures-and-types": "Data Structure and Types",
     "data structure and types": "Data Structure and Types",
     sorting: "Sorting",
-    bfs: "Breadth-First Search (BFS)",
-    "breadth-first-search": "Breadth-First Search (BFS)",
+    bfs: "BFS",
+    "breadth-first-search": "BFS",
     queue: "Queues",
     queues: "Queues",
     sll: "Singly Linked List (SLL)",
@@ -136,10 +136,6 @@ async function startServer() {
     console.log(`\n[MODULE ROUTE MATCHED] moduleId=${rawId}, originalUrl=${req.originalUrl}`);
     let folderName = resolveFolderName(rawId);
 
-    if (!folderName) {
-      return res.status(404).send("Module not found");
-    }
-
     const mainTopicUrl = `/#/topics/${encodeURIComponent(rawId)}`;
     if (req.get("sec-fetch-dest") === "document") {
       return res.redirect(302, mainTopicUrl);
@@ -150,15 +146,15 @@ async function startServer() {
     };
 
     const builtPublicHtml = path.join(projectRoot, "public", "dsa-modules", rawId, "index.html");
-    if (fs.existsSync(builtPublicHtml)) {
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", "no-cache");
-      return res.send(redirectTopLevelModulePage(fs.readFileSync(builtPublicHtml, "utf-8")));
+    const hasBuilt = fs.existsSync(builtPublicHtml);
+
+    if (!hasBuilt && !folderName) {
+      return res.status(404).send("Module not found");
     }
 
-    let htmlPath = path.join(projectRoot, "DSA topics", folderName, "index.html");
+    let htmlPath = folderName ? path.join(projectRoot, "DSA topics", folderName, "index.html") : "";
 
-    if (!fs.existsSync(htmlPath)) {
+    if (!hasBuilt && (!htmlPath || !fs.existsSync(htmlPath))) {
       return res.status(404).send("Module index.html not found");
     }
 
@@ -172,7 +168,7 @@ async function startServer() {
       return res.send(cached);
     }
 
-    let rawHtml = fs.readFileSync(htmlPath, "utf-8");
+    let rawHtml = hasBuilt ? fs.readFileSync(builtPublicHtml, "utf-8") : fs.readFileSync(htmlPath, "utf-8");
     const baseTag = `<base href="/dsa-modules/${rawId}/">`;
     const bridgeScript = `
       <script>
@@ -412,22 +408,34 @@ async function startServer() {
                   var vids = JSON.parse(localStorage.getItem('algolearn_completed_videos') || '[]');
                   var qAns = JSON.parse(localStorage.getItem('algolearn_quiz_answers') || '{}');
                   var ast = JSON.parse(localStorage.getItem('algolearn_game_assistance') || '{}');
-                  var vScore = Math.min(16, vids.length * 8);
-                  var gPos = Math.min(64, lvls.length * 8);
+                  var ptsHist = JSON.parse(localStorage.getItem('algolearn_points_history') || '{}');
+
+                  var vScore = Math.min(16, (Array.isArray(vids) ? vids.length : 0) * 8);
+
+                  var lvlSet = {};
+                  if (Array.isArray(lvls)) {
+                    for (var li = 0; li < lvls.length; li++) lvlSet[lvls[li]] = true;
+                  }
+                  var gPos = 0;
                   var gPen = 0;
-                  Object.keys(ast).forEach(function(k) {
-                    var a = ast[k];
-                    if (a) gPen += (a.hintCount || (a.hintUsed ? 1 : 0)) * 3 + (a.guidedCount || (a.guidedUsed ? 1 : 0)) * 3;
-                  });
+                  for (var slot = 1; slot <= 8; slot++) {
+                    var done = slot === 6 ? (lvlSet[6] || lvlSet[7]) : (slot === 7 ? lvlSet[8] : (slot === 8 ? lvlSet[9] : lvlSet[slot]));
+                    if (done) gPos += 8;
+                    var usage = ast[String(slot)] || {};
+                    var hints = typeof usage.hintCount === 'number' ? usage.hintCount : (usage.hintUsed ? 1 : 0);
+                    var guided = typeof usage.guidedCount === 'number' ? usage.guidedCount : (usage.guidedUsed ? 1 : 0);
+                    gPen += (hints + guided) * 3;
+                  }
                   var gScore = Math.max(0, gPos - gPen);
+
                   var qCorr = 0; var qWr = 0;
                   Object.keys(qAns).forEach(function(k) {
                     if (qAns[k] && qAns[k].isCorrect === true) qCorr++;
                     else if (qAns[k] && qAns[k].isCorrect === false) qWr++;
                   });
                   var qScore = Math.max(0, Math.min(20, qCorr * 2 - qWr * 1));
-                  var finalS = Math.min(100, vScore + gScore + qScore);
-                  score = finalS;
+                  var seedBonus = typeof ptsHist.seedGameBonus === 'number' ? ptsHist.seedGameBonus : 0;
+                  score = Math.max(0, Math.min(100, seedBonus + vScore + gScore + qScore));
                 } catch(e) {}
               } else if (mid === 'trees') {
                 try {
@@ -495,7 +503,7 @@ async function startServer() {
           try {
             localStorage.setItem = function(k, v) {
               origSetItem.apply(this, arguments);
-              if (k && !k.startsWith('algolearn_') && !k.startsWith('theme')) {
+              if (k && !k.startsWith('algolearn_topic_progress_') && !k.startsWith('algolearn_topics_') && !k.startsWith('algolearn_topic_completion_') && !k.startsWith('theme')) {
                 setTimeout(broadcastModuleProgress, 100);
               }
             };
@@ -522,20 +530,19 @@ async function startServer() {
 
           function isExplicitLogoClick(el) {
             if (!el || typeof el.closest !== 'function') return false;
-            if (el.closest('button, [role="button"], [role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], [id*="tab"], [id*="toggle"], [id*="menu"], [id*="close"], [title*="Overview" i], [aria-label*="Overview" i], [id*="overview" i], [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], #btn-guided-solve-next, #btn-guided-solve-stop, #btn-guided-solve-next-step, #btn-guided-solve-finish, #guided-solve-panel')) {
+            var logo = el.closest('#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]');
+            if (!logo) return false;
+            if (el.closest('[role="tab"], .nav-tab, .tab-btn, a[href^="#"], a[href^="javascript:"], input, select, textarea, form, label, .sidebar-nav-menu, [data-tab], #topbar-menu-toggle')) {
               return false;
             }
-            var logo = el.closest('#header-algolearn-logo, #btn-logo-home, .topbar-brand-logo-left, #topbar-brand-logo-img, #algolearn-brand-logo, [data-action="navigate-home"], .algolearn-home-link, [aria-label="AlgoLearn Logo"], [aria-label="AlgoLearn Logo" i]');
-            return !!logo;
+            return true;
           }
 
           function isChatElement(el) {
             if (!el || typeof el.closest !== 'function') return false;
-            if (el.closest('button, [role="button"], [role="tab"], input, select, textarea, form, [id*="guided" i], [title*="guided" i], [aria-label*="guided" i], .guided-solve-btn, #guided-solve-btn, [id*="hint" i], [title*="hint" i], [id*="step" i]')) {
-              return false;
-            }
-            var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn');
-            return !!sel;
+            var sel = el.closest('#ai-bot-floating-button, #floating-chat-bubble-container, #floating-chat-bubble-icon, #floating-chat-badge, #ai-assistant-fab, .ai-fab-btn, #unified-floating-ask-teacher-btn, #ai-assistant-container, [aria-label*="AI Assistant" i], [aria-label*="Ask a Teacher" i], [title*="Ask a Teacher" i], [title*="AI Assistant" i]');
+            if (sel) return true;
+            return false;
           }
 
           document.addEventListener('click', function(e) {
@@ -577,10 +584,16 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       }
     }
 
-    rawHtml = rawHtml.replace("<head>", `<head>\n  ${themeBgStyle}\n  ${baseTag}`);
-    rawHtml = rawHtml.replace("</head>", `${bridgeScript}</head>`);
+    if (!rawHtml.includes("<base ")) {
+      rawHtml = rawHtml.replace("<head>", `<head>\n  ${themeBgStyle}\n  ${baseTag}`);
+    } else {
+      rawHtml = rawHtml.replace("<head>", `<head>\n  ${themeBgStyle}`);
+    }
+    if (!rawHtml.includes("detectCurrentModuleProgress")) {
+      rawHtml = rawHtml.replace("</head>", `${bridgeScript}</head>`);
+    }
 
-    const hasViteMain = fs.existsSync(path.join(projectRoot, "DSA topics", folderName, "src", "main.tsx"));
+    const hasViteMain = folderName && fs.existsSync(path.join(projectRoot, "DSA topics", folderName, "src", "main.tsx"));
     if (hasViteMain) {
       const moduleSrcPath = `/DSA topics/${folderName}/src/main.tsx`;
       rawHtml = rawHtml.replace(
@@ -589,7 +602,7 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
       );
     }
 
-    if (viteInstance) {
+    if (viteInstance && folderName && !hasBuilt) {
       try {
         const vitePath = `/DSA topics/${folderName}/index.html`;
         rawHtml = await viteInstance.transformIndexHtml(
@@ -619,12 +632,6 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
   });
   app.get("/dsa-modules/:moduleId/*", (req, res, next) => {
     const rawId = (req.params.moduleId || "").toLowerCase();
-    const folderName = resolveFolderName(rawId);
-
-    if (!folderName) {
-      return res.status(404).send("Module not found");
-    }
-
     const rawSubpath = req.params[0] || "";
     const subpath = decodeURIComponent(rawSubpath);
 
@@ -637,6 +644,11 @@ html, body { margin: 0 !important; padding: 0 !important; border: 0 !important; 
     let publicBuilt = path.join(projectRoot, "public", "dsa-modules", rawId, subpath);
     if (fs.existsSync(publicBuilt) && fs.statSync(publicBuilt).isFile()) {
       return res.sendFile(publicBuilt);
+    }
+
+    const folderName = resolveFolderName(rawId);
+    if (!folderName) {
+      return res.status(404).send("Module not found");
     }
 
     // Check primary folder public/

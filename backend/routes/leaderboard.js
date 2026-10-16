@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
  */
 const getTier = (xp = 0) => {
   if (xp >= 1000) return 'Platinum';
-  if (xp >= 500) return 'Diamond';
+  if (xp >= 501) return 'Diamond';
   if (xp >= 1) return 'Gold';
   return '-';
 };
@@ -39,6 +39,131 @@ const averageTopicCompletion = (completions) => {
   }, 0);
   return Math.round(total / 13);
 };
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const formatAggregatedEntry = (s) => ({
+  rank: s.rank,
+  id: s._id.toString(),
+  name: s.name,
+  username: s.regdNo ? s.regdNo.toLowerCase() : (s.name || '').toLowerCase().replace(/\s+/g, '_'),
+  regdNo: s.regdNo,
+  branch: s.branch,
+  avatar: '',
+  xp: s.xp ?? 0,
+  streak: 1,
+  level: Math.floor((s.xp ?? 0) / 350) + 1,
+  tier: getTier(s.xp ?? 0),
+  countryCode: '',
+  solvedCount: s.topicsCompleted || 0,
+  topicsCompleted: s.topicsCompleted || 0,
+  topicsMastered: s.topicsCompleted || 0,
+  topicsStarted: s.topicsStarted || (s.xp > 0 ? 1 : 0),
+  overallProgress: s.overallProgress || 0,
+  badgeTitle: 'Algo Scholar',
+  createdAt: s.createdAt,
+});
+
+/**
+ * GET /api/leaderboard/page?page=1&pageSize=10&q=&tier=All&studentId=
+ * Uses database aggregation for the ordered page, while also returning the
+ * global podium and the current student's rank without transferring all rows.
+ */
+router.get('/page', async (req, res) => {
+  try {
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const requestedSize = Math.floor(Number(req.query.pageSize) || 10);
+    const pageSize = [10, 25, 50].includes(requestedSize) ? requestedSize : 10;
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
+    const tier = typeof req.query.tier === 'string' ? req.query.tier : 'All';
+    const studentId = typeof req.query.studentId === 'string' && /^[a-f\d]{24}$/i.test(req.query.studentId)
+      ? new Student.base.Types.ObjectId(req.query.studentId)
+      : null;
+
+    const filters = [];
+    if (query) {
+      const regex = new RegExp(escapeRegex(query), 'i');
+      filters.push({ $or: [{ name: regex }, { regdNo: regex }, { branch: regex }] });
+    }
+    if (['Diamond', 'Platinum', 'Gold'].includes(tier)) filters.push({ tier });
+    const pageMatch = filters.length ? { $match: { $and: filters } } : { $match: {} };
+
+    const results = await Student.aggregate([
+      { $match: { role: { $ne: 'admin' } } },
+      {
+        $set: {
+          xp: {
+            $sum: {
+              $map: {
+                input: {
+                  $cond: [
+                    { $eq: [{ $type: '$progress' }, 'object'] },
+                    { $objectToArray: '$progress' },
+                    [],
+                  ],
+                },
+                as: 'entry',
+                in: {
+                  $switch: {
+                    branches: [
+                      { case: { $isNumber: '$$entry.v' }, then: { $round: ['$$entry.v', 0] } },
+                      { case: { $isNumber: '$$entry.v.points' }, then: { $round: ['$$entry.v.points', 0] } },
+                      { case: { $isNumber: '$$entry.v.score' }, then: { $round: ['$$entry.v.score', 0] } },
+                    ],
+                    default: 0,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $set: {
+          tier: {
+            $switch: {
+              branches: [
+                { case: { $gte: ['$xp', 1000] }, then: 'Platinum' },
+                { case: { $gte: ['$xp', 501] }, then: 'Diamond' },
+                { case: { $gte: ['$xp', 1] }, then: 'Gold' },
+              ],
+              default: '-',
+            },
+          },
+        },
+      },
+      {
+        $setWindowFields: {
+          sortBy: { xp: -1, topicsCompleted: -1, createdAt: 1, regdNo: 1, _id: 1 },
+          output: { rank: { $documentNumber: {} } },
+        },
+      },
+      { $sort: { xp: -1, topicsCompleted: -1, createdAt: 1, regdNo: 1, _id: 1 } },
+      {
+        $facet: {
+          topThree: [{ $limit: 3 }],
+          pageEntries: [pageMatch, { $skip: (page - 1) * pageSize }, { $limit: pageSize }],
+          pageCount: [pageMatch, { $count: 'total' }],
+          currentStudent: studentId ? [{ $match: { _id: studentId } }, { $limit: 1 }] : [{ $match: { _id: null } }],
+        },
+      },
+    ]);
+
+    const result = results[0] || { topThree: [], pageEntries: [], pageCount: [], currentStudent: [] };
+    const total = result.pageCount[0]?.total || 0;
+    return res.json({
+      entries: result.pageEntries.map(formatAggregatedEntry),
+      total,
+      page,
+      pageSize,
+      topThree: result.topThree.map(formatAggregatedEntry),
+      currentStudent: result.currentStudent[0] ? formatAggregatedEntry(result.currentStudent[0]) : null,
+    });
+  } catch (error) {
+    console.error('Error fetching paginated leaderboard:', error);
+    return res.status(500).json({ error: 'Failed to retrieve leaderboard page.' });
+  }
+});
 
 /**
  * Deterministic sort comparator for students:

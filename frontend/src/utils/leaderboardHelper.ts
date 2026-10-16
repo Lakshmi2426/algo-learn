@@ -4,7 +4,7 @@ import { getAllTopicsProgress } from './topicProgress';
 
 export function getTierFromXP(xp: number): 'Diamond' | 'Platinum' | 'Gold' | '-' {
   if (xp >= 1000) return 'Platinum';
-  if (xp >= 500) return 'Diamond';
+  if (xp >= 501) return 'Diamond';
   if (xp >= 1) return 'Gold';
   return '-';
 }
