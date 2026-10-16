@@ -4,6 +4,10 @@ import {
   Trophy,
   Crown,
   Search,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
 } from 'lucide-react';
 import { LEADERBOARD_USERS } from '../../data/leaderboardData';
 import { LeaderboardUser } from '../../types';
@@ -18,6 +22,8 @@ export const LeaderboardView: React.FC = () => {
   const { studentsList, user: currentUser, isAuthenticated, role } = useUser();
   const [selectedTier, setSelectedTier] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pageSize, setPageSize] = useState(10);
+  const [pageNumber, setPageNumber] = useState(1);
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
   const [topicSummary, setTopicSummary] = useState(() => getAllTopicsProgress());
   const isFetchingRef = React.useRef(false);
@@ -98,6 +104,21 @@ export const LeaderboardView: React.FC = () => {
   }, [effectiveLeaderboard, searchQuery, selectedTier]);
 
   const topThree = effectiveLeaderboard.slice(0, 3);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const pageUsers = filteredUsers.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
+  const rangeStart = filteredUsers.length === 0 ? 0 : (pageNumber - 1) * pageSize + 1;
+  const rangeEnd = Math.min(pageNumber * pageSize, filteredUsers.length);
+  const currentStudent = isAuthenticated && role === 'student'
+    ? effectiveLeaderboard.find((student) => student.id === currentUser?.id)
+    : undefined;
+  const displayUsers = currentStudent && !pageUsers.some((student) => student.id === currentStudent.id)
+    ? [...pageUsers, currentStudent]
+    : pageUsers;
+  const setPage = (nextPage: number) => setPageNumber(Math.max(1, Math.min(totalPages, nextPage)));
+
+  useEffect(() => {
+    if (pageNumber > totalPages) setPageNumber(totalPages);
+  }, [pageNumber, totalPages]);
 
   return (
     <div className="relative pt-28 pb-20 min-h-screen">
@@ -201,7 +222,7 @@ export const LeaderboardView: React.FC = () => {
               {tiers.map((t) => (
                 <button
                   key={t}
-                  onClick={() => setSelectedTier(t)}
+                  onClick={() => { setSelectedTier(t); setPageNumber(1); }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${selectedTier === t
                     ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-white'
@@ -217,7 +238,7 @@ export const LeaderboardView: React.FC = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setPageNumber(1); }}
                 placeholder="Search scholar or country..."
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50/80 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -244,17 +265,17 @@ export const LeaderboardView: React.FC = () => {
                 {filteredUsers.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
-                      No students on the leaderboard yet. Sign in and start learning to appear here.
+                      {currentStudent ? 'No scholars match these filters. Your row is shown below.' : 'No students on the leaderboard yet. Sign in and start learning to appear here.'}
                     </td>
                   </tr>
                 )}
-                {filteredUsers.map((user) => {
-                  const isCurrent = Boolean(isAuthenticated && currentUser?.id && user.id === currentUser.id);
+                {displayUsers.map((user) => {
+                  const isCurrent = Boolean(currentStudent && user.id === currentStudent.id);
                   return (
                     <tr
                       key={user.regdNo ? user.regdNo.toUpperCase() : user.id}
                       className={`transition-colors ${isCurrent
-                        ? 'bg-blue-100/80 hover:bg-blue-100/90 dark:bg-blue-900/45 dark:hover:bg-blue-900/55 font-semibold shadow-[inset_0_0_0_1px_rgba(37,99,235,0.35)] dark:shadow-[inset_0_0_0_1px_rgba(96,165,250,0.45)]'
+                        ? 'bg-gradient-to-r from-blue-100/90 via-blue-50/90 to-blue-100/90 hover:from-blue-100 hover:via-blue-50 hover:to-blue-100 dark:from-blue-900/45 dark:via-blue-950/40 dark:to-blue-900/45 dark:hover:from-blue-900/55 dark:hover:via-blue-950/50 dark:hover:to-blue-900/55 font-semibold shadow-[0_2px_12px_rgba(37,99,235,0.16),inset_0_0_0_1px_rgba(37,99,235,0.3)] dark:shadow-[0_2px_12px_rgba(30,64,175,0.2),inset_0_0_0_1px_rgba(96,165,250,0.32)]'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
                         }`}
                     >
@@ -272,7 +293,7 @@ export const LeaderboardView: React.FC = () => {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-slate-900 dark:text-white">
-                                {user.name}
+                                {user.name}{isCurrent ? ' (You)' : ''}
                               </span>
                               {user.branch && (
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/50">
@@ -303,6 +324,25 @@ export const LeaderboardView: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="overflow-x-auto rounded-b-3xl border border-t-0 border-slate-200 bg-white px-4 py-3 shadow-[0_8px_15px_-8px_rgba(15,23,42,0.45)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_8px_15px_-8px_rgba(0,0,0,0.8)]">
+            <div className="flex min-w-max flex-nowrap items-center justify-between gap-6 text-sm text-slate-600 dark:text-slate-300">
+              <div className="flex shrink-0 items-center gap-5">
+                <label className="flex shrink-0 items-center gap-2 font-medium">
+                  <span>Items per page:</span>
+                  <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPageNumber(1); }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:focus:border-slate-500" aria-label="Items per page">
+                    {[10, 25, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+                  </select>
+                </label>
+                <span aria-live="polite" className="whitespace-nowrap font-medium tabular-nums text-slate-600 dark:text-slate-300">{rangeStart} {'\u2013'} {rangeEnd} of {filteredUsers.length.toLocaleString()}</span>
+              </div>
+              <nav className="flex shrink-0 items-center gap-5 pr-1" aria-label="Leaderboard pagination">
+                <button type="button" onClick={() => setPage(1)} disabled={pageNumber <= 1} aria-label="First page" title="First page" className="text-slate-700 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300 dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-600"><ChevronsLeft className="h-6 w-6" /></button>
+                <button type="button" onClick={() => setPage(pageNumber - 1)} disabled={pageNumber <= 1} aria-label="Previous page" title="Previous page" className="text-slate-700 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300 dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-600"><ChevronLeft className="h-6 w-6" /></button>
+                <button type="button" onClick={() => setPage(pageNumber + 1)} disabled={pageNumber >= totalPages} aria-label="Next page" title="Next page" className="text-slate-700 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300 dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-600"><ChevronRight className="h-6 w-6" /></button>
+                <button type="button" onClick={() => setPage(totalPages)} disabled={pageNumber >= totalPages} aria-label="Last page" title="Last page" className="text-slate-700 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300 dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-600"><ChevronsRight className="h-6 w-6" /></button>
+              </nav>
+            </div>
           </div>
         </div>
       </div>
