@@ -37,8 +37,8 @@ import { pointsManager } from './utils/pointsManager';
 import { useScrollReveal } from './hooks/useScrollReveal';
 
 export default function App() {
-  // Navigation View State (Defaults to GAME for DLL Interactive Arena)
-  const [activeTab, setActiveTab] = useState<MainViewTab>('GAME');
+  // Navigation View State (Defaults to HOME/Overview for DLL)
+  const [activeTab, setActiveTab] = useState<MainViewTab>('HOME');
   const [activeTheoryTopic, setActiveTheoryTopic] = useState<string>('what-is-hashing');
   const [show100Celebration, setShow100Celebration] = useState<boolean>(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(true);

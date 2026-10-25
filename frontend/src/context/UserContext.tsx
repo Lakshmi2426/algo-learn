@@ -194,8 +194,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (
             parsed.id === 'usr-9428' ||
             parsed.name === 'Alex Mercer' ||
-            parsed.email === 'alex.mercer@dev.io' ||
-            !parsed.email
+            parsed.email === 'alex.mercer@dev.io'
           ) {
             localStorage.removeItem('algolearn_user');
             localStorage.removeItem('algolearn_auth');
@@ -350,9 +349,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers,
         credentials: 'include',
       })
-        .then((res) => {
+        .then(async (res) => {
           if (!res.ok) {
-            if (res.status === 401 || res.status === 404) {
+            const data = await res.json().catch(() => null);
+            // Only logout if the backend authentication provider explicitly reports session revocation or expiration
+            if (res.status === 401 && (data?.sessionRevoked === true || data?.expired === true)) {
               logout({ skipServerCall: true, redirectToSignIn: true });
             }
             return null;
@@ -360,6 +361,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return res.json();
         })
         .then((data) => {
+          if (!data) return;
           if (localStorage.getItem('algolearn_token') !== token) return;
           setSessionCheckUnavailable(false);
           if (data?.student) {
@@ -394,6 +396,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 name: student.name,
                 branch: student.branch,
                 regdNo: student.regdNo,
+                email: student.email || prev.email || `${student.regdNo.toLowerCase()}@algolearn.edu`,
+                username: student.username || prev.username || student.regdNo.toLowerCase(),
                 xp: (student.xp !== undefined && student.xp !== null) ? student.xp : latestProg.totalXP,
                 topicsMastered: latestProg.topicsMasteredCount,
               };
@@ -424,8 +428,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial check on mount
     verifySession();
 
-    // Check periodically every 3 seconds for responsive multi-device detection
-    const intervalId = setInterval(verifySession, 3000);
+    // Check periodically every 15 seconds for responsive multi-device detection
+    const intervalId = setInterval(verifySession, 15000);
 
     // Check immediately when window regains focus or becomes visible
     const handleVisibilityChange = () => {
@@ -513,9 +517,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 credentials: 'include',
                 body: JSON.stringify(payload),
               })
-                .then((res) => {
-                  if (res.status === 401 || res.status === 404) {
-                    logout({ skipServerCall: true, redirectToSignIn: true });
+                .then(async (res) => {
+                  if (!res.ok && res.status === 401) {
+                    const data = await res.json().catch(() => null);
+                    if (data?.sessionRevoked === true) {
+                      logout({ skipServerCall: true, redirectToSignIn: true });
+                    }
                   }
                 })
                 .catch(() => { });
@@ -585,12 +592,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fresh visitor must be logged out unless explicit valid session exists
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') clearActiveModuleKeys();
     if (typeof window === 'undefined') return false;
-    return (
+    const isAuth = (
       localStorage.getItem('algolearn_auth') === 'true' ||
       Boolean(localStorage.getItem('algolearn_token'))
     );
+    if (!isAuth && typeof window !== 'undefined') {
+      clearActiveModuleKeys();
+    }
+    return isAuth;
   });
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [sessionCheckUnavailable, setSessionCheckUnavailable] = useState(false);
