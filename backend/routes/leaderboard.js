@@ -3,6 +3,11 @@ const router = express.Router();
 const Student = require('../models/Student');
 const jwt = require('jsonwebtoken');
 
+const TOPIC_IDS = [
+  'stack', 'hashing', 'linear-search', 'binary-search', 'sorting', 'sll', 'dll',
+  'cll', 'queue', 'bfs', 'trees', 'bst', 'dsa-types',
+];
+
 /**
  * Helper to compute division tier from XP
  */
@@ -18,17 +23,17 @@ const getTier = (xp = 0) => {
  */
 const sumTopicPoints = (progressMap) => {
   if (!progressMap || typeof progressMap !== 'object') return 0;
-  let sum = 0;
-  for (const [key, val] of Object.entries(progressMap)) {
+  return TOPIC_IDS.reduce((sum, key) => {
+    const val = progressMap[key];
     if (typeof val === 'number') {
-      sum += Math.round(val);
+      return sum + val;
     } else if (val && typeof val.points === 'number') {
-      sum += Math.round(val.points);
+      return sum + val.points;
     } else if (val && typeof val.score === 'number') {
-      sum += Math.round(val.score);
+      return sum + val.score;
     }
-  }
-  return sum;
+    return sum;
+  }, 0);
 };
 
 const averageTopicCompletion = (completions) => {
@@ -93,28 +98,34 @@ router.get('/page', async (req, res) => {
       {
         $set: {
           xp: {
-            $sum: {
-              $map: {
-                input: {
-                  $cond: [
-                    { $eq: [{ $type: '$progress' }, 'object'] },
-                    { $objectToArray: '$progress' },
-                    [],
-                  ],
-                },
-                as: 'entry',
-                in: {
-                  $switch: {
-                    branches: [
-                      { case: { $isNumber: '$$entry.v' }, then: { $round: ['$$entry.v', 0] } },
-                      { case: { $isNumber: '$$entry.v.points' }, then: { $round: ['$$entry.v.points', 0] } },
-                      { case: { $isNumber: '$$entry.v.score' }, then: { $round: ['$$entry.v.score', 0] } },
-                    ],
-                    default: 0,
+            $sum: TOPIC_IDS.map((topicId) => {
+              const value = { $getField: { field: topicId, input: { $ifNull: ['$progress', {}] } } };
+              return {
+                $let: {
+                  vars: { topicValue: value },
+                  in: {
+                    $switch: {
+                      branches: [
+                        { case: { $isNumber: '$$topicValue' }, then: '$$topicValue' },
+                        {
+                          case: { $eq: [{ $type: '$$topicValue' }, 'object'] },
+                          then: {
+                            $switch: {
+                              branches: [
+                                { case: { $isNumber: { $getField: { field: 'points', input: '$$topicValue' } } }, then: { $getField: { field: 'points', input: '$$topicValue' } } },
+                                { case: { $isNumber: { $getField: { field: 'score', input: '$$topicValue' } } }, then: { $getField: { field: 'score', input: '$$topicValue' } } },
+                              ],
+                              default: 0,
+                            },
+                          },
+                        },
+                      ],
+                      default: 0,
+                    },
                   },
                 },
-              },
-            },
+              };
+            }),
           },
         },
       },
@@ -134,7 +145,7 @@ router.get('/page', async (req, res) => {
       },
       {
         $setWindowFields: {
-          sortBy: { xp: -1, topicsCompleted: -1, createdAt: 1, regdNo: 1, _id: 1 },
+          sortBy: { xp: -1 },
           output: { rank: { $documentNumber: {} } },
         },
       },
@@ -173,7 +184,7 @@ router.get('/page', async (req, res) => {
  * 4. regdNo ascending
  */
 const compareStudents = (a, b) => {
-  const xpDiff = (b.xp || 0) - (a.xp || 0);
+  const xpDiff = (b.xp ?? 0) - (a.xp ?? 0);
   if (xpDiff !== 0) return xpDiff;
 
   const compDiff = (b.topicsCompleted || 0) - (a.topicsCompleted || 0);
@@ -199,13 +210,13 @@ const formatLeaderboardEntry = (s, idx) => ({
   avatar: '',
   xp: s.xp ?? 0,
   streak: 1,
-  level: Math.floor((s.xp ?? 0) / 350) + 1,
+  level: Math.max(1, Math.floor((s.xp ?? 0) / 350) + 1),
   tier: getTier(s.xp ?? 0),
   countryCode: '',
   solvedCount: s.topicsCompleted || 0,
   topicsCompleted: s.topicsCompleted || 0,
   topicsMastered: s.topicsCompleted || 0,
-  topicsStarted: s.topicsStarted || (s.xp > 0 ? 1 : 0),
+  topicsStarted: s.topicsStarted ?? (s.xp !== 0 ? 1 : 0),
   overallProgress: s.overallProgress || 0,
   badgeTitle: 'Algo Scholar',
   createdAt: s.createdAt,

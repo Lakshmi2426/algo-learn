@@ -220,7 +220,7 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
 
                   <div className="w-full mt-5 pt-4 border-t border-blue-100/90 dark:border-slate-800 flex items-center justify-around text-xs font-mono">
                     <div className="text-center">
-                      <span className="text-slate-400 text-[10px] block">XP EARNED</span>
+                      <span className="text-slate-400 text-[10px] block">TOTAL POINTS</span>
                       <span className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <Zap className="w-3.5 h-3.5 text-indigo-500" />
                         {user.xp.toLocaleString()}
@@ -283,7 +283,7 @@ export const LeaderboardPreviewSection: React.FC<LeaderboardPreviewSectionProps>
             <div className="flex items-center gap-6 text-xs font-mono">
               <span className="flex items-center gap-1 text-indigo-600 dark:text-blue-400 font-bold">
                 <Zap className="w-3.5 h-3.5 text-indigo-500" />
-                {currentUser.xp.toLocaleString()} XP
+                {currentUser.xp.toLocaleString()} Points
               </span>
               <span className="text-blue-600 dark:text-blue-400 font-bold">
                 {currentUser.solvedCount} Topics Mastered

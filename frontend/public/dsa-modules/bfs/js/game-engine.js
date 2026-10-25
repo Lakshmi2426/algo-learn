@@ -32,6 +32,7 @@ class GameEngine {
     this.stepHistory = [];
     this.isLevelCompleted = false;
     this.lastDiscoveredEdge = null; // for animation pulse
+    this.lastMistake = null;
 
     // Multi-stage hint system
     this.currentHintStage = 0;
@@ -63,6 +64,7 @@ class GameEngine {
     this.currentLevelData = JSON.parse(JSON.stringify(LEVELS_DATA[index]));
     this.isLevelCompleted = false;
     this.currentHintStage = 0;
+    this.clearErrorFeedback();
 
     const victoryModal = document.getElementById("victory-modal");
     if (victoryModal) {
@@ -176,6 +178,108 @@ class GameEngine {
     return level;
   }
 
+  getEligibleUnvisitedNeighbors(nodeId) {
+    if (!nodeId || !this.graphEngine) return [];
+    const neighbors = this.graphEngine.getNeighbors(nodeId);
+    return neighbors.filter(n => {
+      if (this.visited.has(n) || this.discovered.has(n) || this.queue.includes(n)) return false;
+      if (this.currentLevelData && this.currentLevelData.graph && this.currentLevelData.graph.nodes) {
+        const nodeObj = this.currentLevelData.graph.nodes.find(node => node.id === n);
+        if (nodeObj && nodeObj.isUnreachable) return false;
+      }
+      return true;
+    });
+  }
+
+  recordMistake(diagnosis) {
+    this.mistakesCount++;
+    this.streak = 0;
+    this.lastMistake = diagnosis;
+    this.updateStatsUI();
+    if (window.soundManager) soundManager.playError();
+
+    // 1. Show non-intrusive inline error card in game section
+    this.showErrorFeedback(diagnosis);
+
+    // 2. Populate fallback guidance modal data without opening full-screen blocker
+    this.showMistakeGuidance({
+      title: diagnosis.errorType || "BFS Rule Violation",
+      explanation: diagnosis.explanation || diagnosis.whatWentWrong,
+      fix: diagnosis.expectedAction || "Correct this step to continue."
+    }, false);
+
+    // 3. Highlight missing neighbours in graph
+    if (this.graphEngine) {
+      if (diagnosis.missingNeighbour) {
+        const missingList = diagnosis.missingNeighbour.split(',').map(s => s.trim());
+        this.graphEngine.setMissingNeighborsHighlight(missingList);
+      } else if (diagnosis.affectedNode) {
+        this.graphEngine.setMissingNeighborsHighlight([diagnosis.affectedNode]);
+      }
+    }
+  }
+
+  showErrorFeedback(diagnosis) {
+    const banner = document.getElementById("game-error-banner");
+    if (!banner) return;
+
+    const typeEl = document.getElementById("game-error-type");
+    const whatEl = document.getElementById("game-error-what");
+    const missingRow = document.getElementById("game-error-missing-row");
+    const missingEl = document.getElementById("game-error-missing");
+    const actionEl = document.getElementById("game-error-action");
+
+    if (typeEl) typeEl.textContent = diagnosis.errorType || "Incorrect BFS Operation";
+    if (whatEl) whatEl.textContent = diagnosis.whatWentWrong || diagnosis.explanation || "Action violates BFS rule.";
+
+    if (diagnosis.missingNeighbour) {
+      if (missingRow) missingRow.style.display = "flex";
+      if (missingEl) missingEl.textContent = diagnosis.missingNeighbour;
+    } else {
+      if (missingRow) missingRow.style.display = "none";
+    }
+
+    if (actionEl) actionEl.textContent = diagnosis.expectedAction || "Correct this step to continue.";
+
+    banner.classList.remove("hidden");
+    banner.style.display = "block";
+  }
+
+  clearErrorFeedback() {
+    this.lastMistake = null;
+    const banner = document.getElementById("game-error-banner");
+    if (banner) {
+      banner.classList.add("hidden");
+      banner.style.display = "none";
+    }
+    if (this.graphEngine && typeof this.graphEngine.setMissingNeighborsHighlight === "function") {
+      this.graphEngine.setMissingNeighborsHighlight([]);
+    }
+  }
+
+  handleInvalidDequeueAttempt(nodeId) {
+    if (this.queue.length === 0) {
+      this.recordMistake({
+        errorType: "FIFO Rule Violation",
+        whatWentWrong: "The queue is currently empty.",
+        affectedNode: nodeId,
+        expectedAction: "Enqueue the source root node or eligible neighbours first.",
+        explanation: "Cannot dequeue from an empty queue."
+      });
+      return;
+    }
+    const frontNode = this.queue[0];
+    if (nodeId !== frontNode) {
+      this.recordMistake({
+        errorType: "FIFO Rule Violation",
+        whatWentWrong: `You attempted to dequeue '${nodeId}', but '${frontNode}' is waiting at the front of the queue.`,
+        affectedNode: nodeId,
+        expectedAction: `Dequeue '${frontNode}' before '${nodeId}'.`,
+        explanation: `FIFO rule violation. Node '${frontNode}' is at the front of the queue, so dequeue '${frontNode}' before '${nodeId}'.`
+      });
+    }
+  }
+
   /**
    * Main Enqueue Interaction (Drag to Queue REAR or Click unvisited node)
    */
@@ -185,35 +289,20 @@ class GameEngine {
     // Check if graph node is marked unreachable (disconnected graph)
     const targetNodeObj = this.currentLevelData.graph.nodes.find(n => n.id === nodeId);
     if (targetNodeObj && targetNodeObj.isUnreachable) {
-      this.mistakesCount++;
-      this.streak = 0;
-      this.updateStatsUI();
-      if (window.soundManager) soundManager.playError();
-      this.showMistakeGuidance({
-        title: "⚠️ Unreachable Component Node",
-        explanation: `Node '${nodeId}' is in a disconnected island component and cannot be reached from source '${this.currentLevelData.startNode}'.`,
-        fix: "BFS only visits vertices in the connected component containing the source node."
+      this.recordMistake({
+        errorType: "Unreachable Component Node",
+        whatWentWrong: `Node '${nodeId}' is in a disconnected island component and cannot be reached from source '${this.currentLevelData.startNode}'.`,
+        affectedNode: nodeId,
+        expectedAction: `Explore only connected nodes reachable from '${this.currentLevelData.startNode}'.`,
+        explanation: `Node '${nodeId}' is in a disconnected island component and cannot be reached from source '${this.currentLevelData.startNode}'.`
       });
       return;
     }
 
-    // Check mistake cases: already discovered, in queue, or visited
-    if (this.visited.has(nodeId) || this.discovered.has(nodeId) || this.queue.includes(nodeId)) {
-      this.mistakesCount++;
-      this.streak = 0;
-      this.updateStatsUI();
-      if (window.soundManager) soundManager.playError();
-      this.showMistakeGuidance({
-        title: "⚠️ Visited Set Guard Active",
-        explanation: `Node '${nodeId}' is already discovered/visited. It cannot be added again.`,
-        fix: "This Visited Set rule prevents cycles from causing infinite loops in BFS!"
-      });
-      return;
-    }
-
-    // If queue is empty and we haven't enqueued start node yet
+    // Case 1: If queue is empty and we haven't enqueued start node yet
     if (!this.currentExplorerNode && this.queue.length === 0 && !this.discovered.has(this.currentLevelData.startNode)) {
       if (nodeId === this.currentLevelData.startNode) {
+        this.clearErrorFeedback();
         this.queue.push(nodeId);
         this.discovered.add(nodeId);
         this.distances[nodeId] = 0;
@@ -230,41 +319,69 @@ class GameEngine {
         this.renderSpanningTree();
         return;
       } else {
-        this.mistakesCount++;
-        this.streak = 0;
-        this.updateStatsUI();
-        if (window.soundManager) soundManager.playError();
-        this.showMistakeGuidance({
-          title: "⚠️ Start at the Source Node",
-          explanation: `BFS must start by enqueuing the source/root node '${this.currentLevelData.startNode}'.`,
-          fix: `Drag source node '${this.currentLevelData.startNode}' into the Queue first.`
+        this.recordMistake({
+          errorType: "BFS Rule Violation",
+          whatWentWrong: `You attempted to enqueue '${nodeId}', but BFS must start with the source root node '${this.currentLevelData.startNode}'.`,
+          affectedNode: nodeId,
+          expectedAction: `Enqueue source node '${this.currentLevelData.startNode}' first.`,
+          explanation: `BFS must start by enqueuing the source/root node '${this.currentLevelData.startNode}'.`
         });
         return;
       }
     }
 
-    // If no active explorer node (need to dequeue first)
+    // Case 2: If no active explorer node (need to dequeue first)
     if (!this.currentExplorerNode) {
-      this.showToast("⚡ Dequeue the front node first before adding new neighbors!", "info");
+      this.recordMistake({
+        errorType: "BFS Rule Violation",
+        whatWentWrong: `You attempted to enqueue '${nodeId}' before dequeuing the front node '${this.queue[0]}' to the Explorer Station.`,
+        affectedNode: nodeId,
+        expectedAction: `Dequeue '${this.queue[0]}' from the front of the queue before exploring neighbours.`,
+        explanation: `FIFO queue order requires dequeuing '${this.queue[0]}' to explore its connections before adding more nodes.`
+      });
       return;
     }
 
-    // Check if node is an adjacent neighbor of currentExplorerNode
+    // Case E: Check mistake cases: already discovered, in queue, or visited
+    if (this.visited.has(nodeId) || this.discovered.has(nodeId) || this.queue.includes(nodeId)) {
+      this.recordMistake({
+        errorType: "Visited Set Guard Active",
+        whatWentWrong: `Node '${nodeId}' has already been visited or is already in the queue.`,
+        affectedNode: nodeId,
+        expectedAction: `Do not enqueue the same node again. Select an unvisited neighbour of '${this.currentExplorerNode}'.`,
+        explanation: `Node '${nodeId}' has already been visited or is already in the queue. Do not enqueue the same node again.`
+      });
+      return;
+    }
+
+    // Case D: Check if node is an adjacent neighbour of currentExplorerNode
     const neighbors = this.graphEngine.getNeighbors(this.currentExplorerNode);
     if (!neighbors.includes(nodeId)) {
-      this.mistakesCount++;
-      this.streak = 0;
-      this.updateStatsUI();
-      if (window.soundManager) soundManager.playError();
-      this.showMistakeGuidance({
-        title: "⚠️ Not an Adjacent Neighbor",
-        explanation: `Node '${nodeId}' is not an immediate neighbor of active room '${this.currentExplorerNode}'.`,
-        fix: `Only unvisited neighbors connected to '${this.currentExplorerNode}' can be discovered at this step.`
+      this.recordMistake({
+        errorType: "Not an Eligible Neighbour",
+        whatWentWrong: `Node '${nodeId}' is not an eligible neighbour of active node '${this.currentExplorerNode}'.`,
+        affectedNode: nodeId,
+        expectedAction: `Enqueue only the unvisited neighbours connected to '${this.currentExplorerNode}'.`,
+        explanation: `Invalid node: '${nodeId}' is not an eligible neighbour of '${this.currentExplorerNode}'. Enqueue only the unvisited neighbours connected to the current node.`
+      });
+      return;
+    }
+
+    // Case C: Check neighbour order
+    const eligibleUnvisited = this.getEligibleUnvisitedNeighbors(this.currentExplorerNode);
+    if (eligibleUnvisited.length > 0 && nodeId !== eligibleUnvisited[0]) {
+      this.recordMistake({
+        errorType: "Incorrect Neighbour Order",
+        whatWentWrong: `You enqueued '${nodeId}' before '${eligibleUnvisited[0]}'.`,
+        affectedNode: nodeId,
+        expectedAction: `Enqueue '${eligibleUnvisited[0]}' before '${nodeId}' according to the defined BFS neighbour order.`,
+        explanation: `Incorrect neighbour order. Enqueue '${eligibleUnvisited[0]}' before '${nodeId}' according to the defined BFS neighbour order.`
       });
       return;
     }
 
     // Valid discovery!
+    this.clearErrorFeedback();
     const parentNode = this.currentExplorerNode;
     this.discovered.add(nodeId);
     this.queue.push(nodeId); // Added to REAR of queue
@@ -317,12 +434,61 @@ class GameEngine {
   handleDequeueExplore() {
     if (this.isLevelCompleted) return;
 
+    // Case: Queue is empty
     if (this.queue.length === 0) {
-      if (window.soundManager) soundManager.playError();
-      this.showToast("Queue is currently empty! All reachable nodes may be visited.", "info");
+      if (!this.currentExplorerNode && !this.discovered.has(this.currentLevelData.startNode)) {
+        this.recordMistake({
+          errorType: "BFS Rule Violation",
+          whatWentWrong: `You attempted to dequeue, but the queue is empty. BFS must start by enqueuing root node '${this.currentLevelData.startNode}'.`,
+          affectedNode: this.currentLevelData.startNode,
+          expectedAction: `Enqueue source node '${this.currentLevelData.startNode}' first.`,
+          explanation: `Queue is empty. Enqueue the starting root node '${this.currentLevelData.startNode}' into the queue first.`
+        });
+        return;
+      }
+
+      if (this.currentExplorerNode) {
+        const missing = this.getEligibleUnvisitedNeighbors(this.currentExplorerNode);
+        if (missing.length > 0) {
+          this.recordMistake({
+            errorType: "BFS Rule Violation",
+            whatWentWrong: `You attempted to dequeue, but '${this.currentExplorerNode}' still has unvisited neighbours: [${missing.join(', ')}].`,
+            missingNeighbour: missing.join(', '),
+            affectedNode: this.currentExplorerNode,
+            expectedAction: `Enqueue ${missing[0]} before continuing.`,
+            explanation: `Missing neighbour: ${missing.join(', ')}. You have not enqueued all eligible neighbours of '${this.currentExplorerNode}'. Enqueue all eligible neighbours before dequeuing.`
+          });
+          return;
+        }
+      }
+
       this.checkLevelCompletion();
       return;
     }
+
+    // Case A & B: Complete-Neighbour-Enqueue Rule
+    // Check if the current explorer node still has unvisited neighbours before allowing next dequeue
+    if (this.currentExplorerNode) {
+      const missingNeighbors = this.getEligibleUnvisitedNeighbors(this.currentExplorerNode);
+      if (missingNeighbors.length > 0) {
+        const nextFront = this.queue[0];
+        const missingList = missingNeighbors.join(', ');
+        const firstMissing = missingNeighbors[0];
+        this.recordMistake({
+          errorType: "BFS Rule Violation",
+          whatWentWrong: `You dequeued ${nextFront} before completing the neighbour-enqueueing stage for ${this.currentExplorerNode}.`,
+          missingNeighbour: missingList,
+          affectedNode: this.currentExplorerNode,
+          expectedAction: `Enqueue ${firstMissing} before dequeuing ${nextFront}.`,
+          explanation: `You dequeued ${nextFront} before enqueueing all neighbours of ${this.currentExplorerNode}. Node ${missingList} has not been added to the queue yet. Enqueue ${firstMissing} first, then continue with the next dequeue.`
+        });
+        // Preserves current state, do not dequeue!
+        return;
+      }
+    }
+
+    // Valid dequeue!
+    this.clearErrorFeedback();
 
     // Mark previous current node as processed/visited
     if (this.currentExplorerNode) {
@@ -357,9 +523,7 @@ class GameEngine {
     this.renderSpanningTree();
     this.updateStatsUI();
 
-    setTimeout(() => {
-      this.checkLevelCompletion();
-    }, 350);
+    this.checkLevelCompletion();
   }
 
   checkTargetFound(nodeId) {
@@ -394,12 +558,12 @@ class GameEngine {
 
     // For general graphs: check if all reachable nodes are visited and queue is empty
     const reachableNodes = this.currentLevelData.graph.nodes.filter(n => !n.isUnreachable);
-    const allReachableVisited = reachableNodes.every(n => this.visited.has(n.id) || n.id === this.currentExplorerNode);
+    const allReachableVisited = reachableNodes.every(n => this.visited.has(n.id));
 
     let hasUnvisitedNeighbors = false;
     if (this.currentExplorerNode) {
-      const neighbors = this.graphEngine.getNeighbors(this.currentExplorerNode);
-      hasUnvisitedNeighbors = neighbors.some(n => !this.discovered.has(n) && !this.visited.has(n));
+      const unvisited = this.getEligibleUnvisitedNeighbors(this.currentExplorerNode);
+      hasUnvisitedNeighbors = unvisited.length > 0;
     }
 
     if (allReachableVisited && this.queue.length === 0 && !hasUnvisitedNeighbors) {
@@ -407,7 +571,7 @@ class GameEngine {
     }
   }
 
-  showMistakeGuidance(diagnosis) {
+  showMistakeGuidance(diagnosis, showModal = true) {
     const modal = document.getElementById("guidance-modal");
     const titleEl = document.getElementById("guidance-title");
     const expEl = document.getElementById("guidance-explanation");
@@ -417,9 +581,11 @@ class GameEngine {
       titleEl.textContent = diagnosis.title;
       expEl.textContent = diagnosis.explanation;
       fixEl.textContent = diagnosis.fix;
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    } else {
+      if (showModal) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
+    } else if (showModal) {
       this.showToast(`${diagnosis.title}: ${diagnosis.explanation}`, "warning");
     }
   }
@@ -500,8 +666,12 @@ class GameEngine {
   triggerVictory(shortestPath = []) {
     if (this.isLevelCompleted) return;
     this.isLevelCompleted = true;
+    this.clearErrorFeedback();
+    const isFirstTime = !this.completedLevels.has(this.currentLevelData.id);
     this.completedLevels.add(this.currentLevelData.id);
-    this.addScore(100); // Level completion bonus
+    if (isFirstTime) {
+      this.addScore(100); // Level completion bonus
+    }
 
     // Persist completed levels to localStorage
     try {
@@ -838,6 +1008,12 @@ class GameEngine {
             item.setAttribute("draggable", "true");
             item.addEventListener("mousedown", (e) => this.dragDropEngine.startQueueFrontDrag(nodeId, e));
             item.addEventListener("touchstart", (e) => this.dragDropEngine.startQueueFrontDrag(nodeId, e), { passive: true });
+          } else {
+            item.setAttribute("title", `Waiting behind '${this.queue[0]}'. FIFO requires dequeuing from FRONT first.`);
+            item.setAttribute("draggable", "true");
+            item.addEventListener("mousedown", (e) => this.dragDropEngine.startQueueNonFrontDrag(nodeId, e));
+            item.addEventListener("touchstart", (e) => this.dragDropEngine.startQueueNonFrontDrag(nodeId, e), { passive: true });
+            item.addEventListener("click", () => this.handleInvalidDequeueAttempt(nodeId));
           }
           queueSlotsContainer.appendChild(item);
         });
@@ -916,7 +1092,9 @@ class GameEngine {
         guidedContainer.classList.remove("hidden");
         guidedContainer.style.display = "block";
         const nextAction = this.guidedEngine.getNextActionDescription();
-        if (nextMoveBtn) nextMoveBtn.textContent = "Next Step";
+        if (nextMoveBtn) {
+          nextMoveBtn.textContent = (nextAction && nextAction.actionType === "complete") ? "Complete Level" : "Next Step";
+        }
         if (guidedExplain && nextAction) {
           guidedExplain.innerHTML = `
             <strong>${nextAction.headline}</strong><br/>

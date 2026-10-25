@@ -97,6 +97,30 @@ class DragDropEngine {
     if (explorerStation) explorerStation.classList.add("drop-target-active");
   }
 
+  startQueueNonFrontDrag(nodeId, event) {
+    if (this.game.isLevelCompleted) return;
+    if (event && event.preventDefault) event.preventDefault();
+    if (window.getSelection) window.getSelection().removeAllRanges();
+    document.body.classList.add("dragging-in-progress");
+
+    this.draggedNodeId = nodeId;
+    this.dragType = 'queue-non-front';
+
+    if (this.ghostEl) this.ghostEl.remove();
+    this.ghostEl = document.createElement("div");
+    this.ghostEl.className = "drag-ghost-token explorer-ghost";
+    this.ghostEl.innerHTML = `<span>⏳ ${nodeId}</span>`;
+    document.body.appendChild(this.ghostEl);
+
+    const clientX = event && event.touches ? event.touches[0].clientX : (event ? event.clientX : 0);
+    const clientY = event && event.touches ? event.touches[0].clientY : (event ? event.clientY : 0);
+    this.ghostEl.style.left = `${clientX - 26}px`;
+    this.ghostEl.style.top = `${clientY - 26}px`;
+
+    const explorerStation = document.getElementById("explorer-station-dropzone");
+    if (explorerStation) explorerStation.classList.add("drop-target-active");
+  }
+
   handlePointerDrop(e) {
     // Remove active highlight from dropzones
     document.querySelectorAll(".drop-target-active").forEach(el => {
@@ -115,15 +139,25 @@ class DragDropEngine {
 
     // Check if dropped on Explorer Station dropzone (Dequeue Front)
     const explorerStation = dropTarget.closest("#explorer-station-dropzone") || dropTarget.closest(".explorer-station-box");
-    if (explorerStation && (this.dragType === 'queue-front' || this.dragType === 'graph-node')) {
-      if (this.dragType === 'queue-front' || (this.game.queue.length > 0 && this.game.queue[0] === this.draggedNodeId)) {
+    if (explorerStation) {
+      if (this.dragType === 'queue-front') {
         this.game.handleDequeueExplore();
-      } else {
-        this.game.showMistakeGuidance({
-          title: "⚠️ FIFO Queue Rule",
-          explanation: "You can only dequeue from the FRONT of the queue.",
-          fix: "First In → First Out: Dequeue the oldest node waiting at the front."
-        });
+      } else if (this.dragType === 'queue-non-front') {
+        this.game.handleInvalidDequeueAttempt(this.draggedNodeId);
+      } else if (this.dragType === 'graph-node') {
+        if (this.game.queue.length > 0 && this.game.queue[0] === this.draggedNodeId) {
+          this.game.handleDequeueExplore();
+        } else if (this.game.queue.includes(this.draggedNodeId)) {
+          this.game.handleInvalidDequeueAttempt(this.draggedNodeId);
+        } else {
+          this.game.recordMistake({
+            errorType: "FIFO Rule Violation",
+            whatWentWrong: `You attempted to drag node '${this.draggedNodeId}' directly to the Explorer Station.`,
+            affectedNode: this.draggedNodeId,
+            expectedAction: `Nodes must first enter the Queue at REAR and be dequeued in FIFO order from FRONT.`,
+            explanation: `FIFO rule violation. Node '${this.draggedNodeId}' is not at the front of the queue. Enqueue nodes into the Queue before exploring them.`
+          });
+        }
       }
       return;
     }

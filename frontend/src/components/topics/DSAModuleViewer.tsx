@@ -110,11 +110,12 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
           setTheme(event.data.theme);
         }
       } else if (event.data.type === 'ALGOLEARN_TOPIC_PROGRESS_UPDATE') {
-        const { moduleId, score, progress } = event.data;
+        const { moduleId, score, progress, completion } = event.data;
         if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
           if (typeof score === 'number') setTopicScore(moduleId, score);
           const moduleKey = normalizeToModuleId(moduleId);
-          if (moduleKey) setTopicCompletion(moduleKey, readNativeModuleCompletion(moduleKey as any));
+          const compVal = typeof completion === 'number' ? completion : (moduleKey ? readNativeModuleCompletion(moduleKey as any) : 0);
+          if (moduleKey) setTopicCompletion(moduleKey, compVal);
         }
       }
     };
@@ -132,8 +133,11 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
       'algolearn_score',
     ]);
     const handleStorage = (event: StorageEvent) => {
-      if (moduleConfig?.moduleId === 'bfs' && event.key && bfsProgressKeys.has(event.key)) {
+      if (!moduleConfig?.moduleId) return;
+      if (moduleConfig.moduleId === 'bfs' && event.key && bfsProgressKeys.has(event.key)) {
         syncNativeProgress('bfs');
+      } else if (event.key) {
+        syncNativeProgress(moduleConfig.moduleId);
       }
     };
 
@@ -152,7 +156,7 @@ export const DSAModuleViewer: React.FC<DSAModuleViewerProps> = ({
     const iframe = iframeRefs.current[modId];
     if (!iframe) return;
 
-    if (modId === 'bfs') syncNativeProgress(modId);
+    syncNativeProgress(modId);
 
     try {
       const doc = iframe.contentDocument;

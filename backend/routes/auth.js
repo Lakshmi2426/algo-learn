@@ -8,6 +8,26 @@ const { resetAuthRateLimit } = require('../middleware/auth');
 
 const REGEX_REGD_NO = /^[A-Z0-9]{10}$/;
 
+const TOPIC_IDS = [
+  'stack', 'hashing', 'linear-search', 'binary-search', 'sorting', 'sll', 'dll',
+  'cll', 'queue', 'bfs', 'trees', 'bst', 'dsa-types',
+];
+
+const sumTopicPoints = (progressMap) => {
+  if (!progressMap || typeof progressMap !== 'object') return 0;
+  return TOPIC_IDS.reduce((sum, key) => {
+    const val = progressMap[key];
+    if (typeof val === 'number') {
+      return sum + val;
+    } else if (val && typeof val.points === 'number') {
+      return sum + val.points;
+    } else if (val && typeof val.score === 'number') {
+      return sum + val.score;
+    }
+    return sum;
+  }, 0);
+};
+
 // Helper to generate JWT token with unique session ID
 const generateToken = (payload) => {
   return jwt.sign(
@@ -349,7 +369,7 @@ router.post('/login', async (req, res) => {
         branch: claimedStudent.branch || '',
         regdNo: claimedStudent.regdNo,
         role: claimedStudent.role || 'student',
-        xp: typeof claimedStudent.xp === 'number' ? claimedStudent.xp : 0,
+        xp: sumTopicPoints(studentProgress),
         topicsStarted: typeof claimedStudent.topicsStarted === 'number' ? claimedStudent.topicsStarted : 0,
         topicsCompleted: typeof claimedStudent.topicsCompleted === 'number' ? claimedStudent.topicsCompleted : 0,
         overallProgress: typeof claimedStudent.overallProgress === 'number' ? claimedStudent.overallProgress : 0,
@@ -646,7 +666,7 @@ router.get('/me', async (req, res) => {
         branch: student.branch,
         regdNo: student.regdNo,
         role: student.role || 'student',
-        xp: student.xp || 0,
+        xp: sumTopicPoints(student.progress),
         topicsStarted: student.topicsStarted || 0,
         topicsCompleted: student.topicsCompleted || 0,
         overallProgress: student.overallProgress || 0,

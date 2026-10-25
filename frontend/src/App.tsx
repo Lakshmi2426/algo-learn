@@ -47,6 +47,9 @@ const MainAppContent: React.FC = () => {
 
   const navigateTo = (tab: NavigationTab, moduleId?: string | null, replace = false) => {
     if (moduleId && !isAuthenticated) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('algolearn_pending_topic_module', moduleId);
+      }
       setActiveModule(null);
       setActiveTab('home');
       syncAddressBar({ tab: 'home', moduleId: null }, true);
@@ -82,6 +85,9 @@ const MainAppContent: React.FC = () => {
     if (!isAuthReady) return;
     const initial = parseInitialRoute();
     if (initial.moduleId && !isAuthenticated) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('algolearn_pending_topic_module', initial.moduleId);
+      }
       navigateTo('home', null, true);
       setAuthModalMode('login');
       setShowAuthModal(true);

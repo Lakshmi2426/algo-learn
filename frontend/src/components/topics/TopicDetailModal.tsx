@@ -15,6 +15,7 @@ import { DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
 import { navigateAlgoLearn } from '../../utils/navigation';
 import { getTopicIconComponent } from './DSATopicCard';
+import { useUser } from '../../context/UserContext';
 
 interface TopicDetailModalProps {
   topic: DSATopic | null;
@@ -27,6 +28,7 @@ export const TopicDetailModal: React.FC<TopicDetailModalProps> = ({
   onClose,
   onAskTeacher,
 }) => {
+  const { isAuthenticated, setShowAuthModal, setAuthModalMode } = useUser();
   const [activeSubtopicIndex, setActiveSubtopicIndex] = useState(0);
 
   if (!topic) return null;
@@ -194,6 +196,12 @@ export const TopicDetailModal: React.FC<TopicDetailModalProps> = ({
                   <button
                     onClick={() => {
                       onClose();
+                      if (!isAuthenticated) {
+                        sessionStorage.setItem('algolearn_pending_topic_module', mod.moduleId);
+                        setAuthModalMode('login');
+                        setShowAuthModal(true);
+                        return;
+                      }
                       navigateAlgoLearn('topics', mod.moduleId);
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:via-indigo-500 hover:to-violet-500 text-white transition-all cursor-pointer shadow-sm shadow-blue-600/20"

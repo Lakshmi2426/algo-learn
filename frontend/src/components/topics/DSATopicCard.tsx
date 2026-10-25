@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DSATopic } from '../../types';
 import { getIntegratedModuleForTopic } from '../../utils/moduleRoutes';
-import { getTopicCompletion, normalizeToModuleId } from '../../utils/topicProgress';
+import { readNativeModuleCompletion, normalizeToModuleId } from '../../utils/topicProgress';
 import { navigateAlgoLearn } from '../../utils/navigation';
 
 import { useUser } from '../../context/UserContext';
@@ -139,14 +139,14 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
 
   const [liveCompletion, setLiveCompletion] = React.useState<number>(() => {
     if (!isAuthenticated) return 0;
-    return getTopicCompletion(topic.id);
+    return readNativeModuleCompletion(normalizeToModuleId(topic.id) as any);
   });
 
   React.useEffect(() => {
     if (!isAuthenticated) {
       setLiveCompletion(0);
     } else {
-      setLiveCompletion(getTopicCompletion(topic.id));
+      setLiveCompletion(readNativeModuleCompletion(normalizeToModuleId(topic.id) as any));
     }
 
     const handleUpdate = (e: Event) => {
@@ -157,7 +157,7 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
       const targetMod = normalizeToModuleId(topic.id);
       if (e instanceof CustomEvent) {
         if (!e.detail || !e.detail.moduleId || e.detail.moduleId === targetMod) {
-          setLiveCompletion(getTopicCompletion(topic.id));
+          setLiveCompletion(readNativeModuleCompletion(targetMod as any));
         }
       } else if (e instanceof StorageEvent) {
         if (
@@ -169,7 +169,7 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
           e.key.includes('algolearn_student_progress_') ||
           e.key.includes('algolearn_user')
         ) {
-          setLiveCompletion(getTopicCompletion(topic.id));
+          setLiveCompletion(readNativeModuleCompletion(targetMod as any));
         }
       }
     };
@@ -182,13 +182,15 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
     };
   }, [topic.id, isAuthenticated]);
 
-  // Topic cards use the same authoritative completion value as their module Progress page.
+  // Topic cards use the task completion calculation shown by the module Progress page.
   const rawCompletion = isAuthenticated ? liveCompletion : 0;
   const progressPercent = isAuthenticated ? Math.max(0, Math.min(100, Math.round(rawCompletion))) : 0;
   const clampedProgressForSvg = progressPercent;
 
-  // Mastered concept count derived from real progress %
+  // Mastered concept count derived from real progress %: (Topic Points Earned / 100) * conceptsCount
   const masteredConcepts = Math.max(0, Math.round((clampedProgressForSvg / 100) * topic.conceptsCount));
+  const isMastered = progressPercent >= 80;
+  const isStarted = progressPercent > 0;
 
   // Circular progress ring geometry (radius 16)
   const radius = 16;
@@ -199,6 +201,15 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
   const integratedModule = getIntegratedModuleForTopic(topic.id) || getIntegratedModuleForTopic(topic.title);
 
   const handleCardClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    if (!isAuthenticated) {
+      const targetModId = integratedModule?.moduleId || normalizeToModuleId(topic.id) || normalizeToModuleId(topic.title);
+      if (targetModId) {
+        sessionStorage.setItem('algolearn_pending_topic_module', targetModId);
+      }
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+      return;
+    }
     if (integratedModule) {
       navigateAlgoLearn('topics', integratedModule.moduleId);
       return;
@@ -316,7 +327,10 @@ export const DSATopicCard: React.FC<DSATopicCardProps> = ({
 
             <div>
               <div className="text-[11px] font-bold text-[#111827] dark:text-[#F8FAFC] leading-none">
-                Mastered
+                {isMastered ? 'Mastered' : isStarted ? 'In Progress' : 'Not Started'}
+              </div>
+              <div className="text-[10px] text-[#64748B] dark:text-[#8FA1BA] mt-1 font-medium leading-none">
+                {masteredConcepts}/{topic.conceptsCount} Mastered
               </div>
             </div>
           </div>

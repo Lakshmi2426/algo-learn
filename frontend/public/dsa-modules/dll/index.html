@@ -17,8 +17,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,400&family=JetBrains+Mono:wght@400;500;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="./assets/index-CAg5A3UQ.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CkiVyRIQ.css">
+    <script type="module" crossorigin src="./assets/index-D2j_Fh3w.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-bQlKFGC6.css">
   
     <script>
       (function() {
@@ -52,17 +52,23 @@
           } catch(e) {}
         }
 
-        var initialTheme = 'dark';
+        var initialTheme = null;
         try {
           if (window.parent && window.parent !== window && window.parent.document) {
-            initialTheme = window.parent.document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            var parentRoot = window.parent.document.documentElement;
+            var parentTheme = parentRoot.getAttribute('data-theme');
+            initialTheme = parentTheme === 'dark' || parentTheme === 'light'
+              ? parentTheme
+              : parentRoot.classList.contains('dark') ? 'dark' : 'light';
           }
         } catch(e) {}
-        if (!initialTheme) {
+        if (initialTheme !== 'dark' && initialTheme !== 'light') {
           try {
-            initialTheme = localStorage.getItem('algolearn_theme') || 'dark';
+            var savedTheme = localStorage.getItem('algolearn_theme');
+            initialTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'light';
           } catch(e) {}
         }
+        if (!initialTheme) initialTheme = 'light';
         applyCurrentTheme(initialTheme);
         currentTheme = initialTheme;
 
@@ -171,6 +177,28 @@
               try {
                 var p = JSON.parse(localStorage.getItem('algolearn_sll_100_points_progress_v4'));
                 if (p) score = Math.min(100, Math.max(0, p.totalPoints || 0));
+              } catch(e) {}
+            } else if (mid === 'dll') {
+              try {
+                var stateObj = JSON.parse(localStorage.getItem('hash_quest_field_notes_progress_v2') || localStorage.getItem('dll_field_notes_progress_v2') || '{}');
+                if (typeof stateObj.totalScore === 'number') {
+                  score = stateObj.totalScore;
+                }
+                var rawEv = localStorage.getItem('algolearn_scoring_events_v2');
+                var events = JSON.parse(rawEv || '[]');
+                if (Array.isArray(events) && events.length > 0) {
+                  var dllEvents = events.filter(function(ev) { return ev.topicId === 'dll'; });
+                  var vizEvents = dllEvents.filter(function(ev) { return ev.activityType === 'VISUALIZE' && ev.reason === 'VIDEO_COMPLETED'; });
+                  var gameEvents = dllEvents.filter(function(ev) { return ev.activityType === 'GAME' && ev.reason === 'GAME_TASK_COMPLETED'; });
+                  var correctQuiz = dllEvents.filter(function(ev) { return ev.activityType === 'QUIZ' && ev.reason === 'QUIZ_CORRECT'; });
+                  var incorrectQuiz = dllEvents.filter(function(ev) { return ev.activityType === 'QUIZ' && ev.reason === 'QUIZ_INCORRECT'; });
+                  var hints = dllEvents.filter(function(ev) { return ev.activityType === 'GAME' && ev.reason === 'HINT_USED'; });
+                  var guides = dllEvents.filter(function(ev) { return ev.activityType === 'GAME' && ev.reason === 'GUIDED_SOLVE_STEP'; });
+                  var vScore = Math.min(16, vizEvents.length * 8);
+                  var gScore = gameEvents.length * 6 - (hints.length * 1 + guides.length * 2);
+                  var qScore = correctQuiz.length * 3 - incorrectQuiz.length * 1;
+                  score = Math.max(score, Math.min(100, Math.round(vScore + gScore + qScore)));
+                }
               } catch(e) {}
             } else if (mid === 'cll') {
               try {

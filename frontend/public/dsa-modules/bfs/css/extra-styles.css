@@ -3711,24 +3711,47 @@ body.dark-theme .problem-top-nav-bar {
 }
 
 /* ==========================================================================
-   DARK THEME COMPONENT OVERRIDES
+   DARK & LIGHT THEME COMPONENT OVERRIDES
    ========================================================================== */
-body.dark-theme .app-sidebar {
+body.dark-theme .app-sidebar,
+[data-theme="dark"] .app-sidebar {
   background: #0B0E1D;
   border-right-color: #25203D;
   box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+body:not(.dark-theme) .app-sidebar,
+[data-theme="light"] .app-sidebar {
+  background: #FFFFFF !important;
+  border-right-color: #D8E0F2 !important;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.06);
 }
 
 body.dark-theme .sidebar-header {
   border-bottom-color: #25203D;
 }
 
+body:not(.dark-theme) .sidebar-header,
+[data-theme="light"] .sidebar-header {
+  border-bottom-color: #D8E0F2;
+}
+
 body.dark-theme .sidebar-brand-name {
   color: #FFFFFF;
 }
 
+body:not(.dark-theme) .sidebar-brand-name,
+[data-theme="light"] .sidebar-brand-name {
+  color: #182033;
+}
+
 body.dark-theme .sidebar-nav-btn {
   color: #A8A3B8;
+}
+
+body:not(.dark-theme) .sidebar-nav-btn:not(.active),
+[data-theme="light"] .sidebar-nav-btn:not(.active) {
+  color: #475569;
 }
 
 body.dark-theme .sidebar-nav-btn:hover {
@@ -3751,10 +3774,18 @@ body.dark-theme .status-title {
   color: #FFFFFF;
 }
 
-body.dark-theme .app-topbar {
+body.dark-theme .app-topbar,
+[data-theme="dark"] .app-topbar {
   background: #0B0E1D;
   border-bottom-color: #25203D;
   color: #FFFFFF;
+}
+
+body:not(.dark-theme) .app-topbar,
+[data-theme="light"] .app-topbar {
+  background: #FFFFFF !important;
+  border-bottom-color: #D8E0F2 !important;
+  color: #182033 !important;
 }
 
 body.dark-theme .stat-chip {
@@ -12977,24 +13008,6 @@ body.dark-theme .module-points-pill-gold {
   flex-wrap: wrap;
 }
 
-.btn-quiz-retry {
-  background: #ffffff;
-  border: 1.5px solid #2563eb;
-  color: #2563eb;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: 11px 24px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.18s ease;
-}
-
-.btn-quiz-retry:hover {
-  background: #eff6ff;
-}
 
 .btn-quiz-dashboard {
   background: #2563eb;
@@ -13578,56 +13591,200 @@ body.dark-theme .deduction-notif-close-btn:hover {
   }
 }
 
-/* Allow theme-driven AlgoLearn logo display in topbar matching main website */
-.topbar-brand-logo-left {
-  position: relative !important;
-  height: 36px !important;
-  width: 156px !important;
-  display: inline-block !important;
+/* ===========================================================================
+   BFS GAME ERROR & MISTAKE FEEDBACK BANNER (Directly inside Game section)
+   =========================================================================== */
+.game-error-banner {
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  border-left: 5px solid #ef4444;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 12px 18px 0 18px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.08);
+  animation: errorSlideDown 0.25s ease-out;
+  transition: all 0.2s ease;
+}
+
+@keyframes errorSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.game-error-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.game-error-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-error-icon {
+  display: flex;
+  align-items: center;
+  color: #ef4444;
+}
+
+.game-error-type {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: #991b1b;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.game-error-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #991b1b;
   cursor: pointer;
-  flex-shrink: 0;
-  background: transparent !important;
-  border: none !important;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
 }
 
-.topbar-brand-logo-left .logo-light-img {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  object-position: left !important;
-  pointer-events: none !important;
-  user-select: none !important;
-  display: block !important;
+.game-error-close-btn:hover {
+  background: #fee2e2;
 }
 
-.topbar-brand-logo-left .logo-dark-img {
-  position: absolute !important;
-  max-width: none !important;
-  object-fit: contain !important;
-  object-position: left !important;
-  pointer-events: none !important;
-  user-select: none !important;
-  width: 166.3px !important;
-  height: 40.4px !important;
-  left: -8.6px !important;
-  top: -0.3px !important;
-  display: none !important;
+.game-error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.86rem;
+  color: #334155;
+  line-height: 1.45;
 }
 
-body.dark-theme .topbar-brand-logo-left .logo-light-img,
-[data-theme="dark"] .topbar-brand-logo-left .logo-light-img,
-html.dark .topbar-brand-logo-left .logo-light-img,
-.dark .topbar-brand-logo-left .logo-light-img {
-  display: none !important;
+.game-error-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-body.dark-theme .topbar-brand-logo-left .logo-dark-img,
-[data-theme="dark"] .topbar-brand-logo-left .logo-dark-img,
-html.dark .topbar-brand-logo-left .logo-dark-img,
-.dark .topbar-brand-logo-left .logo-dark-img {
-  display: block !important;
+.game-error-bullet {
+  color: #ef4444;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.game-error-highlight {
+  display: inline-block;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 5px;
+  border: 1px solid #fca5a5;
+}
+
+.game-error-reassurance {
+  margin-top: 3px;
+  color: #059669;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.game-error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-error-continue {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-error-continue:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-error-guided {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1.5px solid #fed7aa;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-error-guided:hover {
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
+/* Missing Neighbor Ring on Canvas */
+.node-is-missing-neighbor circle {
+  stroke: #ef4444 !important;
+  stroke-width: 3.5px !important;
+}
+
+/* Dark theme overrides */
+body.dark-theme .game-error-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  border-left-color: #ef4444;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .game-error-type {
+  color: #fca5a5;
+}
+
+body.dark-theme .game-error-body {
+  color: #e2e8f0;
+}
+
+body.dark-theme .game-error-close-btn {
+  color: #fca5a5;
+}
+
+body.dark-theme .game-error-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+body.dark-theme .game-error-highlight {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+body.dark-theme .game-error-reassurance {
+  color: #34d399;
+}
+
+body.dark-theme .btn-error-guided {
+  background: rgba(234, 88, 12, 0.18);
+  color: #fb923c;
+  border-color: rgba(234, 88, 12, 0.4);
+}
+
+body.dark-theme .btn-error-guided:hover {
+  background: rgba(234, 88, 12, 0.28);
 }
 
 

@@ -197,8 +197,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
+      const pendingModule = typeof window !== 'undefined' ? sessionStorage.getItem('algolearn_pending_topic_module') : null;
+      if (pendingModule) sessionStorage.removeItem('algolearn_pending_topic_module');
       onClose();
-      navigateAlgoLearn('home');
+      if (pendingModule) {
+        navigateAlgoLearn('topics', pendingModule);
+      } else {
+        navigateAlgoLearn('home');
+      }
       return;
     }
 
@@ -241,8 +247,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
+      const pendingModule = typeof window !== 'undefined' ? sessionStorage.getItem('algolearn_pending_topic_module') : null;
+      if (pendingModule) sessionStorage.removeItem('algolearn_pending_topic_module');
       onClose();
-      navigateAlgoLearn('home');
+      if (pendingModule) {
+        navigateAlgoLearn('topics', pendingModule);
+      } else {
+        navigateAlgoLearn('home');
+      }
     }
   };
 

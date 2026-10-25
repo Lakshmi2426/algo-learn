@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlgoLearn - BFS Traversal Engine</title>
+  <meta name="description" content="Interactive Breadth First Search (BFS) Traversal Engine and DSA learning platform with visualizations, games, and quizzes.">
+  <meta property="og:title" content="AlgoLearn - BFS Traversal Engine">
+  <meta property="og:description" content="Interactive Breadth First Search (BFS) Traversal Engine and DSA learning platform with visualizations, games, and quizzes.">
+  <link rel="stylesheet" href="css/styles.css?v=20261009-3">
+  <link rel="stylesheet" href="css/extra-styles.css?v=20261010-1">
+</head>
+<body class="sidebar-expanded">
+
+  <div class="app-layout">
+    
+    <!-- ========================================================================= -->
+    <!-- VERTICAL NAVIGATION SIDEBAR (Collapsible / Slide Drawer)                  -->
+    <!-- ========================================================================= -->
+    <aside id="app-sidebar" class="app-sidebar" aria-label="Main Navigation">
+      
+      <!-- Sidebar Brand Header -->
+      <div class="sidebar-header-box">
+        <div class="sidebar-brand-left">
+          <span class="sidebar-menu-title">NAVIGATION MENU</span>
+        </div>
+        <button id="sidebar-close-btn" class="sidebar-close-pill-btn" title="Close Sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Vertical Navigation Menu List -->
+      <nav class="sidebar-nav-menu">
+        
+        <button class="sidebar-nav-btn active" data-tab="overview" title="Overview">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+          </span>
+          <span class="nav-label">Overview</span>
+          <span class="nav-badge-pill pill-overview" id="nav-badge-overview">Overview</span>
+        </button>
+
+        <button class="sidebar-nav-btn" data-tab="theory" title="Learn">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Learn</span>
+          <span class="nav-badge-pill pill-learn" id="nav-badge-learn">0 / 12</span>
+        </button>
+
+        <button class="sidebar-nav-btn" data-tab="visualize" title="Visualize">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Visualize</span>
+          <span class="nav-badge-pill pill-visualize" id="nav-badge-visualize">0 / 2</span>
+        </button>
+
+        <button class="sidebar-nav-btn" data-tab="game" title="Game">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/>
+              <line x1="15" y1="13" x2="15.01" y2="13" stroke-width="3"/><line x1="18" y1="11" x2="18.01" y2="11" stroke-width="3"/>
+              <rect x="2" y="6" width="20" height="12" rx="2"/>
+            </svg>
+          </span>
+          <span class="nav-label">Game</span>
+          <span class="nav-badge-pill pill-game" id="nav-badge-game">0 / 9</span>
+        </button>
+
+        <button class="sidebar-nav-btn" data-tab="quiz" title="Quiz">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <path d="M12 17h.01"/>
+            </svg>
+          </span>
+          <span class="nav-label">Quiz</span>
+          <span class="nav-badge-pill pill-quiz" id="nav-badge-quiz">0 / 10</span>
+        </button>
+
+        <button class="sidebar-nav-btn" data-tab="progress" title="Progress">
+          <span class="nav-icon-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+              <polyline points="16 7 22 7 22 13"/>
+            </svg>
+          </span>
+          <span class="nav-label">Progress</span>
+          <span class="nav-badge-pill pill-progress" id="nav-badge-progress">0%</span>
+        </button>
+
+      </nav>
+
+    </aside>
+
+    <!-- Sidebar Backdrop for Overlay Mode -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- ========================================================================= -->
+    <!-- MAIN CONTENT AREA & TOP UTILITY BAR                                       -->
+    <!-- ========================================================================= -->
+    <div id="main-content-area" class="main-content-area">
+      
+      <!-- Top Utility Header Bar -->
+      <header class="app-topbar">
+        
+        <!-- Left: Hamburger Toggle & AlgoLearn Brand Logo + Name -->
+        <div class="topbar-left">
+          <button id="topbar-menu-toggle" class="topbar-toggle-btn" title="Open Navigation Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+
+          <div class="topbar-brand-logo-left" title="AlgoLearn — Your DSA Journey" style="cursor: pointer;" onclick="app.toggleSidebar()">
+            <img id="topbar-brand-logo-img" class="algolearn-brand-logo-img algolearn-cap-logo" src="/assets/graduation-cap-logo.png" alt="AlgoLearn — Your DSA Journey" />
+            <div class="brand-title-wrap">
+              <span class="brand-logo-text"><span class="brand-word-algo">Algo</span><span class="brand-word-l">L</span><span class="brand-word-earn">earn</span></span>
+              <span class="brand-tagline">YOUR DSA JOURNEY</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Icon-only Controls (Theme, Sound, Reset) -->
+        <div class="topbar-right">
+          <!-- Theme Toggle -->
+          <button id="theme-toggle-btn" class="icon-only-btn" title="Toggle Theme">
+            <span class="theme-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </span>
+          </button>
+
+          <!-- Sound Toggle -->
+          <button id="sound-toggle-btn" class="icon-only-btn" title="Toggle Sound FX">
+            <span id="sound-icon-box">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            </span>
+          </button>
+
+
+        </div>
+
+      </header>
+
+      <!-- Main Page Views Container -->
+      <main class="page-views-wrapper">
+
+        <!-- ========================================================================= -->
+        <!-- TAB 1: OVERVIEW VIEW                                                      -->
+        <!-- ========================================================================= -->
+        <section id="view-overview" class="tab-view-container">
+          <div class="overview-view-wrapper">
+            
+            <!-- Main Hero Card (Matching Reference Image 1) -->
+            <div class="hash-concept-hero-card">
+              
+              <!-- Top Two-Column Section: Left (Text & Info) | Right (Visualization & Level Rows) -->
+              <div class="bfs-hero-two-column-layout">
+                
+                <!-- Left Column: Chapter Meta Tag, Title, and Description -->
+                <div class="bfs-hero-left-col">
+                  <div class="overview-meta-tag">
+                    GRAPH THEORY CURRICULUM &bull; MODULE 01 &bull; CHAPTER 01
+                  </div>
+                  <h1 class="overview-main-title">Breadth First Search (BFS)<br>&amp; Graph Traversals</h1>
+                  <p class="overview-main-desc">
+                    Explore graph nodes level-by-level using a FIFO queue, discover shortest paths in unweighted graphs, prevent infinite loops with visited sets, and generate spanning trees in O(V + E) time.
+                  </p>
+                </div>
+
+                <!-- Right Column: Orbit Diagram + Level Rows side by side -->
+                <div class="bfs-hero-right-col">
+                  
+                  <!-- Left inside Right Col: Orbital BFS Ring & Center Squircle -->
+                  <div class="bfs-orbit-container">
+                    <svg viewBox="0 0 240 240" class="bfs-orbit-svg">
+                      <defs>
+                        <filter id="orbitGlow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#4f46e5" flood-opacity="0.18"/>
+                        </filter>
+                      </defs>
+
+                      <!-- Dashed Circular Orbit Ring -->
+                      <circle cx="120" cy="120" r="92" fill="none" stroke="#e0e7ff" stroke-width="1.8" stroke-dasharray="5,5" />
+                      
+                      <!-- Small Decorative Orbit Dots -->
+                      <circle cx="185" cy="55" r="3.5" fill="#6366f1" />
+                      <circle cx="185" cy="185" r="3.5" fill="#6366f1" />
+                      <circle cx="55" cy="185" r="3.5" fill="#6366f1" />
+                      <circle cx="55" cy="55" r="3.5" fill="#6366f1" />
+
+                      <!-- 4 Satellite Outer Badge Nodes in Clean White with Purple Icons -->
+                      <!-- Top: Tree Node Badge -->
+                      <g transform="translate(120, 28)">
+                        <circle cx="0" cy="0" r="15" fill="#ffffff" stroke="#e0e7ff" stroke-width="1.5" filter="url(#orbitGlow)" />
+                        <g transform="translate(-7, -7)" stroke="#6366f1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="7" cy="3" r="2"/><circle cx="3" cy="11" r="2"/><circle cx="11" cy="11" r="2"/>
+                          <path d="M7 5v2.5m0 0l-4 3.5m4-3.5l4 3.5"/>
+                        </g>
+                      </g>
+
+                      <!-- Right: Path Pin Badge -->
+                      <g transform="translate(212, 120)">
+                        <circle cx="0" cy="0" r="15" fill="#ffffff" stroke="#e0e7ff" stroke-width="1.5" filter="url(#orbitGlow)" />
+                        <g transform="translate(-7, -7)" stroke="#6366f1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="3" cy="11" r="2"/><circle cx="11" cy="3" r="2"/>
+                          <path d="M5 11h3a2 2 0 0 0 0-4H4a2 2 0 0 1 0-4H9"/>
+                        </g>
+                      </g>
+
+                      <!-- Bottom: Tree Branch Badge -->
+                      <g transform="translate(120, 212)">
+                        <circle cx="0" cy="0" r="15" fill="#ffffff" stroke="#e0e7ff" stroke-width="1.5" filter="url(#orbitGlow)" />
+                        <g transform="translate(-7, -7)" stroke="#6366f1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="7" cy="3" r="2"/><circle cx="3" cy="11" r="2"/><circle cx="11" cy="11" r="2"/>
+                          <path d="M7 5v2.5m0 0l-4 3.5m4-3.5l4 3.5"/>
+                        </g>
+                      </g>
+
+                      <!-- Left: Queue Principle Badge -->
+                      <g transform="translate(28, 120)">
+                        <circle cx="0" cy="0" r="15" fill="#ffffff" stroke="#e0e7ff" stroke-width="1.5" filter="url(#orbitGlow)" />
+                        <g transform="translate(-7, -7)" stroke="#6366f1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="5" y1="4" x2="13" y2="4"/><line x1="5" y1="7" x2="13" y2="7"/><line x1="5" y1="10" x2="13" y2="10"/>
+                          <circle cx="2" cy="4" r="1" fill="#6366f1"/><circle cx="2" cy="7" r="1" fill="#6366f1"/><circle cx="2" cy="10" r="1" fill="#6366f1"/>
+                        </g>
+                      </g>
+                    </svg>
+
+                    <!-- Center Squircle Badge with "BFS" -->
+                    <div class="bfs-center-badge">
+                      <span class="bfs-badge-text">BFS</span>
+                    </div>
+                  </div>
+
+                  <!-- Right inside Right Col: Level Hierarchy Rows Box -->
+                  <div class="bfs-levels-preview-box">
+                    
+                    <!-- Level 0 Row -->
+                    <div class="bfs-level-row">
+                      <span class="bfs-level-lbl">Level 0</span>
+                      <div class="bfs-level-card-pill">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/>
+                          <path d="M12 8v4m0 0l-6 4m6-4l6 4"/>
+                        </svg>
+                        <span class="bfs-clean-val">Root [A]</span>
+                      </div>
+                    </div>
+
+                    <!-- Level 1 Row -->
+                    <div class="bfs-level-row">
+                      <span class="bfs-level-lbl">Level 1</span>
+                      <div class="bfs-level-card-pill">
+                        <div class="connected-nodes-wrap">
+                          <div class="node-mini-dot purple">B</div>
+                          <div class="node-connect-line purple"></div>
+                          <div class="node-mini-dot purple">C</div>
+                        </div>
+                        <span class="bfs-clean-val">[B] &amp; [C]</span>
+                      </div>
+                    </div>
+
+                    <!-- Level 2 Row -->
+                    <div class="bfs-level-row">
+                      <span class="bfs-level-lbl">Level 2</span>
+                      <div class="bfs-level-card-pill">
+                        <div class="connected-nodes-wrap">
+                          <div class="node-mini-dot purple">D</div>
+                          <div class="node-connect-line purple"></div>
+                          <div class="node-mini-dot purple">E</div>
+                          <div class="node-connect-line purple"></div>
+                          <div class="node-mini-dot purple">F</div>
+                        </div>
+                        <span class="bfs-clean-val">[D], [E], [F]</span>
+                      </div>
+                    </div>
+
+                    <!-- Queue Row -->
+                    <div class="bfs-level-row">
+                      <span class="bfs-level-lbl">Queue</span>
+                      <div class="bfs-level-card-pill">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="#6366f1" style="flex-shrink:0">
+                          <rect x="2" y="5" width="4" height="14" rx="1"/>
+                          <rect x="8" y="5" width="14" height="14" rx="1"/>
+                        </svg>
+                        <span class="bfs-clean-val">5 &rarr; 3 &rarr; 7 &rarr; 2 &nbsp;<span class="bfs-subtle-hint">( FIFO Front &rarr; Rear )</span></span>
+                      </div>
+                    </div>
+
+                    <!-- Tree Row -->
+                    <div class="bfs-level-row">
+                      <span class="bfs-level-lbl">Tree</span>
+                      <div class="bfs-level-card-pill">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                          <circle cx="12" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/>
+                          <path d="M12 8v4m0 0l-6 4m6-4l6 4"/>
+                        </svg>
+                        <span class="bfs-clean-val">|V| - 1 Edges</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <!-- Bottom Row: 5 Legend Feature Badges Strip (Exact Reference Image) -->
+              <div class="bfs-hero-bottom-legends">
+                
+                <!-- 1. Level-by-Level Traversal -->
+                <div class="legend-badge-item">
+                  <div class="legend-badge-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="19" r="2.5"/>
+                      <path d="M12 7.5v3.5m0 0l-6 4.5m6-4.5l6 4.5"/>
+                    </svg>
+                  </div>
+                  <span class="legend-badge-text">Level-by-Level<br>Traversal</span>
+                </div>
+
+                <!-- 2. Find Shortest Paths -->
+                <div class="legend-badge-item">
+                  <div class="legend-badge-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/>
+                      <path d="M8.5 19h5.5a3.5 3.5 0 0 0 0-7H7.5a3.5 3.5 0 0 1 0-7H15.5"/>
+                    </svg>
+                  </div>
+                  <span class="legend-badge-text">Find Shortest<br>Paths</span>
+                </div>
+
+                <!-- 3. Build Spanning Trees -->
+                <div class="legend-badge-item">
+                  <div class="legend-badge-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="19" r="2.5"/>
+                      <path d="M12 7.5v3.5m0 0l-6 4.5m6-4.5l6 4.5"/>
+                    </svg>
+                  </div>
+                  <span class="legend-badge-text">Build Spanning<br>Trees</span>
+                </div>
+
+                <!-- 4. FIFO Queue Principle -->
+                <div class="legend-badge-item">
+                  <div class="legend-badge-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/>
+                      <circle cx="3.5" cy="6" r="1.5" fill="currentColor"/><circle cx="3.5" cy="12" r="1.5" fill="currentColor"/><circle cx="3.5" cy="18" r="1.5" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <span class="legend-badge-text">FIFO Queue<br>Principle</span>
+                </div>
+
+                <!-- 5. Avoid Loops with Visited Set -->
+                <div class="legend-badge-item">
+                  <div class="legend-badge-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      <polyline points="9 12 11 14 15 10"/>
+                    </svg>
+                  </div>
+                  <span class="legend-badge-text">Avoid Loops<br>with Visited Set</span>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- 3 Summary Mini-Cards Row (Exact Reference Image) -->
+            <div class="overview-summary-triplet">
+              
+              <div class="summary-mini-card">
+                <div class="mini-icon-circle">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                  </svg>
+                </div>
+                <div class="mini-card-text">
+                  <span class="mini-card-title">Core Idea</span>
+                  <span class="mini-card-desc">Level-by-level concentric wave exploration.</span>
+                </div>
+              </div>
+
+              <div class="summary-mini-card">
+                <div class="mini-icon-circle">
+                  <span class="sigma-symbol">&Sigma;</span>
+                </div>
+                <div class="mini-card-text">
+                  <span class="mini-card-title">Key Engine</span>
+                  <span class="mini-card-desc">FIFO Queue preserving strict proximity order.</span>
+                </div>
+              </div>
+
+              <div class="summary-mini-card">
+                <div class="mini-icon-circle">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </div>
+                <div class="mini-card-text">
+                  <span class="mini-card-title">Main Guarantee</span>
+                  <span class="mini-card-desc">Shortest path in unweighted graphs O(V+E).</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Section 1: The Main Idea -->
+            <div class="overview-content-card">
+              <div class="section-badge-header">
+                <span class="section-icon-badge">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                </span>
+                <h3 class="section-num-title">1. The Main Idea</h3>
+              </div>
+
+              <h4 class="section-subtitle-q">How does BFS explore a graph in closest-first order?</h4>
+              <p class="section-body-p">BFS visits all immediate 1-hop neighbors before advancing to 2-hop neighbors, expanding outward like concentric water ripples.</p>
+
+              <!-- Flow Step Pipeline -->
+              <div class="flow-pipeline-container">
+                <div class="pipeline-step">
+                  <div class="pipeline-circle-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  </div>
+                  <span class="pipeline-step-title">Source Root</span>
+                  <span class="pipeline-step-sub">Starting vertex S</span>
+                </div>
+
+                <div class="pipeline-arrow">&rarr;</div>
+
+                <div class="pipeline-step">
+                  <div class="pipeline-circle-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <span class="pipeline-step-title">FIFO Queue</span>
+                  <span class="pipeline-step-sub">Enqueue unvisited</span>
+                </div>
+
+                <div class="pipeline-arrow">&rarr;</div>
+
+                <div class="pipeline-step">
+                  <div class="pipeline-circle-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </div>
+                  <span class="pipeline-step-title">Explore Neighbors</span>
+                  <span class="pipeline-step-sub">Dequeue front vertex</span>
+                </div>
+
+                <div class="pipeline-arrow">&rarr;</div>
+
+                <div class="pipeline-step">
+                  <div class="pipeline-circle-icon purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <span class="pipeline-step-title">Spanning Tree</span>
+                  <span class="pipeline-step-sub">Optimal shortest paths</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Section 2: Concept Roadmap -->
+            <div class="overview-content-card">
+              <div class="section-badge-header">
+                <span class="section-icon-badge">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </span>
+                <h3 class="section-num-title">2. Concept Roadmap</h3>
+              </div>
+
+              <div class="roadmap-timeline-container">
+                <div class="roadmap-line"></div>
+                
+                <div class="roadmap-node" onclick="app.switchTab('theory'); app.selectChapter('graph-foundations')">
+                  <span class="roadmap-num">01</span>
+                  <div class="roadmap-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  </div>
+                  <span class="roadmap-label">Graph Foundations</span>
+                </div>
+
+                <div class="roadmap-node" onclick="app.switchTab('theory'); app.selectChapter('what-is-bfs')">
+                  <span class="roadmap-num">02</span>
+                  <div class="roadmap-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+                  </div>
+                  <span class="roadmap-label">Level Traversal</span>
+                </div>
+
+                <div class="roadmap-node" onclick="app.switchTab('theory'); app.selectChapter('fifo-queue-engine')">
+                  <span class="roadmap-num">03</span>
+                  <div class="roadmap-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <span class="roadmap-label">FIFO Queue</span>
+                </div>
+
+                <div class="roadmap-node" onclick="app.switchTab('theory'); app.selectChapter('visited-tracking')">
+                  <span class="roadmap-num">04</span>
+                  <div class="roadmap-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </div>
+                  <span class="roadmap-label">Cycle Prevention</span>
+                </div>
+
+                <div class="roadmap-node" onclick="app.switchTab('theory'); app.selectChapter('shortest-path')">
+                  <span class="roadmap-num">05</span>
+                  <div class="roadmap-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <span class="roadmap-label">Shortest Path</span>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Section 3: Why BFS Matters -->
+            <div class="overview-content-card">
+              <div class="section-badge-header">
+                <span class="section-icon-badge">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </span>
+                <h3 class="section-num-title">3. Why BFS Matters</h3>
+              </div>
+
+              <div class="matters-triplet-grid">
+                
+                <div class="matters-card">
+                  <div class="matters-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  </div>
+                  <h4 class="matters-title">Shortest Path</h4>
+                  <p class="matters-desc">Finds the optimal path with minimum edge hops in unweighted graphs in O(V + E) time.</p>
+                </div>
+
+                <div class="matters-card">
+                  <div class="matters-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <h4 class="matters-title">Social Networks</h4>
+                  <p class="matters-desc">Computes 1st, 2nd, and 3rd degrees of separation and mutual friend recommendations.</p>
+                </div>
+
+                <div class="matters-card">
+                  <div class="matters-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6l11 6 11-6-11-6-11 6z"/><path d="M1 12l11 6 11-6"/><path d="M1 18l11 6 11-6"/></svg>
+                  </div>
+                  <h4 class="matters-title">Network Broadcasts</h4>
+                  <p class="matters-desc">Used in router packet flooding, web crawler link scrapers, and game AI pathfinding.</p>
+                </div>
+
+              </div>
+            </div>
+
+
+            <!-- 4. Ready to Start? Card (Matching Reference Pic 1) -->
+            <div class="overview-ready-card">
+              <div class="ready-card-left">
+                <div class="ready-rocket-icon-wrap">
+                  <svg width="40" height="40" viewBox="0 0 64 64" fill="none">
+                    <!-- Subtle cloud puff -->
+                    <circle cx="20" cy="48" r="9" fill="#C7D2FE" opacity="0.85"/>
+                    <circle cx="30" cy="52" r="7.5" fill="#E0E7FF" opacity="0.95"/>
+                    <circle cx="14" cy="50" r="6" fill="#A5B4FC" opacity="0.75"/>
+                    <!-- Rocket Fins -->
+                    <path d="M23 37L15 41L19 47L27 43" fill="#7C3AED"/>
+                    <path d="M37 23L41 15L47 19L43 27" fill="#7C3AED"/>
+                    <!-- Rocket Flame -->
+                    <path d="M20 43L12 51L18 53L24 47" fill="#F97316"/>
+                    <path d="M18 45L14 49L17 51L21 47" fill="#FBBF24"/>
+                    <!-- Rocket Body -->
+                    <path d="M48 16C36 18 26 28 24 40L32 48C44 46 54 36 56 24C56 20 52 16 48 16Z" fill="url(#rocketGrad)"/>
+                    <!-- Rocket Window -->
+                    <circle cx="42" cy="28" r="4.5" fill="#FFFFFF"/>
+                    <circle cx="42" cy="28" r="2.8" fill="#4F46E5"/>
+                    <defs>
+                      <linearGradient id="rocketGrad" x1="24" y1="48" x2="56" y2="16" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4F46E5"/>
+                        <stop offset="0.55" stop-color="#6366F1"/>
+                        <stop offset="1" stop-color="#7C3AED"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+                <div class="ready-card-text">
+                  <h3 class="ready-card-title">4. Ready to Start?</h3>
+                  <p class="ready-card-desc">Begin with the fundamental idea behind graph traversals: level-by-level exploration using a FIFO queue.</p>
+                </div>
+              </div>
+              <div class="ready-card-right">
+                <button class="btn-primary ready-start-btn" onclick="app.switchTab('theory')">
+                  Start Learning &rarr;
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 2: LEARN / THEORY VIEW                                                -->
+        <!-- ========================================================================= -->
+        <section id="view-theory" class="tab-view-container hidden">
+          <div class="learn-view-wrapper">
+            
+            <!-- Top Banner Header -->
+            <div class="learn-hero-header">
+              <div class="learn-meta-row">
+                <span class="learn-vol-tag">CURRICULUM // VOL. 01</span>
+                <span class="learn-vol-sub">Graph Traversal &amp; Foundations</span>
+                <span class="learn-progress-pill" id="theory-progress-pill">Progress: 0 / 12 Chapters (0%)</span>
+              </div>
+              <h1 class="learn-main-title">Theory of Breadth First Search (BFS) &amp; Graph Traversals</h1>
+              <p class="learn-main-desc">
+                An intuitive and rigorous technical guide covering graph adjacency representations, FIFO queue mechanics, concentric discovery waves, visited state tracking, spanning trees, and O(V + E) complexity bounds.
+              </p>
+            </div>
+
+            <!-- Two-Column Grid: TOC on Left, Chapter Detail Card on Right (Pic 1 & 2) -->
+            <div class="learn-main-grid">
+              <!-- Table of Contents Card with 12 Chapters -->
+              <div class="toc-container-card">
+                <div class="toc-card-header">
+                  <span class="toc-header-title">TABLE OF CONTENTS</span>
+                  <span class="toc-header-count">12 Chapters</span>
+                </div>
+
+                <!-- 12 Chapters List Line by Line -->
+                <div id="toc-chapters-list" class="toc-chapters-list">
+                  <!-- Injected dynamically by AppController -->
+                </div>
+
+                <div class="toc-card-footer">
+                  <span class="toc-status-label">Status:</span>
+                  <span id="toc-completed-status" class="toc-status-value">0 / 12 Completed</span>
+                </div>
+              </div>
+
+              <!-- Chapter Concept Detail Card Mount -->
+              <div id="chapter-detail-mount" class="chapter-detail-container">
+                <!-- Dynamically populated based on active chapter selection -->
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 3: VISUALIZE VIEW                                                     -->
+        <!-- ========================================================================= -->
+        <section id="view-visualize" class="tab-view-container hidden">
+          <div class="visualize-view-wrapper">
+            
+            <!-- Visualisation Header Banner -->
+            <div class="visualize-header-banner">
+              <div class="v-banner-text">
+                <div class="v-banner-badge-row">
+                  <span class="v-section-pill">VISUALISATION STUDIO</span>
+                  <span class="v-counter-pill" id="v-completed-counter-pill">0 / 2 Completed</span>
+                </div>
+                <h2>Breadth First Search Visualisations</h2>
+                <p>Explore original, high-definition algorithmic video walkthroughs. Watch BFS explore graph levels dynamically and inspect queue invariants, discovery edges, and shortest path backtracking.</p>
+              </div>
+            </div>
+
+            <!-- Two Dedicated Video Cards in a Responsive Grid -->
+            <div class="visualize-video-grid video-grid">
+              
+              <!-- Video 1 Card -->
+              <article class="visualize-video-card video-card" id="lesson-card-01">
+                <div class="v-card-header">
+                  <div class="v-card-tag-row">
+                    <span class="lesson-tag">Video 1</span>
+                    <span class="v-file-badge">video final 1.mp4</span>
+                    <span class="video-points-badge">+8 pts</span>
+                  </div>
+                  <h3 class="v-card-title">Video 1: BFS Visualization &amp; Traversal</h3>
+                  <p class="v-card-desc">Watch BFS explore graph nodes level-by-level using an animated concentric wave and FIFO queue.</p>
+                  <div class="lesson-chips-row">
+                    <span class="lesson-pill">Concentric Ripple Wave</span>
+                    <span class="lesson-pill">FIFO Queue Invariant</span>
+                    <span class="lesson-pill">Level 0 &rarr; 1 &rarr; 2</span>
+                    <span class="lesson-pill">Linear Time O(V + E)</span>
+                  </div>
+                </div>
+                <div class="v-player-container">
+                  <video
+                    id="bfs-video-1"
+                    class="bfs-embedded-player"
+                    controls
+                    controlslist="nodownload noplaybackrate"
+                    disablepictureinpicture
+                    preload="metadata"
+                    playsinline
+                  >
+                    <source src="videos/video final 1.mp4" type="video/mp4">
+                    <source src="/videos/video%20final%201.mp4" type="video/mp4">
+                    Your browser does not support HTML5 video.
+                  </video>
+                </div>
+              </article>
+
+              <!-- Video 2 Card -->
+              <article class="visualize-video-card video-card" id="lesson-card-02">
+                <div class="v-card-header">
+                  <div class="v-card-tag-row">
+                    <span class="lesson-tag">Video 2</span>
+                    <span class="v-file-badge">video final 2.mp4</span>
+                    <span class="video-points-badge">+8 pts</span>
+                  </div>
+                  <h3 class="v-card-title">Video 2: BFS Algorithm &amp; Implementation</h3>
+                  <p class="v-card-desc">Understand discovery edges, cross edge handling, visited set protection, and optimal path backtracking.</p>
+                  <div class="lesson-chips-row">
+                    <span class="lesson-pill">Discovery vs Cross Edges</span>
+                    <span class="lesson-pill">Visited Set Tracking</span>
+                    <span class="lesson-pill">Parent Backtracking</span>
+                    <span class="lesson-pill">Spanning Tree Formation</span>
+                  </div>
+                </div>
+                <div class="v-player-container">
+                  <video
+                    id="bfs-video-2"
+                    class="bfs-embedded-player"
+                    controls
+                    controlslist="nodownload noplaybackrate"
+                    disablepictureinpicture
+                    preload="metadata"
+                    playsinline
+                  >
+                    <source src="videos/video final 2.mp4" type="video/mp4">
+                    <source src="/videos/video%20final%202.mp4" type="video/mp4">
+                    Your browser does not support HTML5 video.
+                  </video>
+                </div>
+              </article>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 4: PROGRESS VIEW                                                      -->
+        <!-- ========================================================================= -->
+        <section id="view-progress" class="tab-view-container hidden">
+          <div class="progress-view-wrapper">
+            
+            <!-- PANEL A: BFS Learning Progress -->
+            <div class="prog-panel-card prog-panel-a">
+              <div class="prog-panel-top-row">
+                <div class="prog-panel-title-group">
+                  <div class="prog-glow-icon-box blue-purple">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                      <polyline points="17 6 23 6 23 12"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <h1 class="prog-panel-heading">BFS <span class="prog-gradient-text">Learning Progress</span></h1>
+                    <p class="prog-panel-subtext">Track your journey through BFS concepts, algorithms, problem solving, complexity, and practical applications.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="prog-panel-divider"></div>
+
+              <div class="prog-panel-completion-section">
+                <div class="prog-completion-header-row">
+                  <div class="prog-completion-label-wrap">
+                    <span class="prog-completion-label">OVERALL COMPLETION</span>
+                    <span class="prog-activity-badge" id="prog-badge-count">0 of 20 Activities</span>
+                  </div>
+                </div>
+                <p class="prog-completion-hint">Complete all learning activities to master Breadth First Search and earn 100 points.</p>
+
+                <div class="prog-overall-bar-row">
+                  <div class="prog-track-main">
+                    <div class="prog-fill-main" id="prog-overall-bar" style="width: 0%;"></div>
+                  </div>
+                  <div class="prog-big-percentage" id="prog-overall-pct">0%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL B: BFS Topic Score -->
+            <div class="prog-panel-card prog-panel-b">
+              <div class="prog-panel-top-row">
+                <div class="prog-panel-title-group">
+                  <div class="prog-glow-icon-box blue-purple">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                      <path d="M4 22h16"></path>
+                      <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"></path>
+                      <path d="M6 4h12a2 2 0 0 1 2 2v3a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2Z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 class="prog-panel-heading">BFS Topic Score</h2>
+                    <p class="prog-panel-subtext">Earned points are calculated from completed, persisted activities.</p>
+                  </div>
+                </div>
+
+                <div class="prog-total-score-badge">
+                  <div class="prog-star-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fbbf24">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                  </div>
+                  <div class="prog-score-info">
+                    <div class="prog-total-score-val" id="prog-total-score-val">0 / 100</div>
+                    <div class="prog-total-score-label">TOTAL POINTS</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3 Section Cards Grid: Visualize, Game, Quiz -->
+              <div class="prog-sections-grid">
+                
+                <!-- Card 1: Visualize -->
+                <div class="prog-subcard" onclick="app.switchTab('visualize')">
+                  <div class="prog-subcard-header">
+                    <div class="prog-subcard-icon tint-purple">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </div>
+                    <div class="prog-subcard-title-wrap">
+                      <span class="prog-subcard-title">Visualize</span>
+                      <span class="prog-subcard-score" id="prog-score-visual">0 / 16</span>
+                    </div>
+                  </div>
+                  <div class="prog-subcard-bar-row">
+                    <div class="prog-subtrack">
+                      <div class="prog-subfill gradient-purple" id="prog-fill-visual" style="width: 0%;"></div>
+                    </div>
+                    <span class="prog-subcard-pct" id="prog-pct-visual">0%</span>
+                  </div>
+                  <div class="prog-subcard-footer">
+                    <span class="prog-subcard-desc">Complete walkthrough videos</span>
+                    <span class="prog-subcard-meta" id="prog-sub-visual">0 / 2 videos completed • 8 pts each</span>
+                  </div>
+                </div>
+
+                <!-- Card 3: Game -->
+                <div class="prog-subcard" onclick="app.switchTab('game')">
+                  <div class="prog-subcard-header">
+                    <div class="prog-subcard-icon tint-indigo">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="6" y1="12" x2="10" y2="12"></line>
+                        <line x1="8" y1="10" x2="8" y2="14"></line>
+                        <line x1="15" y1="13" x2="15.01" y2="13"></line>
+                        <line x1="18" y1="11" x2="18.01" y2="11"></line>
+                        <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                      </svg>
+                    </div>
+                    <div class="prog-subcard-title-wrap">
+                      <span class="prog-subcard-title">Game</span>
+                      <span class="prog-subcard-score" id="prog-score-game">0 / 64</span>
+                    </div>
+                  </div>
+                  <div class="prog-subcard-bar-row">
+                    <div class="prog-subtrack">
+                      <div class="prog-subfill gradient-indigo" id="prog-fill-game" style="width: 0%;"></div>
+                    </div>
+                    <span class="prog-subcard-pct" id="prog-pct-game">0%</span>
+                  </div>
+                  <div class="prog-subcard-footer">
+                    <span class="prog-subcard-desc">Complete 8 game challenges</span>
+                    <span class="prog-subcard-meta" id="prog-sub-game">0 / 8 levels cleared • 8 pts each</span>
+                  </div>
+                </div>
+
+                <!-- Card 4: Quiz -->
+                <div class="prog-subcard" onclick="app.switchTab('quiz')">
+                  <div class="prog-subcard-header">
+                    <div class="prog-subcard-icon tint-cyan">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                      </svg>
+                    </div>
+                    <div class="prog-subcard-title-wrap">
+                      <span class="prog-subcard-title">Quiz</span>
+                      <span class="prog-subcard-score" id="prog-score-quiz">0 / 20</span>
+                    </div>
+                  </div>
+                  <div class="prog-subcard-bar-row">
+                    <div class="prog-subtrack">
+                      <div class="prog-subfill gradient-cyan" id="prog-fill-quiz" style="width: 0%;"></div>
+                    </div>
+                    <span class="prog-subcard-pct" id="prog-pct-quiz">0%</span>
+                  </div>
+                  <div class="prog-subcard-footer">
+                    <span class="prog-subcard-desc">Knowledge assessment</span>
+                    <span class="prog-subcard-meta" id="prog-sub-quiz">0 correct, 0 incorrect, 10 unanswered</span>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Score Breakdown & Negative Marking Bar -->
+              <div class="prog-breakdown-bar">
+                <div class="prog-bb-item">
+                  <span class="prog-bb-label">Earned Positive Marks:</span>
+                  <span class="prog-bb-badge positive" id="prog-bb-pos">+0 pts</span>
+                </div>
+                <div class="prog-bb-item">
+                  <span class="prog-bb-label">Game Penalties:</span>
+                  <span class="prog-bb-badge penalty" id="prog-bb-game-pen">-0 pts</span>
+                </div>
+                <div class="prog-bb-item">
+                  <span class="prog-bb-label">Quiz Penalties:</span>
+                  <span class="prog-bb-badge penalty" id="prog-bb-quiz-pen">-0 pts</span>
+                </div>
+                <div class="prog-bb-item">
+                  <span class="prog-bb-label">Final Score:</span>
+                  <span class="prog-bb-badge final" id="prog-bb-final">0 / 100</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 5: GAME CHALLENGES VIEW                                               -->
+        <!-- ========================================================================= -->
+        <section id="view-game" class="tab-view-container hidden">
+          <div id="game-mode-challenges-container">
+            <div id="game-levels-hub" class="game-levels-hub-wrapper">
+              <div class="hub-header-banner">
+                <div>
+                  <span class="step-pill">INTERACTIVE CHALLENGES</span>
+                  <h2>BFS Graph Traversal Labs &amp; Arenas</h2>
+                  <p>Master FIFO queue enqueue/dequeue cycles, visited set tracking, and spanning trees hands-on across 3 structured traversal modules.</p>
+                </div>
+                <div class="hub-header-actions" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <button class="btn btn-outline" onclick="app.switchTab('theory')">
+                    &larr; Back to Theory
+                  </button>
+                </div>
+              </div>
+              <div id="levels-grid-mount" class="levels-selection-grid"></div>
+            </div>
+
+            <!-- Module Detail Screen (Displayed when user enters a module card) -->
+            <div id="module-levels-view" class="module-levels-view-container hidden">
+              <!-- Rendered dynamically by app.renderModuleDetailView(modIdx) -->
+            </div>
+
+            <div id="active-problem-container" class="active-problem-container hidden">
+              <!-- Immersive Single-Row Problem Header -->
+              <div class="problem-top-nav-bar">
+                <!-- Left: Back + Level Badge + Title -->
+                <div class="problem-nav-left">
+                  <button class="prob-back-btn" onclick="app.closeActiveProblem()" title="Back to Module Levels">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span id="prob-back-btn-text">Module Levels</span>
+                  </button>
+                  <button class="prob-back-btn" onclick="app.exitModuleToHub()" title="Back to All Modules" style="margin-left: 4px;">
+                    All Modules
+                  </button>
+                  <div class="prob-title-cluster">
+                    <span id="active-problem-badge" class="prob-level-pill">LEVEL 1</span>
+                    <span id="active-problem-name" class="prob-title-text">BFS Level-by-Level Basics</span>
+                  </div>
+                </div>
+
+                <!-- Right: Action Buttons with SVG icons -->
+                <div class="prob-action-row">
+                  <span id="game-live-score-badge" class="active-problem-pts-pill active-live-score-pill" title="User Current Score">
+                    Score: <strong id="game-live-score-val" style="margin-left: 2px;">0</strong>
+                  </span>
+                  <span id="active-problem-pts" class="active-problem-pts-pill" title="Level Reward">+8 pts</span>
+                  <button id="btn-problem-hint" class="prob-action-btn" onclick="if(window.game) window.game.provideNextHint()" title="Get Progressive Hint (-3 pts)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Hint (-3 pts)
+                  </button>
+                  <button id="guided-mode-toggle-btn" class="prob-action-btn guided-solve-pill-btn" onclick="if(window.game&&window.game.guidedEngine){window.game.guidedEngine.toggle();window.game.updateGuidedSolveUI();}" title="Guided Solve (-3 pts)">
+                    <svg class="guided-btn-bulb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" fill="#ea580c"/>
+                      <line x1="9" y1="20" x2="15" y2="20" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                      <line x1="10" y1="22.5" x2="14" y2="22.5" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>GUIDED SOLVE (-3 pts)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Inline BFS Rule Violation & Error Feedback Card -->
+              <div id="game-error-banner" class="game-error-banner hidden" role="alert" aria-live="polite">
+                <div class="game-error-header">
+                  <div class="game-error-title-wrap">
+                    <span class="game-error-icon" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                    </span>
+                    <h4 id="game-error-type" class="game-error-type">Incorrect BFS Operation</h4>
+                  </div>
+                  <button id="game-error-close-btn" class="game-error-close-btn" type="button" title="Dismiss explanation" aria-label="Dismiss">&times;</button>
+                </div>
+                <div class="game-error-body">
+                  <div class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span id="game-error-what" class="game-error-text">You dequeued before completing the neighbour-enqueueing stage.</span>
+                  </div>
+                  <div id="game-error-missing-row" class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text"><strong>Missing neighbour:</strong> <span id="game-error-missing" class="game-error-highlight">None</span></span>
+                  </div>
+                  <div class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text"><strong>Required action:</strong> <span id="game-error-action">Enqueue all eligible neighbours before dequeuing.</span></span>
+                  </div>
+                  <div class="game-error-row game-error-reassurance">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text">Your progress has been preserved. Correct this step to continue.</span>
+                  </div>
+                </div>
+                <div class="game-error-actions">
+                  <button id="game-error-continue-btn" type="button" class="btn btn-sm btn-error-continue">
+                    Continue &amp; Correct Mistake
+                  </button>
+                  <button id="game-error-guided-btn" type="button" class="btn btn-sm btn-error-guided">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" fill="#ea580c"/>
+                      <line x1="9" y1="20" x2="15" y2="20" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                      <line x1="10" y1="22.5" x2="14" y2="22.5" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Ask Guided Solve</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Main Interactive Workspace (Side-by-Side Panoramic View) -->
+              <main class="main-workspace">
+                <!-- Column 1 (Left): Graph / Tree Workspace -->
+                <section class="left-pane">
+                  <div class="panel-card canvas-card" style="display: flex; flex-direction: column; height: 100%;">
+                    <div class="goal-card" style="margin-bottom: 10px;">
+                      <div class="goal-title">Graph Challenge &bull; Drag / Click Nodes to Queue</div>
+                      <div id="level-goal-text" class="goal-text" style="font-size: 0.84rem;">
+                        Drag unvisited neighbors into the Queue in order of proximity (Level 0 → Level 1 → Level 2).
+                      </div>
+                    </div>
+
+                    <!-- Graph Canvas (Primary Drag Source) -->
+                    <div id="graph-canvas-container" class="graph-canvas-container" style="flex: 1; min-height: 340px; position: relative;">
+                      <svg id="graph-svg"></svg>
+                    </div>
+
+                    <!-- BFS Levels & Distance Tracker Strip -->
+                    <div class="distance-tracker-card" style="margin-top: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; padding: 10px 12px;">
+                      <div style="font-size: 0.72rem; font-weight: 800; color: var(--primary, #6366f1); margin-bottom: 4px; letter-spacing: 0.5px;">
+                        BFS STEP DISTANCES: dist[v] = dist[u] + 1
+                      </div>
+                      <div id="bfs-levels-distance-bar" class="distance-chips-flow" style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.78rem;">
+                        <span class="empty-hint" style="color: var(--text-muted, #64748b); font-size: 0.75rem;">Distances calculate live as nodes are discovered.</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Column 2 (Center): FIFO Queue & Active Node Hub (Directly Next to Graph) -->
+                <section class="center-pane">
+                  <div class="panel-card" style="display: flex; flex-direction: column; gap: 12px; height: 100%;">
+                    <!-- FIFO Queue Box -->
+                    <div class="queue-box-container">
+                      <div class="queue-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div class="queue-header-title" style="font-weight: 800; font-size: 0.88rem; color: var(--text-main, #0f172a);">
+                          <span>FIFO Queue — Waiting Line</span>
+                        </div>
+                        <button id="action-dequeue-btn" class="btn btn-primary btn-sm btn-dequeue-glow" title="Dequeue the front node">
+                          Dequeue Front
+                        </button>
+                      </div>
+                      <div class="queue-flow-indicator" style="font-size: 0.68rem; font-weight: 700; color: #2E55FA; margin-bottom: 6px; background: rgba(46, 85, 250, 0.08); padding: 4px 8px; border-radius: 6px; text-align: center;">
+                        <span class="flow-tag">ENQUEUE &rarr; REAR &nbsp;&nbsp;|&nbsp;&nbsp; FRONT &rarr; DEQUEUE</span>
+                      </div>
+                      <div id="queue-dropzone" class="queue-tray-dropzone glowing-queue-tray" title="Drag unvisited graph neighbors here to Enqueue at REAR" style="min-height: 64px; display: flex; align-items: center;">
+                        <div id="queue-items-container" class="queue-items-flow"></div>
+                      </div>
+                    </div>
+
+                    <!-- Active Explorer Station -->
+                    <div class="explorer-station-box">
+                      <div class="station-title" style="font-size: 0.75rem; font-weight: 800; color: var(--text-muted, #64748b); text-transform: uppercase; margin-bottom: 6px;">
+                        Active Explorer Station (Current Node)
+                      </div>
+                      <div id="explorer-station-dropzone" class="explorer-station-dropzone glowing-station" title="Drop front node here or click Dequeue Front" style="min-height: 52px; border: 1.5px solid #c7d2fe; border-radius: 10px; background: var(--bg-card, #ffffff); display: flex; align-items: center;">
+                        <div id="active-explorer-node" style="width: 100%;">
+                          <div class="explorer-placeholder" style="padding: 10px; text-align: center; color: var(--text-muted, #94a3b8); font-size: 0.78rem;">
+                            Drop Front Node Here or Click "Dequeue Front"
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Visited Nodes Tracker -->
+                    <div class="visited-tracker-box">
+                      <div class="station-title" style="font-size: 0.75rem; font-weight: 800; color: var(--text-muted, #64748b); text-transform: uppercase; margin-bottom: 6px;">
+                        Visited Nodes Set (Marked Processed)
+                      </div>
+                      <div id="visited-chips-container" class="visited-chips-flow" style="min-height: 38px; background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 6px 10px;"></div>
+                    </div>
+
+                    <!-- Node State Legend -->
+                    <div class="node-legend-box" style="background: var(--bg-hover, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; padding: 8px 12px;">
+                      <div style="font-size: 0.68rem; font-weight: 800; color: var(--text-muted, #64748b); margin-bottom: 6px; text-transform: uppercase;">
+                        Node States
+                      </div>
+                      <div class="legend-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.68rem;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: #ffffff; border: 2px solid #94a3b8; display: inline-block;"></span>
+                          <span>UNVISITED</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: #bae6fd; border: 2px solid #0284c7; display: inline-block;"></span>
+                          <span>IN QUEUE</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: #6366f1; border: 2px solid #3730a3; display: inline-block;"></span>
+                          <span>CURRENT</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; border: 2px solid #065f46; display: inline-block;"></span>
+                          <span>VISITED</span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </section>
+
+                <!-- Column 3 (Right): Live Real-Time Spanning Tree & Traversal Sequence -->
+                <section class="right-pane">
+                  <div class="panel-card" style="display: flex; flex-direction: column; height: 100%;">
+                    <!-- BFS Spanning Tree (Live Discovery Representation) -->
+                    <div class="spanning-tree-box" style="flex: 1; display: flex; flex-direction: column;">
+                      <div class="spanning-tree-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="spanning-title-row">
+                          <span class="st-title" style="font-weight: 800; font-size: 0.88rem; color: var(--text-main, #0f172a);">BFS Spanning Tree (Live)</span>
+                        </div>
+                        <span id="spanning-tree-badge" class="spanning-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; padding: 3px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">
+                          0 / 0 Tree Edges
+                        </span>
+                      </div>
+
+                      <div id="spanning-tree-container" class="spanning-tree-container" style="flex: 1; min-height: 240px; display: flex; align-items: center; justify-content: center; overflow: auto;">
+                        <svg id="spanning-tree-svg" class="spanning-tree-svg"></svg>
+                      </div>
+
+                      <div class="spanning-tree-footer" style="margin-top: 10px; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 8px 12px;">
+                        <span class="st-footer-label" style="font-size: 0.72rem; font-weight: 800; color: var(--primary, #6366f1); margin-right: 6px;">Traversal Sequence:</span>
+                        <span id="spanning-tree-order-text" class="st-footer-seq" style="font-size: 0.8rem; font-weight: 700; color: var(--text-main, #0f172a);">None yet</span>
+                      </div>
+                    </div>
+
+                    <!-- Guided Solve Container (If Enabled) -->
+                    <div id="guided-solve-container" class="guided-solve-box hidden" style="display: none;">
+                      <div class="guided-info">
+                        <div id="guided-explanation-text" class="guided-explanation-text">Click "Next Step" to perform the next BFS move.</div>
+                      </div>
+                      <div class="guided-action-buttons" style="display: flex; gap: 8px; width: 100%; margin-top: 6px;">
+                        <button id="guided-next-btn" class="btn guided-single-bar-btn" type="button" aria-label="Next Step" style="flex: 1;">Next Step</button>
+                        <button id="guided-exit-btn" class="btn btn-outline" type="button" aria-label="Exit Guided Solve" style="padding: 6px 14px; font-size: 0.85rem; font-weight: 700; white-space: nowrap;">Exit Guided Solve</button>
+                      </div>
+                    </div>
+
+                  </div>
+                </section>
+              </main>
+             </div>
+           </div>
+         </section>
+
+        <!-- ========================================================================= -->
+        <!-- TAB 6: QUIZ VIEW                                                          -->
+        <!-- ========================================================================= -->
+        <section id="view-quiz" class="tab-view-container hidden">
+          <div class="quiz-view-wrapper">
+            <div id="quiz-mount-point"></div>
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODALS (Required by game-engine, demo-player, etc.)                       -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. Concept Video Demo Modal -->
+  <div id="demo-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="demo-modal-title" class="modal-title">Interactive BFS Demo</h3>
+        <button id="close-demo-modal-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="demo-modal-desc" class="text-sm text-muted" style="margin-bottom: 14px;"></p>
+        <div id="demo-video-screen" class="demo-screen-box"></div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="btn btn-primary" onclick="if(window.demoPlayer) demoPlayer.closeDemo()">Got it! Let's Play</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Mistake Guidance Modal -->
+  <div id="guidance-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header" style="background: #fffbeb;">
+        <h3 id="guidance-title" class="modal-title" style="color: #b45309;">Traversal Mistake</h3>
+        <button id="close-guidance-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="guidance-section-box">
+          <div class="guidance-heading">What Went Wrong:</div>
+          <p id="guidance-explanation" class="guidance-text"></p>
+        </div>
+        <div class="guidance-section-box" style="background: #f0fdf4; border-color: #bbf7d0; margin-top: 12px;">
+          <div class="guidance-heading" style="color: #166534;">How to Fix It Correctly:</div>
+          <p id="guidance-fix" class="guidance-text" style="color: #15803d;"></p>
+        </div>
+        <div style="margin-top: 18px; text-align: right;">
+          <button id="got-guidance-btn" class="btn btn-primary">I Understand! Try Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Victory Celebration Modal -->
+  <div id="victory-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="text-align: center;">
+        <div style="margin-bottom: 14px; display: flex; justify-content: center;">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; display: flex; align-items: center; justify-content: center; color: #b45309;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          </div>
+        </div>
+        <h3 id="victory-title" class="modal-title" style="font-size: 1.4rem;">Level Cleared!</h3>
+        <p id="victory-desc" style="margin-top: 6px; color: var(--text-muted);">You mastered this step!</p>
+        <div id="victory-path-box" class="victory-path-callout hidden"></div>
+        <div style="margin-top: 24px; display: flex; justify-content: center; gap: 12px;">
+          <button id="victory-replay-btn" class="btn btn-outline" onclick="if(window.game) window.game.restartLevel(); else if(window.app) app.replayLevelFromVictory();">Replay Level</button>
+          <button id="victory-next-btn" class="btn btn-primary" onclick="if(window.game) window.game.nextLevel(); else if(window.app) app.nextLevelFromVictory();">Next Level &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. BFS Concept Animated Demo Modal -->
+  <div id="bfs-intro-demo-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 960px; width: 96%; background: #ffffff; border: 2px solid #818cf8;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); color: #4338ca; border-bottom: 1.5px solid #c7d2fe;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <h3 class="modal-title" style="color: #4338ca; margin: 0; font-size: 1.05rem; font-weight: 800;">BFS Concept Animation</h3>
+        </div>
+        <button id="close-bfs-intro-demo-btn" class="modal-close-btn" style="color: #4338ca;" onclick="if(window.theoryBFSDemo) theoryBFSDemo.closeDemo()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 18px; background: #f8fafc;">
+        <div id="bfs-intro-demo-canvas" class="bfs-intro-demo-canvas"></div>
+        <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+          <button class="btn btn-primary" onclick="if(window.theoryBFSDemo) theoryBFSDemo.closeDemo()">Got it! Return</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Deduction Notification Container (Upper-Middle Pill Overlay) -->
+  <div id="deduction-notification-container" aria-live="assertive"></div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/theory-data.js"></script>
+  <script src="js/quiz-data.js"></script>
+  <script src="js/quiz-engine.js?v=20261010-2"></script>
+  <script src="js/levels-data.js"></script>
+  <script src="js/graph-engine.js"></script>
+  <script src="js/drag-drop.js"></script>
+  <script src="js/demo-player.js"></script>
+  <script src="js/guided-solve.js"></script>
+  <script src="js/game-engine.js"></script>
+  <script src="js/theory-bfs-demo.js"></script>
+  <script src="js/applications-video-engine.js"></script>
+  <script src="js/spanning-tree-studio.js"></script>
+  <script src="js/ai-assistant.js"></script>
+  <script src="js/app.js?v=20261009-3"></script>
+
+</body>
+</html>

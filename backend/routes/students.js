@@ -3,6 +3,27 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 
+const TOPIC_IDS = [
+  'stack', 'hashing', 'linear-search', 'binary-search', 'sorting', 'sll', 'dll',
+  'cll', 'queue', 'bfs', 'trees', 'bst', 'dsa-types',
+];
+
+// Helper to calculate total XP by summing points across all topics
+function sumTopicPoints(progressMap) {
+  if (!progressMap || typeof progressMap !== 'object') return 0;
+  return TOPIC_IDS.reduce((sum, key) => {
+    const val = progressMap[key];
+    if (typeof val === 'number') {
+      return sum + val;
+    } else if (val && typeof val.points === 'number') {
+      return sum + val.points;
+    } else if (val && typeof val.score === 'number') {
+      return sum + val.score;
+    }
+    return sum;
+  }, 0);
+}
+
 // -------------------------------------------------------------
 // GET /api/students - List all registered students (passwords omitted)
 // -------------------------------------------------------------
@@ -66,27 +87,13 @@ router.get('/:regdNo', async (req, res) => {
     if (!privileged && (!decoded.sessionId || decoded.sessionId !== student.activeSessionId)) {
       return res.status(401).json({ error: 'This session is no longer active.', sessionRevoked: true });
     }
-    return res.json({ student });
+    const studentObj = student.toObject();
+    studentObj.xp = sumTopicPoints(student.progress);
+    return res.json({ student: studentObj });
   } catch (error) {
     return res.status(500).json({ error: 'Error fetching student record.' });
   }
 });
-
-// Helper to calculate total XP by summing points across all topics
-function sumTopicPoints(progressMap) {
-  if (!progressMap || typeof progressMap !== 'object') return 0;
-  let sum = 0;
-  for (const [key, val] of Object.entries(progressMap)) {
-    if (typeof val === 'number') {
-      sum += Math.round(val);
-    } else if (val && typeof val.points === 'number') {
-      sum += Math.round(val.points);
-    } else if (val && typeof val.score === 'number') {
-      sum += Math.round(val.score);
-    }
-  }
-  return sum;
-}
 
 function averageTopicCompletion(completions) {
   if (!completions || typeof completions !== 'object') return 0;

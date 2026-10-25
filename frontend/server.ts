@@ -80,10 +80,18 @@ async function startServer() {
       ? "linearsearchf-main"
       : "Linear Search",
     "linearsearchf-main": "linearsearchf-main",
-    cll: "Circular Linked List (CLL)",
-    "circular-linked-list": "Circular Linked List (CLL)",
-    dll: "Doubly Linked List (DLL)",
-    "doubly-linked-list": "Doubly Linked List (DLL)",
+    cll: fs.existsSync(path.join(projectRoot, "DSA topics", "Circular Linked List (CLL)"))
+      ? "Circular Linked List (CLL)"
+      : "circularlinkedlist-main",
+    "circular-linked-list": fs.existsSync(path.join(projectRoot, "DSA topics", "Circular Linked List (CLL)"))
+      ? "Circular Linked List (CLL)"
+      : "circularlinkedlist-main",
+    dll: fs.existsSync(path.join(projectRoot, "DSA topics", "DLL", "DLLl"))
+      ? path.join("DLL", "DLLl")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "DLL")) ? "DLL" : "Doubly Linked List (DLL)"),
+    "doubly-linked-list": fs.existsSync(path.join(projectRoot, "DSA topics", "DLL", "DLLl"))
+      ? path.join("DLL", "DLLl")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "DLL")) ? "DLL" : "Doubly Linked List (DLL)"),
     trees: "Trees",
     tree: "Trees",
     bst: "Binary Search Tree",
@@ -93,12 +101,20 @@ async function startServer() {
     "data-structures-and-types": "Data Structure and Types",
     "data structure and types": "Data Structure and Types",
     sorting: "Sorting",
-    bfs: "BFS",
-    "breadth-first-search": "BFS",
+    bfs: fs.existsSync(path.join(projectRoot, "DSA topics", "BFS", "BFS-"))
+      ? path.join("BFS", "BFS-")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "BFS")) ? "BFS" : "Breadth  first search"),
+    "breadth-first-search": fs.existsSync(path.join(projectRoot, "DSA topics", "BFS", "BFS-"))
+      ? path.join("BFS", "BFS-")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "BFS")) ? "BFS" : "Breadth  first search"),
     queue: "Queues",
     queues: "Queues",
-    sll: "Singly Linked List (SLL)",
-    "singly-linked-list": "Singly Linked List (SLL)",
+    sll: fs.existsSync(path.join(projectRoot, "DSA topics", "SLL", "single linked list subhash"))
+      ? path.join("SLL", "single linked list subhash")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "SLL")) ? "SLL" : "Singly Linked List (SLL)"),
+    "singly-linked-list": fs.existsSync(path.join(projectRoot, "DSA topics", "SLL", "single linked list subhash"))
+      ? path.join("SLL", "single linked list subhash")
+      : (fs.existsSync(path.join(projectRoot, "DSA topics", "SLL")) ? "SLL" : "Singly Linked List (SLL)"),
     stack: "Stack",
     "binary-search": "Binary Search",
     "binary search": "Binary Search",
@@ -347,7 +363,7 @@ async function startServer() {
                         if (tPts === 0 && ln === 0 && lb === 0 && gCount === 0 && qCount === 0) {
                           score = 0;
                         } else {
-                          score = Math.max(tPts, compPct);
+                          score = tPts;
                         }
                         break;
                       }
@@ -472,20 +488,198 @@ async function startServer() {
             return Math.min(100, Math.max(0, Math.round(score)));
           }
 
+          function detectCurrentModuleCompletion() {
+            var mid = CURRENT_MODULE_ID;
+            var comp = 0;
+            try {
+              if (mid === 'stack') {
+                var raw = localStorage.getItem('stack_master_user_progress_v2');
+                if (raw) {
+                  var p = JSON.parse(raw);
+                  if (typeof p.overallCompletionPercent === 'number') {
+                    comp = p.overallCompletionPercent;
+                  } else {
+                    var labs = p.completedLabs || [];
+                    var vCount = Math.min(2, labs.filter(function(id) { return id === 1 || id === 2; }).length);
+                    var gCount = Math.min(2, (p.completedGameLevels || []).filter(function(id) { return id === 1 || id === 2; }).length);
+                    var qScores = p.quizQuestionScores || {};
+                    var qCount = Math.min(10, Object.keys(qScores).length);
+                    var tCount = Math.min(12, (p.completedTheoryChapters || []).length);
+                    var qFin = p.quizCompleted ? 1 : 0;
+                    comp = Math.round(((tCount + vCount + gCount + qCount + qFin) / 27) * 100);
+                  }
+                }
+              } else if (mid === 'queue') {
+                var raw = localStorage.getItem('queue_master_user_progress_v2');
+                if (raw) {
+                  var p = JSON.parse(raw);
+                  var tCount = Math.min(20, (p.completedTheoryChapters || []).length);
+                  var vCount = Math.min(2, (p.completedLabs || []).length);
+                  var gCount = Math.min(3, (p.completedGameLevels || []).length);
+                  var qFin = p.quizCompleted ? 1 : 0;
+                  comp = Math.round(((tCount + vCount + gCount + qFin) / 26) * 100);
+                }
+              } else if (mid === 'hashing') {
+                for (var i = 0; i < localStorage.length; i++) {
+                  var k = localStorage.key(i);
+                  if (k && (k.indexOf('hash_user_progress_') === 0 || k === 'hash_quest_field_notes_progress_v2')) {
+                    try {
+                      var p = JSON.parse(localStorage.getItem(k));
+                      if (p) {
+                        var th = Math.min(12, (p.completedTheoryChapters || []).length);
+                        var vd = Math.min(2, (p.completedVideos || []).length);
+                        var gm = Math.min(5, (p.levelsCompleted || []).length);
+                        var qz = p.quizSubmitted ? 1 : 0;
+                        comp = Math.round(((th + vd + gm + qz) / 20) * 100);
+                        break;
+                      }
+                    } catch(e) {}
+                  }
+                }
+              } else if (mid === 'linear-search') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('linear_search_field_notes_progress_v2'));
+                  if (p) {
+                    var th = Math.min(12, (p.completedTheoryChapters || []).length);
+                    var vd = Math.min(2, (p.completedVideos || []).length);
+                    var gm = Math.min(4, (p.levelsCompleted || []).length);
+                    var qz = p.quizSubmitted ? 1 : 0;
+                    comp = Math.round(((th + vd + gm + qz) / 19) * 100);
+                  }
+                } catch(e) {}
+              } else if (mid === 'binary-search') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('binary_search_user_progress_v4'));
+                  if (p) {
+                    var vd = Math.min(2, (p.completedLabs || []).length);
+                    var gm = Math.min(6, (p.completedGameLevels || []).length);
+                    var qz = p.quizCompleted ? 10 : Object.keys((p.topicPoints && p.topicPoints.quizQuestionAnswered) || {}).length;
+                    comp = Math.round(((vd + gm + qz) / 18) * 100);
+                  }
+                } catch(e) {}
+              } else if (mid === 'sorting') {
+                for (var i = 0; i < localStorage.length; i++) {
+                  var k = localStorage.key(i);
+                  if (k && (k.indexOf('sort_master_user_progress_') === 0 || k.indexOf('stack_master_user_progress_v2_fresh_reset_') === 0)) {
+                    try {
+                      var p = JSON.parse(localStorage.getItem(k));
+                      if (p) {
+                        var led = p.pointsLedger || {};
+                        var ln = Math.min(6, (p.completedTheoryChapters || []).length);
+                        var lb = Math.min(3, (p.completedLabs || []).length);
+                        var gCount = Math.min(5, (p.completedGameLevels || []).length || (led.completedGameCardIds || []).length);
+                        var qCount = Math.min(10, Object.keys(led.quizQuestionRecords || p.quizQuestionScores || {}).length);
+                        comp = Math.round(((ln + lb + gCount + qCount) / 24) * 100);
+                        break;
+                      }
+                    } catch(e) {}
+                  }
+                }
+              } else if (mid === 'sll') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('algolearn_sll_100_points_progress_v4'));
+                  if (p && p.completedActivities) {
+                    comp = Math.round((Object.keys(p.completedActivities).length / 35) * 100);
+                  }
+                } catch(e) {}
+              } else if (mid === 'dll') {
+                try {
+                  var stateObj = JSON.parse(localStorage.getItem('hash_quest_field_notes_progress_v2') || localStorage.getItem('dll_field_notes_progress_v2') || '{}');
+                  var events = JSON.parse(localStorage.getItem('algolearn_scoring_events_v2') || '[]');
+                  var dllEvents = events.filter(function(ev) { return ev && ev.topicId === 'dll'; });
+                  var vDone = dllEvents.filter(function(ev) { return ev.activityType === 'VISUALIZE' && ev.reason === 'VIDEO_COMPLETED'; }).length;
+                  var gTasks = {};
+                  dllEvents.forEach(function(ev) { if (ev.activityType === 'GAME' && ev.reason === 'GAME_TASK_COMPLETED') gTasks[ev.activityId] = true; });
+                  var qDone = dllEvents.filter(function(ev) { return ev.activityType === 'QUIZ'; }).length;
+                  var thDone = Math.min(12, (stateObj.completedTheoryChapters || []).length);
+                  comp = Math.round(((thDone + Math.min(2, vDone) + Math.min(6, Object.keys(gTasks).length) + Math.min(10, qDone)) / 30) * 100);
+                } catch(e) {}
+              } else if (mid === 'cll') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('cll_field_notes_progress_v2') || localStorage.getItem('cll_mastery_progress_v1') || '{}');
+                  var th = Math.min(17, (p.completedTheoryChapters || []).length);
+                  var vd = Math.min(2, (p.completedVideos || []).length);
+                  var gm = Math.min(5, (p.levelsCompleted || []).length);
+                  var qz = p.quizSubmitted ? 1 : 0;
+                  comp = Math.round(((th + vd + gm + qz) / 25) * 100);
+                } catch(e) {}
+              } else if (mid === 'bfs') {
+                try {
+                  var ch = JSON.parse(localStorage.getItem('algolearn_completed_chapters') || '[]');
+                  var vd = JSON.parse(localStorage.getItem('algolearn_completed_videos') || '[]');
+                  var lv = JSON.parse(localStorage.getItem('algolearn_completed_levels') || '[]');
+                  var qz = localStorage.getItem('algolearn_quiz_completed') === 'true' ? 1 : 0;
+                  var chCount = Math.min(6, Array.isArray(ch) ? ch.length : 0);
+                  var vdCount = Math.min(2, Array.isArray(vd) ? vd.length : 0);
+                  var lvCount = Math.min(8, Array.isArray(lv) ? lv.length : 0);
+                  comp = Math.round(((chCount + vdCount + lvCount + qz) / 17) * 100);
+                } catch(e) {}
+              } else if (mid === 'trees') {
+                try {
+                  var tCount = 0; var isVid = false; var isQz = false;
+                  for (var i = 0; i < localStorage.length; i++) {
+                    var k = localStorage.key(i);
+                    if (k && k.indexOf('completed_topics') !== -1) {
+                      var arr = JSON.parse(localStorage.getItem(k) || '[]');
+                      if (Array.isArray(arr)) tCount = Math.max(tCount, arr.length);
+                    }
+                    if (k && k.indexOf('video_completed') !== -1 && localStorage.getItem(k) === 'true') isVid = true;
+                    if (k && k.indexOf('quiz_state') !== -1) isQz = true;
+                  }
+                  comp = Math.round(((Math.min(7, tCount) + (isVid ? 1 : 0) + (isQz ? 1 : 0)) / 9) * 100);
+                } catch(e) {}
+              } else if (mid === 'bst') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('bst_explorer_user_stats_main'));
+                  if (p) {
+                    var ln = Math.min(20, (p.completedTopics || []).length);
+                    var vd = Math.min(5, (p.completedVideos || p.completedLessons || []).length);
+                    var gm = Math.min(5, (p.completedGameChallenges || []).length);
+                    var qz = Math.min(10, Object.keys(p.quizQuestionScores || {}).length || (p.quizScores && p.quizScores.mainQuiz ? 10 : 0));
+                    comp = Math.round(((ln + vd + gm + qz) / 40) * 100);
+                  }
+                } catch(e) {}
+              } else if (mid === 'dsa-types') {
+                try {
+                  var p = JSON.parse(localStorage.getItem('algo_ds_types_progress_v1'));
+                  if (p && p.topicData) {
+                    if (typeof p.topicData.completionPercentage === 'number') {
+                      comp = p.topicData.completionPercentage;
+                    } else {
+                      var vd = Math.min(2, p.topicData.completedVideosCount || 0);
+                      var qz = Math.min(10, p.topicData.answeredOrTimedOutQuizCount || 0);
+                      comp = Math.round(((vd + qz) / 12) * 100);
+                    }
+                  }
+                } catch(e) {}
+              }
+            } catch(e) {}
+            return Math.min(100, Math.max(0, Math.round(comp)));
+          }
+
           var lastBroadcastScore = -1;
+          var lastBroadcastComp = -1;
           var origSetItem = localStorage.setItem;
 
           function broadcastModuleProgress() {
             try {
               var score = detectCurrentModuleProgress();
-              if (score === lastBroadcastScore) return;
+              var completion = detectCurrentModuleCompletion();
+              if (score === lastBroadcastScore && completion === lastBroadcastComp) return;
               lastBroadcastScore = score;
+              lastBroadcastComp = completion;
 
               origSetItem.call(localStorage, 'algolearn_topic_progress_' + CURRENT_MODULE_ID, String(score));
+              origSetItem.call(localStorage, 'algolearn_topic_completion_' + CURRENT_MODULE_ID, String(completion));
               try {
                 var map = JSON.parse(localStorage.getItem('algolearn_topics_progress') || '{}');
                 map[CURRENT_MODULE_ID] = score;
                 origSetItem.call(localStorage, 'algolearn_topics_progress', JSON.stringify(map));
+              } catch(e) {}
+              try {
+                var cmap = JSON.parse(localStorage.getItem('algolearn_topics_completions') || '{}');
+                cmap[CURRENT_MODULE_ID] = completion;
+                origSetItem.call(localStorage, 'algolearn_topics_completions', JSON.stringify(cmap));
               } catch(e) {}
 
               if (window.parent && window.parent !== window) {
@@ -493,7 +687,8 @@ async function startServer() {
                   type: 'ALGOLEARN_TOPIC_PROGRESS_UPDATE',
                   moduleId: CURRENT_MODULE_ID,
                   score: score,
-                  progress: score
+                  progress: score,
+                  completion: completion
                 }, '*');
               }
             } catch(e) {}

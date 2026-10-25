@@ -80,7 +80,25 @@ class AppController {
     this.activeChapterId = "graph-foundations";
     this.activeLesson = "intro"; // 'intro' | 'shortest_path'
     this.activeFilter = "all";   // 'all' | 'foundation' | 'technique' | 'analysis' | 'examination'
-    this.currentTheme = localStorage.getItem("algolearn_theme") || "light";
+    const docTheme = document.documentElement.getAttribute("data-theme");
+    let detectedTheme = docTheme === "dark" || docTheme === "light" ? docTheme : null;
+    if (!detectedTheme) {
+      try {
+        if (window.parent && window.parent !== window && window.parent.document) {
+          const pTheme = window.parent.document.documentElement.getAttribute("data-theme");
+          detectedTheme = pTheme === "dark" || pTheme === "light"
+            ? pTheme
+            : (window.parent.document.documentElement.classList.contains("dark") ? "dark" : "light");
+        }
+      } catch (e) {}
+    }
+    if (!detectedTheme) {
+      try {
+        const saved = localStorage.getItem("algolearn_theme");
+        detectedTheme = saved === "dark" || saved === "light" ? saved : "light";
+      } catch (e) {}
+    }
+    this.currentTheme = detectedTheme || "light";
     this.soundEnabled = localStorage.getItem("algolearn_sound") !== "false";
     this.activeCodeLanguage = "c"; // Default active programming language tab
 
@@ -356,6 +374,13 @@ class AppController {
       themeBtn.addEventListener("click", () => this.toggleTheme());
     }
 
+    // External / Parent Theme Listener
+    window.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "ALGOLEARN_THEME_CHANGE" && (e.data.theme === "dark" || e.data.theme === "light")) {
+        this.applyTheme(e.data.theme);
+      }
+    });
+
     // Sound Toggle
     const soundBtn = document.getElementById("sound-toggle-btn");
     if (soundBtn) {
@@ -412,6 +437,35 @@ class AppController {
     };
     if (closeGuidanceBtn) closeGuidanceBtn.addEventListener("click", hideGuidance);
     if (gotGuidanceBtn) gotGuidanceBtn.addEventListener("click", hideGuidance);
+
+    // In-game Error Feedback Banner Actions
+    const errorCloseBtn = document.getElementById("game-error-close-btn");
+    const errorContinueBtn = document.getElementById("game-error-continue-btn");
+    const errorGuidedBtn = document.getElementById("game-error-guided-btn");
+
+    if (errorCloseBtn) {
+      errorCloseBtn.addEventListener("click", () => {
+        if (window.game) window.game.clearErrorFeedback();
+      });
+    }
+    if (errorContinueBtn) {
+      errorContinueBtn.addEventListener("click", () => {
+        if (window.game) window.game.clearErrorFeedback();
+      });
+    }
+    if (errorGuidedBtn) {
+      errorGuidedBtn.addEventListener("click", () => {
+        if (window.game) {
+          window.game.clearErrorFeedback();
+          if (window.game.guidedEngine) {
+            if (!window.game.guidedEngine.isActive) {
+              window.game.guidedEngine.toggle(true);
+            }
+            window.game.updateGuidedSolveUI();
+          }
+        }
+      });
+    }
 
     const openDemoBtn = document.getElementById("open-demo-btn");
     if (openDemoBtn) {
@@ -599,72 +653,61 @@ class AppController {
   /* ─── Theme Toggle (Icon Only ☀️ / 🌙) ───────────────────────── */
 
   initTheme() {
-    if (
-      document.documentElement.classList.contains("dark") ||
-      document.body.classList.contains("dark") ||
-      document.documentElement.getAttribute("data-theme") === "dark"
-    ) {
-      this.currentTheme = "dark";
-    } else {
-      this.currentTheme = localStorage.getItem("algolearn_theme") || "light";
+    const docTheme = document.documentElement.getAttribute("data-theme");
+    if (docTheme === "dark" || docTheme === "light") {
+      this.currentTheme = docTheme;
     }
     this.applyTheme(this.currentTheme);
-
-    window.addEventListener("message", (e) => {
-      if (
-        e.data &&
-        e.data.type === "ALGOLEARN_THEME_CHANGE" &&
-        (e.data.theme === "dark" || e.data.theme === "light")
-      ) {
-        this.applyTheme(e.data.theme);
-      }
-    });
   }
 
   applyTheme(theme) {
-    this.currentTheme = theme;
-    const isDark = theme === "dark";
-    const root = document.documentElement;
-    const body = document.body;
+    this.currentTheme = theme === "dark" ? "dark" : "light";
+    try {
+      localStorage.setItem("algolearn_theme", this.currentTheme);
+      localStorage.setItem("hashquest_theme", this.currentTheme);
+      localStorage.setItem("stackmaster_theme", this.currentTheme);
+    } catch (e) {}
 
-    root.setAttribute("data-theme", theme);
-    root.style.colorScheme = theme;
+    const isDark = this.currentTheme === "dark";
+    const root = document.documentElement;
     if (isDark) {
       root.classList.add("dark", "dark-theme");
-      body.classList.add("dark", "dark-theme");
-      body.setAttribute("data-theme", "dark");
+      root.setAttribute("data-theme", "dark");
+      root.style.colorScheme = "dark";
+      if (document.body) {
+        document.body.classList.add("dark", "dark-theme");
+        document.body.setAttribute("data-theme", "dark");
+      }
     } else {
       root.classList.remove("dark", "dark-theme");
-      body.classList.remove("dark", "dark-theme");
-      body.setAttribute("data-theme", "light");
+      root.setAttribute("data-theme", "light");
+      root.style.colorScheme = "light";
+      if (document.body) {
+        document.body.classList.remove("dark", "dark-theme");
+        document.body.setAttribute("data-theme", "light");
+      }
     }
+
     this._updateThemeIcon();
 
+    // Re-render Graph Canvas and Spanning Tree with theme-specific lighting & gradients
     if (window.game) {
-      window.game.render();
-      window.game.renderSpanningTree();
+      try {
+        if (typeof window.game.render === "function") window.game.render();
+        if (typeof window.game.renderSpanningTree === "function") window.game.renderSpanningTree();
+      } catch (err) {}
     }
   }
 
   toggleTheme() {
-    const isCurrentlyDark =
-      document.documentElement.classList.contains("dark") ||
-      document.body.classList.contains("dark") ||
-      document.body.classList.contains("dark-theme") ||
-      this.currentTheme === "dark";
-    const nextTheme = isCurrentlyDark ? "light" : "dark";
-    this.currentTheme = nextTheme;
-    localStorage.setItem("algolearn_theme", nextTheme);
+    const nextTheme = this.currentTheme === "dark" ? "light" : "dark";
     this.applyTheme(nextTheme);
 
-    if (window.parent && window.parent !== window) {
-      try {
-        window.parent.postMessage(
-          { type: "ALGOLEARN_MODULE_THEME_CHANGED", theme: nextTheme },
-          "*"
-        );
-      } catch (e) {}
-    }
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "ALGOLEARN_MODULE_THEME_CHANGED", theme: nextTheme }, "*");
+      }
+    } catch (e) {}
 
     this.playSound("pop");
   }
@@ -2187,13 +2230,12 @@ class AppController {
     if (this.completedChapters.has("complexity-analysis") || completedLevels.has(8) || completedLevels.has(9)) this.completedActivities.add("FN-09");
     if (summary.quizAnsweredCount >= 10 || localStorage.getItem("algolearn_quiz_completed") === "true") this.completedActivities.add("FN-10");
 
-    // 3. Calculate Activity Units: 12 Learn Chapters + 2 Videos + 8 Game Levels + 10 Quiz Questions = 32 total
-    const learnDone = this.completedChapters ? this.completedChapters.size : 0;
+    // 3. Calculate Activity Units for remaining dashboard modules: 2 Videos + 8 Game Levels + 10 Quiz Questions = 20 total
     const videoDone = this.completedVideos ? this.completedVideos.size : 0;
     const gameDone = summary.gameLevelsCleared;
     const quizDone = summary.quizAnsweredCount;
-    const totalActivities = 32;
-    const completedCount = Math.min(totalActivities, learnDone + videoDone + gameDone + quizDone);
+    const totalActivities = 20;
+    const completedCount = Math.min(totalActivities, videoDone + gameDone + quizDone);
     const overallPct = Math.min(100, Math.round((completedCount / totalActivities) * 100));
 
     // 4. Update PANEL A: BFS Learning Progress
@@ -2544,7 +2586,7 @@ class AppController {
     const penaltyPerIncorrect = (BFS_SCORING.quiz && BFS_SCORING.quiz.penaltyPerIncorrectAnswer) || 1;
     const quizPositiveMarks = Math.min(quizMax, quizCorrect * marksPerCorrect);
     const quizPenalties = quizIncorrect * penaltyPerIncorrect;
-    const quizRawScore = Math.min(quizMax, quizPositiveMarks - quizPenalties);
+    const quizRawScore = Math.max(0, Math.min(quizMax, quizPositiveMarks - quizPenalties));
 
     // 4. CENTRAL OVERALL CALCULATION: Total dynamically derived from remaining modules (16 + 64 + 20 = 100)
     const maxAvailable = visualMax + gameMax + quizMax;
@@ -2703,23 +2745,7 @@ class AppController {
     return `${diffDay}d ago`;
   }
 
-  isLevelCompleted(levelNum = 1) {
-    const slot = getCanonicalLevelSlot(levelNum);
-    if (window.game && window.game.completedLevels && window.game.completedLevels.has(slot)) {
-      return true;
-    }
-    const completed = new Set(JSON.parse(localStorage.getItem("algolearn_completed_levels") || "[]"));
-    if (completed.has(slot)) return true;
-    if (this.pointsHistory && this.pointsHistory.some(e => e.type === "game" && e.level === slot)) {
-      return true;
-    }
-    return false;
-  }
-
   recordHintPenalty(levelNum = 1) {
-    if (this.isLevelCompleted(levelNum)) {
-      return false; // Replaying a completed level must not deduct points
-    }
     const slot = getCanonicalLevelSlot(levelNum);
     if (!this.gameAssistance) this.gameAssistance = {};
     if (!this.gameAssistance[slot]) {
@@ -2763,19 +2789,21 @@ class AppController {
   }
 
   recordGuidedPenalty(levelNum = 1) {
-    if (this.isLevelCompleted(levelNum)) {
-      return false; // Replaying a completed level must not deduct points
-    }
     const slot = getCanonicalLevelSlot(levelNum);
     if (!this.gameAssistance) this.gameAssistance = {};
     if (!this.gameAssistance[slot]) {
       this.gameAssistance[slot] = { hintCount: 0, guidedCount: 0, hintUsed: false, guidedUsed: false };
     }
 
+    // Deduct exactly 3 points once per complete Guided Solve session on this problem
+    if (this.gameAssistance[slot].guidedUsed) {
+      return false;
+    }
+
     const deductionAmount = (BFS_SCORING.game && BFS_SCORING.game.penalties && BFS_SCORING.game.penalties.guidedSolve) || 3;
     const currentScore = this.getPointsSummary().finalScore;
 
-    this.gameAssistance[slot].guidedCount = (this.gameAssistance[slot].guidedCount || 0) + 1;
+    this.gameAssistance[slot].guidedCount = 1;
     this.gameAssistance[slot].guidedUsed = true;
     localStorage.setItem("algolearn_game_assistance", JSON.stringify(this.gameAssistance));
 

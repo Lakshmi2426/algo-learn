@@ -46,83 +46,94 @@
     opacity: 0 !important;
   }
 </style>
-  <script>
-    (function() {
-      var currentTheme = 'dark';
-      function applyCurrentTheme(th) {
-        try {
-          var isDark = th === 'dark';
-          var root = document.documentElement;
-          if (isDark) {
-            root.classList.add('dark', 'dark-theme');
-            root.setAttribute('data-theme', 'dark');
-            root.style.colorScheme = 'dark';
-            if (document.body) {
-              document.body.classList.add('dark', 'dark-theme');
-              document.body.setAttribute('data-theme', 'dark');
-            }
-          } else {
-            root.classList.remove('dark', 'dark-theme');
-            root.setAttribute('data-theme', 'light');
-            root.style.colorScheme = 'light';
-            if (document.body) {
-              document.body.classList.remove('dark', 'dark-theme');
-              document.body.setAttribute('data-theme', 'light');
-            }
-          }
-          try {
-            localStorage.setItem('algolearn_theme', th);
-          } catch(e) {}
-          if (window.app && typeof window.app.applyTheme === 'function') {
-            window.app.applyTheme(th);
-          }
-        } catch(e) {}
-      }
-
-      var initialTheme = 'dark';
+<script>
+  (function() {
+    var currentTheme = 'light';
+    function applyCurrentTheme(th) {
       try {
-        if (window.parent && window.parent !== window && window.parent.document) {
-          initialTheme = window.parent.document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        var isDark = th === 'dark';
+        var root = document.documentElement;
+        if (isDark) {
+          root.classList.add('dark', 'dark-theme');
+          root.setAttribute('data-theme', 'dark');
+          root.style.colorScheme = 'dark';
+          if (document.body) {
+            document.body.classList.add('dark', 'dark-theme');
+            document.body.setAttribute('data-theme', 'dark');
+          }
+        } else {
+          root.classList.remove('dark', 'dark-theme');
+          root.setAttribute('data-theme', 'light');
+          root.style.colorScheme = 'light';
+          if (document.body) {
+            document.body.classList.remove('dark', 'dark-theme');
+            document.body.setAttribute('data-theme', 'light');
+          }
+        }
+        try {
+          localStorage.setItem('algolearn_theme', th);
+        } catch(e) {}
+        if (window.app && typeof window.app.applyTheme === 'function') {
+          window.app.applyTheme(th);
+        } else if (window.game) {
+          try {
+            if (typeof window.game.render === 'function') window.game.render();
+            if (typeof window.game.renderSpanningTree === 'function') window.game.renderSpanningTree();
+          } catch(e) {}
         }
       } catch(e) {}
-      if (!initialTheme) {
-        try {
-          initialTheme = localStorage.getItem('algolearn_theme') || 'dark';
-        } catch(e) {}
-      }
-      applyCurrentTheme(initialTheme);
-      currentTheme = initialTheme;
+    }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          applyCurrentTheme(currentTheme);
-        });
+    var initialTheme = null;
+    try {
+      if (window.parent && window.parent !== window && window.parent.document) {
+        var parentRoot = window.parent.document.documentElement;
+        var parentTheme = parentRoot.getAttribute('data-theme');
+        initialTheme = parentTheme === 'dark' || parentTheme === 'light'
+          ? parentTheme
+          : parentRoot.classList.contains('dark') ? 'dark' : 'light';
       }
-
+    } catch(e) {}
+    if (initialTheme !== 'dark' && initialTheme !== 'light') {
       try {
-        var observer = new MutationObserver(function() {
-          var isDarkNow = document.documentElement.classList.contains('dark');
-          var newTheme = isDarkNow ? 'dark' : 'light';
-          if (newTheme !== currentTheme) {
-            currentTheme = newTheme;
-            try {
-              if (window.parent && window.parent !== window) {
-                window.parent.postMessage({ type: 'ALGOLEARN_MODULE_THEME_CHANGED', theme: newTheme }, '*');
-              }
-            } catch(e) {}
-          }
-        });
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        var savedTheme = localStorage.getItem('algolearn_theme');
+        initialTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'light';
       } catch(e) {}
+    }
+    if (!initialTheme) initialTheme = 'light';
+    applyCurrentTheme(initialTheme);
+    currentTheme = initialTheme;
 
-      window.addEventListener('message', function(e) {
-        if (e.data && e.data.type === 'ALGOLEARN_THEME_CHANGE' && (e.data.theme === 'dark' || e.data.theme === 'light')) {
-          currentTheme = e.data.theme;
-          applyCurrentTheme(e.data.theme);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        applyCurrentTheme(currentTheme);
+      });
+    }
+
+    try {
+      var observer = new MutationObserver(function() {
+        var isDarkNow = document.documentElement.classList.contains('dark') || document.documentElement.getAttribute('data-theme') === 'dark';
+        var newTheme = isDarkNow ? 'dark' : 'light';
+        if (newTheme !== currentTheme) {
+          currentTheme = newTheme;
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'ALGOLEARN_MODULE_THEME_CHANGED', theme: newTheme }, '*');
+            }
+          } catch(e) {}
         }
       });
-    })();
-  </script>
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+    } catch(e) {}
+
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'ALGOLEARN_THEME_CHANGE' && (e.data.theme === 'dark' || e.data.theme === 'light')) {
+        currentTheme = e.data.theme;
+        applyCurrentTheme(e.data.theme);
+      }
+    });
+  })();
+</script>
 </head>
 <body class="sidebar-expanded">
 
@@ -239,9 +250,12 @@
             </svg>
           </button>
 
-          <div class="topbar-brand-logo-left" title="AlgoLearn — Your DSA Journey" style="cursor: pointer; position: relative; height: 36px; width: 156px; display: inline-block;" onclick="if (typeof navigateParent === 'function') navigateParent('home'); else if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'ALGOLEARN_NAVIGATE', tab: 'home' }, '*'); else window.location.href = '/';">
-            <img src="logo-light.png" onerror="if (this.src !== '/logo-light.png') this.src='/logo-light.png';" alt="AlgoLearn - YOUR DSA JOURNEY" class="brand-logo-img logo-light-img" draggable="false" />
-            <img src="logo-dark.png" onerror="if (this.src !== '/logo-dark.png') this.src='/logo-dark.png';" alt="AlgoLearn - YOUR DSA JOURNEY" class="brand-logo-img logo-dark-img" draggable="false" />
+          <div class="topbar-brand-logo-left" title="AlgoLearn — Your DSA Journey" style="cursor: pointer;" onclick="app.toggleSidebar()">
+            <img id="topbar-brand-logo-img" class="algolearn-brand-logo-img algolearn-cap-logo" src="/assets/graduation-cap-logo.png" alt="AlgoLearn — Your DSA Journey" />
+            <div class="brand-title-wrap">
+              <span class="brand-logo-text"><span class="brand-word-algo">Algo</span><span class="brand-word-l">L</span><span class="brand-word-earn">earn</span></span>
+              <span class="brand-tagline">YOUR DSA JOURNEY</span>
+            </div>
           </div>
         </div>
 
@@ -820,10 +834,8 @@
                     preload="metadata"
                     playsinline
                   >
-                    <source src="videos/video%20final%201.mp4" type="video/mp4">
-                    <source src="/dsa-modules/bfs/videos/video%20final%201.mp4" type="video/mp4">
-                    <source src="/videos/video%20final%201.mp4" type="video/mp4">
                     <source src="videos/video final 1.mp4" type="video/mp4">
+                    <source src="/videos/video%20final%201.mp4" type="video/mp4">
                     Your browser does not support HTML5 video.
                   </video>
                 </div>
@@ -856,10 +868,8 @@
                     preload="metadata"
                     playsinline
                   >
-                    <source src="videos/video%20final%202.mp4" type="video/mp4">
-                    <source src="/dsa-modules/bfs/videos/video%20final%202.mp4" type="video/mp4">
-                    <source src="/videos/video%20final%202.mp4" type="video/mp4">
                     <source src="videos/video final 2.mp4" type="video/mp4">
+                    <source src="/videos/video%20final%202.mp4" type="video/mp4">
                     Your browser does not support HTML5 video.
                   </video>
                 </div>
@@ -1121,6 +1131,54 @@
                 </div>
               </div>
 
+              <!-- Inline BFS Rule Violation & Error Feedback Card -->
+              <div id="game-error-banner" class="game-error-banner hidden" role="alert" aria-live="polite">
+                <div class="game-error-header">
+                  <div class="game-error-title-wrap">
+                    <span class="game-error-icon" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                    </span>
+                    <h4 id="game-error-type" class="game-error-type">Incorrect BFS Operation</h4>
+                  </div>
+                  <button id="game-error-close-btn" class="game-error-close-btn" type="button" title="Dismiss explanation" aria-label="Dismiss">&times;</button>
+                </div>
+                <div class="game-error-body">
+                  <div class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span id="game-error-what" class="game-error-text">You dequeued before completing the neighbour-enqueueing stage.</span>
+                  </div>
+                  <div id="game-error-missing-row" class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text"><strong>Missing neighbour:</strong> <span id="game-error-missing" class="game-error-highlight">None</span></span>
+                  </div>
+                  <div class="game-error-row">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text"><strong>Required action:</strong> <span id="game-error-action">Enqueue all eligible neighbours before dequeuing.</span></span>
+                  </div>
+                  <div class="game-error-row game-error-reassurance">
+                    <span class="game-error-bullet">&bull;</span>
+                    <span class="game-error-text">Your progress has been preserved. Correct this step to continue.</span>
+                  </div>
+                </div>
+                <div class="game-error-actions">
+                  <button id="game-error-continue-btn" type="button" class="btn btn-sm btn-error-continue">
+                    Continue &amp; Correct Mistake
+                  </button>
+                  <button id="game-error-guided-btn" type="button" class="btn btn-sm btn-error-guided">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" fill="#ea580c"/>
+                      <line x1="9" y1="20" x2="15" y2="20" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                      <line x1="10" y1="22.5" x2="14" y2="22.5" stroke="#ea580c" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span>Ask Guided Solve</span>
+                  </button>
+                </div>
+              </div>
+
               <!-- Main Interactive Workspace (Side-by-Side Panoramic View) -->
               <main class="main-workspace">
                 <!-- Column 1 (Left): Graph / Tree Workspace -->
@@ -1251,7 +1309,7 @@
                         <div id="guided-explanation-text" class="guided-explanation-text">Click "Next Step" to perform the next BFS move.</div>
                       </div>
                       <div class="guided-action-buttons" style="display: flex; gap: 8px; width: 100%; margin-top: 6px;">
-                        <button id="guided-next-btn" class="btn guided-single-bar-btn" type="button" aria-label="Next Step">Next Step</button>
+                        <button id="guided-next-btn" class="btn guided-single-bar-btn" type="button" aria-label="Next Step" style="flex: 1;">Next Step</button>
                         <button id="guided-exit-btn" class="btn btn-outline" type="button" aria-label="Exit Guided Solve" style="padding: 6px 14px; font-size: 0.85rem; font-weight: 700; white-space: nowrap;">Exit Guided Solve</button>
                       </div>
                     </div>

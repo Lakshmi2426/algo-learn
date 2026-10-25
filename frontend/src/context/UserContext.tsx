@@ -262,6 +262,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (isCurrent && s.progress && typeof s.progress === 'object') {
               Object.entries(s.progress).forEach(([tKey, scoreVal]) => {
+                if (normalizeToModuleId(tKey) === 'sll' && localStorage.getItem('algolearn_sll_100_points_progress_v4') !== null) return;
                 const num = Number(scoreVal);
                 if (!isNaN(num)) {
                   const curScore = getTopicScore(tKey, activeKey);
@@ -281,7 +282,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Sum actual topic points from s.progress
             let serverTopicSum = 0;
             if (s.progress && typeof s.progress === 'object') {
-              Object.values(s.progress).forEach((sc: any) => {
+              CANONICAL_MODULE_IDS.forEach((topicId) => {
+                const sc = s.progress[topicId];
                 const n = typeof sc === 'number' ? sc : Number(sc?.points ?? sc?.score);
                 if (Number.isFinite(n)) serverTopicSum += Math.round(n);
               });
@@ -369,12 +371,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (student.progress && typeof student.progress === 'object') {
               Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
+                if (normalizeToModuleId(tKey) === 'sll' && localStorage.getItem('algolearn_sll_100_points_progress_v4') !== null) return;
                 const num = Number(scoreVal);
-                if (!isNaN(num) && (num < 0 || num > 0)) {
-                  const cur = getTopicScore(tKey, studentKey);
-                  if (num < 0 || num > cur) {
-                    setTopicScore(tKey, num, studentKey);
-                  }
+                if (!isNaN(num)) {
+                  setTopicScore(tKey, num, studentKey);
                 }
               });
             }
@@ -553,12 +553,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleWindowMessage = (event: MessageEvent) => {
       if (event.data && typeof event.data === 'object' && event.data.type === 'ALGOLEARN_TOPIC_PROGRESS_UPDATE') {
-        const { moduleId, score, progress } = event.data;
+        const { moduleId, score, progress, completion } = event.data;
         if (moduleId && (typeof score === 'number' || typeof progress === 'number')) {
           const s = typeof score === 'number' ? score : progress;
           setTopicScore(moduleId, s);
           const moduleKey = normalizeToModuleId(moduleId);
-          if (moduleKey) setTopicCompletion(moduleKey, readNativeModuleCompletion(moduleKey as any));
+          const compVal = typeof completion === 'number' ? completion : (moduleKey ? readNativeModuleCompletion(moduleKey as any) : 0);
+          if (moduleKey) setTopicCompletion(moduleKey, compVal);
           handleProgressChange();
         }
       }
@@ -810,11 +811,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Restore saved progress from database
         if (student.progress && typeof student.progress === 'object') {
           Object.entries(student.progress).forEach(([tKey, scoreVal]) => {
+            if (normalizeToModuleId(tKey) === 'sll' && localStorage.getItem('algolearn_sll_100_points_progress_v4') !== null) return;
             const num = Number(scoreVal);
-            if (!isNaN(num) && num >= 0) {
-              const currentScore = getTopicScore(tKey, studentKey);
-              const bestScore = Math.max(currentScore, num);
-              setTopicScore(tKey, bestScore, studentKey);
+            if (!isNaN(num)) {
+              setTopicScore(tKey, num, studentKey);
             }
           });
         }

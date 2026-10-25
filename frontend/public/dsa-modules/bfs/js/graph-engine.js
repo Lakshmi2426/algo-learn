@@ -10,6 +10,7 @@ class GraphEngine {
     this.currentGraph = null;
     this.adjacency = {};
     this.nodeMap = {};
+    this.missingNeighborsHighlight = new Set();
   }
 
   loadGraph(graphData) {
@@ -40,6 +41,19 @@ class GraphEngine {
 
   getNeighbors(nodeId) {
     return this.adjacency[nodeId] || [];
+  }
+
+  setMissingNeighborsHighlight(nodeIds = []) {
+    this.missingNeighborsHighlight = new Set(nodeIds);
+    if (this.svg && typeof this.svg.querySelectorAll === 'function') {
+      this.svg.querySelectorAll(".node-is-missing-neighbor").forEach(el => {
+        el.classList.remove("node-is-missing-neighbor");
+      });
+      nodeIds.forEach(id => {
+        const el = document.getElementById(`node-${id}`);
+        if (el && el.classList) el.classList.add("node-is-missing-neighbor");
+      });
+    }
   }
 
   calculateShortestPath(startNodeId, targetNodeId) {
@@ -227,13 +241,30 @@ class GraphEngine {
       const isTarget = node.id === targetNodeId;
       const isCurrent = node.id === activeExplorerNodeId;
       const isUnvisitedNeighbor = unvisitedNeighbors.includes(node.id);
+      const isMissingNeighbor = this.missingNeighborsHighlight && this.missingNeighborsHighlight.has(node.id);
 
       const nodeG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      nodeG.setAttribute("class", `graph-node-interactive node-state-${state} ${isUnvisitedNeighbor ? 'node-is-neighbor-target' : ''}`);
+      nodeG.setAttribute("class", `graph-node-interactive node-state-${state} ${isUnvisitedNeighbor ? 'node-is-neighbor-target' : ''} ${isMissingNeighbor ? 'node-is-missing-neighbor' : ''}`);
       nodeG.setAttribute("id", `node-${node.id}`);
       nodeG.setAttribute("transform", `translate(${node.x}, ${node.y})`);
       nodeG.setAttribute("filter", "url(#node-shadow)");
       nodeG.style.cursor = "grab";
+
+      // Pulsing Warning ring for missing neighbors that must be enqueued
+      if (isMissingNeighbor) {
+        const missingRing = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        missingRing.setAttribute("r", "31");
+        missingRing.setAttribute("fill", "none");
+        missingRing.setAttribute("stroke", "#ef4444");
+        missingRing.setAttribute("stroke-width", "2.5");
+        missingRing.setAttribute("stroke-dasharray", "4 4");
+        missingRing.innerHTML = `
+          <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.5s" repeatCount="indefinite"/>
+          <animate attributeName="r" values="29;34;29" dur="1.3s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="1.3s" repeatCount="indefinite"/>
+        `;
+        nodeG.appendChild(missingRing);
+      }
 
       // Pulsing Beacon ring for unvisited neighbors of active current node
       if (isUnvisitedNeighbor) {
