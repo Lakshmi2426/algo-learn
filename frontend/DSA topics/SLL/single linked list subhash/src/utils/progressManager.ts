@@ -323,10 +323,10 @@ class ProgressManager {
               const guideUsed = Boolean(val.guideUsed);
               const hintCount = val.hintCount || (hintUsed ? 1 : 0);
               const guideCount = val.guideCount || (guideUsed ? 1 : 0);
-              const hintPenalty = hintCount * 2;
-              const guidePenalty = guideCount * 3;
+              const hintPenalty = typeof val.hintPenalty === 'number' ? val.hintPenalty : hintCount * 2;
+              const guidePenalty = typeof val.guidePenalty === 'number' ? val.guidePenalty : guideCount * 3;
               const finalScore = val.completed
-                ? Math.max(0, def.baseScore - hintPenalty - guidePenalty)
+                ? (typeof val.finalScore === 'number' ? val.finalScore : Math.max(0, def.baseScore - hintPenalty - guidePenalty))
                 : 0;
 
               gameTasks[canonical] = {
@@ -364,16 +364,22 @@ class ProgressManager {
         delete completedActivities['game_deletion'];
         delete completedActivities['game_traversal'];
 
-        // Synchronize game tasks into completed activities with updated scoring
+        // Synchronize game tasks into completed activities with preserved first-play scoring
         for (const [taskKey, taskDef] of Object.entries(GAME_TASK_DEFINITIONS)) {
           const canonical = taskKey;
           const rec = completedActivities[canonical] || completedActivities[taskDef.internalId];
           if (rec && rec.category === 'game') {
             gameTasks[canonical].completed = true;
+            const finalScore = typeof rec.pointsAwarded === 'number'
+              ? rec.pointsAwarded
+              : (typeof gameTasks[canonical].finalScore === 'number'
+                  ? gameTasks[canonical].finalScore
+                  : Math.max(0, taskDef.baseScore - gameTasks[canonical].hintPenalty - gameTasks[canonical].guidePenalty));
+            gameTasks[canonical].finalScore = finalScore;
             completedActivities[canonical] = {
               id: canonical,
               category: 'game',
-              pointsAwarded: gameTasks[canonical].finalScore,
+              pointsAwarded: finalScore,
               maxPoints: taskDef.baseScore,
               completedAt: rec.completedAt || Date.now(),
               metadata: {
@@ -386,7 +392,7 @@ class ProgressManager {
                 guideUsed: gameTasks[canonical].guideUsed,
                 hintPenalty: gameTasks[canonical].hintPenalty,
                 guidePenalty: gameTasks[canonical].guidePenalty,
-                finalScore: gameTasks[canonical].finalScore,
+                finalScore: finalScore,
               },
             };
           }
@@ -728,10 +734,17 @@ class ProgressManager {
   /**
    * Applies deductions for actual Hint (-2 pts) and Guided Solve (-3 pts) usage.
    * Subsequent genuine uses apply additional deductions while preventing duplicate deductions for the exact same event.
+   * Point-neutral on replays: once a game/level has completed its first play, hints and guide actions never alter points.
    */
   public recordGameTaskAssistance(id: string, type: 'hint' | 'guide' | 'concept'): void {
     const canonical = toCanonicalGameTaskId(id);
     const task = this.getGameTaskState(canonical);
+
+    // POINT-NEUTRAL REPLAY RULE:
+    // Once first play of that specific task/game is completed, replays are point-neutral.
+    if (task.completed === true || this.isCompleted(canonical)) {
+      return;
+    }
 
     if (type === 'hint') {
       task.hintUsed = true;
@@ -768,13 +781,21 @@ class ProgressManager {
 
   /**
    * Explicit GUIDEDSOLVE point deduction:
-   * Deducts configured 3 points exactly once when a new Guided Solve session begins.
+   * Deducts configured 3 points exactly once when a new Guided Solve session begins during first play.
    * Never deducts points for individual Next Step clicks, rerenders, or session completion.
-   * Activating Guided Solve again after stopping counts as a new session.
+   * Activating Guided Solve again after stopping counts as a new session on first play.
+   * Once the user's first play of that specific game/level is completed, all subsequent replays
+   * are completely point-neutral (zero deductions, zero penalty increases, zero toasts).
    */
   public startGuidedSolveSession(taskId: string): number {
     const canonical = toCanonicalGameTaskId(taskId);
     const task = this.getGameTaskState(canonical);
+
+    // POINT-NEUTRAL REPLAY RULE:
+    // All replays of completed games/levels are completely point-neutral.
+    if (task.completed === true || this.isCompleted(canonical)) {
+      return this.getTotalPoints();
+    }
 
     task.guideUsed = true;
     task.guideCount = (task.guideCount || 0) + 1;
@@ -839,6 +860,7 @@ class ProgressManager {
   /**
    * Calculates game score with deductions:
    * finalScore = Math.max(0, baseScore - (hintPenalty) - (guidePenalty))
+   * Replays preserve first-play score and penalties.
    */
   public calculateGameScore(
     category: 'insertion' | 'deletion' | 'traversal',
@@ -855,10 +877,13 @@ class ProgressManager {
     if (taskId) {
       const canonical = toCanonicalGameTaskId(taskId);
       const task = this.getGameTaskState(canonical);
+      const isAlreadyDone = task.completed === true || this.isCompleted(canonical);
       const hintPenalty = task.hintPenalty || (task.hintUsed ? 2 : 0);
       const guidePenalty = task.guidePenalty || (task.guideUsed ? 3 : 0);
       const totalPenalty = hintPenalty + guidePenalty;
-      const finalScore = Math.max(0, task.baseScore - totalPenalty);
+      const finalScore = isAlreadyDone && typeof task.finalScore === 'number'
+        ? task.finalScore
+        : Math.max(0, task.baseScore - totalPenalty);
       return {
         baseScore: task.baseScore,
         hintUsed: task.hintUsed,

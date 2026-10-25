@@ -79,6 +79,31 @@ const replayResult = progressManager.completeGameTask(taskId);
 assert(replayResult.newlyCompleted === false, 'Replaying completed task awards 0 points (duplicate protection)');
 assert(replayResult.finalScore === 0, 'Replay finalScore is 0');
 
+// 8. Replay Guided Solve: Once first play is completed, Guided Solve must NEVER deduct points (Point-Neutral)
+const pointsBeforeReplayGuide = progressManager.getTotalPoints();
+const pointsAfterReplayGuide = progressManager.startGuidedSolveSession(taskId);
+assert(pointsAfterReplayGuide === pointsBeforeReplayGuide, `Replay Guided Solve is completely point-neutral (${pointsBeforeReplayGuide} === ${pointsAfterReplayGuide})`);
+const stateAfterReplayGuide = progressManager.getGameTaskState(taskId);
+assert(stateAfterReplayGuide.guidePenalty === 6, 'Task guidePenalty was NOT increased during replay Guided Solve');
+
+// 9. Replay Hint: Hints must NEVER deduct points during replays
+const pointsBeforeReplayHint = progressManager.getTotalPoints();
+const pointsAfterReplayHint = progressManager.deductHintPoints(taskId);
+assert(pointsAfterReplayHint === pointsBeforeReplayHint, `Replay Hint is completely point-neutral (${pointsBeforeReplayHint} === ${pointsAfterReplayHint})`);
+const stateAfterReplayHint = progressManager.getGameTaskState(taskId);
+assert(stateAfterReplayHint.hintPenalty === 0, 'Task hintPenalty was NOT increased during replay Hint');
+
+// 10. Subsequent replay completions award 0 extra points and deduct 0 points
+const subReplay = progressManager.completeGameTask(taskId);
+assert(subReplay.newlyCompleted === false, 'Subsequent replay completion awards 0 points');
+assert(progressManager.getTotalPoints() === pointsBeforeReplayGuide, 'Score remains unchanged after subsequent replay completion');
+
+// 11. Other unplayed tasks MUST still allow first play scoring and deductions
+const unplayedTaskId = 'L1_T3';
+const unplayedBaseline = progressManager.getTotalPoints();
+const unplayedAfterGuide = progressManager.startGuidedSolveSession(unplayedTaskId);
+assert(unplayedAfterGuide === unplayedBaseline - 3, `Unplayed task first play correctly applies 3-point deduction (${unplayedBaseline} -> ${unplayedAfterGuide})`);
+
 console.log('✓ Suite 1 Passed!\n');
 
 // ---------------------------------------------------------------------------
