@@ -275,8 +275,40 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 .topbar-brand-logo-left:hover .algolearn-brand-logo-img,
-.topbar-brand-logo-left:hover .algolearn-cap-logo {
+.topbar-brand-logo-left:hover .algolearn-cap-logo,
+.topbar-brand-logo-left:hover .algolearn-brand-logo-wrap {
   transform: scale(1.03);
+}
+
+/* Real AlgoLearn Brand Logo with Graduation Cap (Matching 2nd & 3rd Referral) */
+.algolearn-brand-logo-wrap {
+  position: relative;
+  height: 36px;
+  width: 156px;
+  display: inline-block;
+  user-select: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.algolearn-brand-logo-wrap .logo-light-img {
+  display: block !important;
+}
+
+.algolearn-brand-logo-wrap .logo-dark-img {
+  display: none !important;
+}
+
+body.dark-theme .algolearn-brand-logo-wrap .logo-light-img,
+[data-theme="dark"] .algolearn-brand-logo-wrap .logo-light-img,
+html.dark .algolearn-brand-logo-wrap .logo-light-img {
+  display: none !important;
+}
+
+body.dark-theme .algolearn-brand-logo-wrap .logo-dark-img,
+[data-theme="dark"] .algolearn-brand-logo-wrap .logo-dark-img,
+html.dark .algolearn-brand-logo-wrap .logo-dark-img {
+  display: block !important;
 }
 
 /* Light Theme Cap Elements */

@@ -126,9 +126,23 @@
           </button>
 
           <div class="topbar-brand-logo-left" title="AlgoLearn — Your DSA Journey" style="cursor: pointer;" onclick="app.toggleSidebar()">
-            <div class="brand-title-wrap">
-              <span class="brand-logo-text"><span class="brand-word-algo">Algo</span><span class="brand-word-l">L</span><span class="brand-word-earn">earn</span></span>
-              <span class="brand-tagline">YOUR DSA JOURNEY</span>
+            <div class="algolearn-brand-logo-wrap" style="position: relative; height: 36px; width: 156px; display: inline-block; user-select: none;">
+              <!-- Light Mode Logo (2nd referral) -->
+              <img
+                src="/logo-light.png"
+                alt="AlgoLearn - YOUR DSA JOURNEY"
+                class="brand-logo-img logo-light-img"
+                style="position: absolute; inset: 0; height: 100%; width: 100%; object-fit: contain; object-position: left; pointer-events: none;"
+                draggable="false"
+              />
+              <!-- Dark Mode Logo (3rd referral) -->
+              <img
+                src="/logo-dark.png"
+                alt="AlgoLearn - YOUR DSA JOURNEY"
+                class="brand-logo-img logo-dark-img"
+                style="position: absolute; width: 166.3px; height: 40.4px; left: -8.6px; top: -0.3px; object-fit: contain; object-position: left; pointer-events: none;"
+                draggable="false"
+              />
             </div>
           </div>
         </div>
