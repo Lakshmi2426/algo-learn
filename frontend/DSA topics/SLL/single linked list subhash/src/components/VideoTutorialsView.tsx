@@ -60,6 +60,7 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
   const [isFullscreenControlsVisible, setIsFullscreenControlsVisible] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [fallbackAttempt, setFallbackAttempt] = useState<number>(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [showHudOverlay, setShowHudOverlay] = useState<boolean>(true);
 
@@ -124,6 +125,7 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
     (lesson: LessonItem, autoPlay: boolean = true) => {
       soundManager.playSelect();
       setHasError(false);
+      setFallbackAttempt(0);
       setActivePlayerMode('video');
       setSelectedLesson(lesson);
       setCurrentTime(0);
@@ -330,6 +332,7 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
     if (!selectedLesson || !videoRef.current) return;
     soundManager.playClick();
     setHasError(false);
+    setFallbackAttempt(0);
     setIsLoading(true);
     videoRef.current.src = selectedLesson.videoSrc;
     videoRef.current.load();
@@ -389,6 +392,25 @@ export const VideoTutorialsView: React.FC<VideoTutorialsViewProps> = ({ video1Sr
   };
 
   const handleError = () => {
+    const video = videoRef.current;
+    if (video && selectedLesson && fallbackAttempt < 4) {
+      const isLesson1 = selectedLesson.id === 'lesson-01';
+      const fallbacks = [
+        `./assets/${isLesson1 ? 'video1-C84j6pY_.mp4' : 'video2-COmAg5D-.mp4'}`,
+        `/dsa-modules/sll/assets/${isLesson1 ? 'video1-C84j6pY_.mp4' : 'video2-COmAg5D-.mp4'}`,
+        `/videos/${selectedLesson.filename}`,
+        `./videos/${selectedLesson.filename}`,
+      ];
+      const cur = video.currentSrc || video.src || '';
+      const nextCandidate = fallbacks[fallbackAttempt];
+      setFallbackAttempt((prev) => prev + 1);
+      if (nextCandidate && !cur.endsWith(nextCandidate) && cur !== nextCandidate) {
+        video.src = nextCandidate;
+        video.load();
+        video.play().catch(() => {});
+        return;
+      }
+    }
     setIsLoading(false);
     setIsPlaying(false);
     setHasError(true);

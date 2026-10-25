@@ -363,6 +363,55 @@
 <body class="bg-[#F8FAFC] text-[#111827] antialiased selection:bg-[#2563EB] selection:text-white">
   <div id="root"></div>
 
+  <script>
+    (function() {
+      // Automatic fallback handler for video playback
+      window.addEventListener('error', function(e) {
+        if (e.target && e.target.tagName === 'VIDEO') {
+          var video = e.target;
+          var curSrc = video.currentSrc || video.src || '';
+          var attempt = parseInt(video.getAttribute('data-fallback-attempt') || '0', 10);
+          
+          var isLesson1 = curSrc.includes('video1') || curSrc.includes('C84j6pY') || 
+            (document.getElementById('current-lesson-title') && document.getElementById('current-lesson-title').textContent.toLowerCase().includes('introduction'));
+          
+          var fallbackOptions = [
+            isLesson1 ? './assets/video1-C84j6pY_.mp4' : './assets/video2-COmAg5D-.mp4',
+            isLesson1 ? '/dsa-modules/sll/assets/video1-C84j6pY_.mp4' : '/dsa-modules/sll/assets/video2-COmAg5D-.mp4',
+            isLesson1 ? '/videos/video1.mp4' : '/videos/video2.mp4',
+            isLesson1 ? './videos/video1.mp4' : './videos/video2.mp4'
+          ];
+          
+          if (attempt < fallbackOptions.length) {
+            var nextCandidate = fallbackOptions[attempt];
+            video.setAttribute('data-fallback-attempt', String(attempt + 1));
+            if (nextCandidate && !curSrc.endsWith(nextCandidate) && curSrc !== nextCandidate) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              video.src = nextCandidate;
+              video.load();
+              video.play().catch(function(){});
+            }
+          }
+        }
+      }, true);
+
+      // Handle click on "TRY AGAIN" button
+      document.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest('#btn-video-try-again');
+        if (btn) {
+          var video = document.querySelector('video');
+          if (video) {
+            video.removeAttribute('data-fallback-attempt');
+            var isLesson1 = (document.getElementById('current-lesson-title') && document.getElementById('current-lesson-title').textContent.toLowerCase().includes('introduction'));
+            video.src = isLesson1 ? './assets/video1-C84j6pY_.mp4' : './assets/video2-COmAg5D-.mp4';
+            video.load();
+            video.play().catch(function(){});
+          }
+        }
+      });
+    })();
+  </script>
 </body>
 
 </html>

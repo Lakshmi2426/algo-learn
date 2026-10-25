@@ -13,6 +13,22 @@
       "destination": "https://algolearn-1yp9.onrender.com/api/:match*"
     },
     {
+      "source": "/assets/video:ext(.*\\.mp4)",
+      "destination": "/dsa-modules/sll/assets/video:ext"
+    },
+    {
+      "source": "/assets/video1:ext(.*\\.mp4)",
+      "destination": "/dsa-modules/sll/assets/video1:ext"
+    },
+    {
+      "source": "/assets/video2:ext(.*\\.mp4)",
+      "destination": "/dsa-modules/sll/assets/video2:ext"
+    },
+    {
+      "source": "/videos/:match*",
+      "destination": "/videos/:match*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
