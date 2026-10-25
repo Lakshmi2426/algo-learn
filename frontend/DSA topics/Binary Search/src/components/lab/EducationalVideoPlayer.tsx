@@ -295,14 +295,13 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
   // Handle external autoPlay trigger (e.g. from WATCH LESSON buttons)
   useEffect(() => {
     if (autoPlayTrigger && autoPlayTrigger > 0) {
-      enterFullscreen();
       setIsPlaying(true);
       if (nativeVideoRef.current) {
         nativeVideoRef.current.currentTime = 0;
         nativeVideoRef.current.play().catch(() => {});
       }
     }
-  }, [autoPlayTrigger, enterFullscreen]);
+  }, [autoPlayTrigger]);
 
   // Play / Pause handler
   const handleTogglePlay = () => {
@@ -316,7 +315,6 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
           nativeVideoRef.current.currentTime = 0;
           setCurrentTime(0);
         }
-        enterFullscreen();
         nativeVideoRef.current
           .play()
           .then(() => {
@@ -331,9 +329,6 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
         setCurrentTime(0);
         currentSceneIdRef.current = -1;
       }
-      if (!isPlaying) {
-        enterFullscreen();
-      }
       setIsPlaying(!isPlaying);
     }
   };
@@ -343,14 +338,12 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
     soundEffects.playClick();
     setCurrentTime(0);
     currentSceneIdRef.current = -1;
-    enterFullscreen();
     if (isVideoMode && nativeVideoRef.current) {
       nativeVideoRef.current.currentTime = 0;
       nativeVideoRef.current
         .play()
         .then(() => {
           setIsPlaying(true);
-          enterFullscreen();
         })
         .catch(() => {});
     } else {
@@ -395,7 +388,6 @@ export const EducationalVideoPlayer: React.FC<EducationalVideoPlayerProps> = ({
       if (isVideoMode && nativeVideoRef.current) {
         nativeVideoRef.current.currentTime = targetTime;
       }
-      enterFullscreen();
       setIsPlaying(true);
     }
   };

@@ -25,6 +25,14 @@
       "destination": "/dsa-modules/sll/assets/video2:ext"
     },
     {
+      "source": "/assets/Stack:ext(.*\\.mp4)",
+      "destination": "/dsa-modules/stack/assets/Stack:ext"
+    },
+    {
+      "source": "/assets/Binary:ext(.*\\.mp4)",
+      "destination": "/dsa-modules/binary-search/assets/Binary:ext"
+    },
+    {
       "source": "/videos/:match*",
       "destination": "/videos/:match*"
     },
