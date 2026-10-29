@@ -97,26 +97,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     >
       <div
         id="app-header-nav-container"
-        className="w-full flex items-center justify-between px-6 py-3 transition-all duration-300"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          width: '100%',
-          padding: '12px 24px',
-        }}
+        className="w-full flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 transition-all duration-300 min-w-0"
       >
         {/* Left Brand Group (Toggle Button + Logo) */}
         <div
           id="header-left-brand-group"
-          className="flex items-center gap-4 ml-0 pl-0 min-w-0"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            marginLeft: '0',
-            paddingLeft: '0',
-          }}
+          className="flex items-center gap-2 sm:gap-4 ml-0 pl-0 min-w-0"
         >
           {/* 1. THREE-BAR MENU / HAMBURGER BUTTON (Strictly visible ONLY when navigation sidebar is CLOSED) */}
           <button
@@ -126,16 +112,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             title="Open Navigation Menu (☰)"
             aria-label="Open navigation menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           {/* 2. ALGOLEARN LOGO (EXACT IMAGE) */}
           <div className="flex items-center shrink-0">
-            <AlgoLearnLogo theme={theme} className="h-8 sm:h-9 w-auto" />
+            <AlgoLearnLogo theme={theme} className="h-7 sm:h-9 w-auto max-w-[130px] sm:max-w-none" />
           </div>
 
           {/* 3. CURRENT PAGE / SECTION (SECONDARY) */}
-          <div className="hidden xs:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800 min-w-0">
+          <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800 min-w-0">
             <span className="text-xs sm:text-sm font-semibold text-[#2563EB] dark:text-[#60A5FA] font-sans tracking-wide leading-none truncate">
               {pageName}
             </span>

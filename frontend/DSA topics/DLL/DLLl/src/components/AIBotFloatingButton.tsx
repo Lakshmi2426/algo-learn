@@ -12,7 +12,7 @@ export const AIBotFloatingButton: React.FC = () => {
       id="ai-bot-floating-button"
       type="button"
       aria-label="AI Assistant"
-      className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6 z-30 w-[54px] h-[54px] sm:w-[58px] sm:h-[58px] lg:w-[62px] lg:h-[62px] rounded-full p-0 flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 shadow-[0_8px_24px_-3px_rgba(79,70,229,0.45)] hover:shadow-[0_12px_28px_-2px_rgba(124,58,237,0.55)] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 dark:focus:ring-offset-slate-900 select-none"
+      className="fixed bottom-3.5 right-3.5 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6 z-30 w-[46px] h-[46px] sm:w-[56px] sm:h-[56px] lg:w-[62px] lg:h-[62px] rounded-full p-0 flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 shadow-[0_8px_24px_-3px_rgba(79,70,229,0.45)] hover:shadow-[0_12px_28px_-2px_rgba(124,58,237,0.55)] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 dark:focus:ring-offset-slate-900 select-none"
       onClick={(e) => {
         e.preventDefault();
       }}

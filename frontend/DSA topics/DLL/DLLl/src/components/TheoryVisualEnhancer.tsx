@@ -48,18 +48,18 @@ export const TheoryVisualEnhancer: React.FC<TheoryVisualEnhancerProps> = ({ chap
   if (isCh01) {
     return (
       <div className="space-y-4 font-sans text-slate-900 dark:text-white animate-fadeIn">
-        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+        <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] min-w-0">
           <div className="text-xs font-bold uppercase text-[#2563EB] dark:text-blue-400 tracking-wider mb-4 flex items-center gap-1.5 font-mono">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Architecture Diagram // Doubly Linked Node Anatomy</span>
           </div>
 
           {/* Node Anatomy Card */}
-          <div className="max-w-xl mx-auto p-4 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+          <div className="max-w-xl mx-auto p-3 sm:p-4 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
             <div className="text-center text-xs font-mono font-bold text-slate-500 dark:text-slate-400 mb-2">
               Single Node Memory Anatomy (3 Component Fields)
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 rounded-xl">
                 <span className="text-[10px] font-bold font-mono text-amber-700 dark:text-amber-400 block uppercase">1. PREV*</span>
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 font-mono">Pointer to Predecessor</span>
@@ -76,46 +76,46 @@ export const TheoryVisualEnhancer: React.FC<TheoryVisualEnhancerProps> = ({ chap
           </div>
 
           {/* 3 Connected Nodes Visual Representation */}
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2 min-w-0">
             <span className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 block font-mono">
               Bi-directional Chain Representation:
             </span>
-            <div className="flex flex-wrap items-center justify-center gap-2 py-3 overflow-x-auto">
-              <span className="text-xs font-mono text-rose-500 font-bold px-2 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-500/30">
+            <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-2 py-3 overflow-x-auto max-w-full no-scrollbar px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <span className="text-xs font-mono text-rose-500 font-bold px-2 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-500/30 shrink-0">
                 null
               </span>
-              <span className="text-xs text-slate-400 font-bold">←</span>
+              <span className="text-xs text-slate-400 font-bold shrink-0">←</span>
 
               {/* Node 1 */}
-              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-blue-400 dark:border-blue-500 rounded-xl text-center shadow-xs">
+              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-blue-400 dark:border-blue-500 rounded-xl text-center shadow-xs shrink-0 min-w-[70px]">
                 <div className="text-[10px] font-bold text-[#2563EB] dark:text-blue-300 font-mono">HEAD (0x100)</div>
                 <div className="text-base font-black font-mono mt-0.5">10</div>
               </div>
 
-              <div className="flex flex-col items-center justify-center text-[#2563EB] dark:text-blue-400 font-mono text-xs font-bold px-1">
+              <div className="flex flex-col items-center justify-center text-[#2563EB] dark:text-blue-400 font-mono text-xs font-bold px-1 shrink-0">
                 <span>→</span>
                 <span>←</span>
               </div>
 
               {/* Node 2 */}
-              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-slate-300 dark:border-slate-700 rounded-xl text-center shadow-xs">
+              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-slate-300 dark:border-slate-700 rounded-xl text-center shadow-xs shrink-0 min-w-[70px]">
                 <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 font-mono">NODE (0x240)</div>
                 <div className="text-base font-black font-mono mt-0.5">25</div>
               </div>
 
-              <div className="flex flex-col items-center justify-center text-[#2563EB] dark:text-blue-400 font-mono text-xs font-bold px-1">
+              <div className="flex flex-col items-center justify-center text-[#2563EB] dark:text-blue-400 font-mono text-xs font-bold px-1 shrink-0">
                 <span>→</span>
                 <span>←</span>
               </div>
 
               {/* Node 3 */}
-              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-blue-500 dark:border-blue-400 rounded-xl text-center shadow-xs">
+              <div className="p-3 bg-white dark:bg-[#0B1120] border-2 border-blue-500 dark:border-blue-400 rounded-xl text-center shadow-xs shrink-0 min-w-[70px]">
                 <div className="text-[10px] font-bold text-[#2563EB] dark:text-blue-300 font-mono">TAIL (0x380)</div>
                 <div className="text-base font-black font-mono mt-0.5">42</div>
               </div>
 
-              <span className="text-xs text-slate-400 font-bold">→</span>
-              <span className="text-xs font-mono text-rose-500 font-bold px-2 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-500/30">
+              <span className="text-xs text-slate-400 font-bold shrink-0">→</span>
+              <span className="text-xs font-mono text-rose-500 font-bold px-2 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-500/30 shrink-0">
                 null
               </span>
             </div>
@@ -185,19 +185,19 @@ export const TheoryVisualEnhancer: React.FC<TheoryVisualEnhancerProps> = ({ chap
           </div>
 
           <div className="space-y-3 font-mono text-xs">
-            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <span className="font-bold text-slate-600 dark:text-slate-400">1. Empty List:</span>
-              <span className="text-[#2563EB] dark:text-cyan-300 font-bold">head = null, tail = null (size = 0)</span>
+              <span className="text-[#2563EB] dark:text-cyan-300 font-bold break-words">head = null, tail = null (size = 0)</span>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <span className="font-bold text-slate-600 dark:text-slate-400">2. Single Node List:</span>
-              <span className="text-[#2563EB] dark:text-cyan-300 font-bold">head == tail (head.prev = null, tail.next = null)</span>
+              <span className="text-[#2563EB] dark:text-cyan-300 font-bold break-words">head == tail (head.prev = null, tail.next = null)</span>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between">
+            <div className="p-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <span className="font-bold text-slate-600 dark:text-slate-400">3. Multi-Node Boundary Invariant:</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">head.prev == null && tail.next == null</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold break-words">head.prev == null && tail.next == null</span>
             </div>
           </div>
         </div>

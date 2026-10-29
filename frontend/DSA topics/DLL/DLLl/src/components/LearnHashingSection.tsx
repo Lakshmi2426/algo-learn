@@ -488,30 +488,30 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
       {/* =========================================================================
           TOP PROGRESS BAR & HEADER
           ========================================================================= */}
-      <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-slate-800 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shadow-2xs shrink-0">
-            <BookOpen className="w-6 h-6" />
+      <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-slate-800 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shadow-2xs shrink-0">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
+          <div className="min-w-0">
             <span className="text-xs font-bold text-[#2563EB] dark:text-blue-400 uppercase tracking-widest font-mono block">
               Curriculum // 12 Chapters
             </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight break-words">
               Doubly Linked List Masterclass
             </h1>
           </div>
         </div>
 
         {/* Progress Pill */}
-        <div className="flex items-center gap-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl">
-          <div className="flex flex-col text-right">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Theory Progress</span>
-            <span className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+        <div className="flex items-center justify-between sm:justify-start gap-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-slate-800 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl shrink-0">
+          <div className="flex flex-col text-left sm:text-right">
+            <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">Theory Progress</span>
+            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-mono">
               {totalCompletedCount} / 12 ({Math.round((totalCompletedCount / 12) * 100)}%)
             </span>
           </div>
-          <div className="w-16 h-2.5 bg-slate-200 dark:bg-blue-950/80 rounded-full overflow-hidden">
+          <div className="w-16 h-2.5 bg-slate-200 dark:bg-blue-950/80 rounded-full overflow-hidden shrink-0">
             <div
               className="h-full bg-primary-gradient rounded-full transition-all duration-300 shadow-xs shadow-primary-gradient"
               style={{ width: `${(totalCompletedCount / 12) * 100}%` }}
@@ -525,11 +525,11 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
              Left Sidebar: Chapter Directory (12 Chapters)
              Right Main: Active Chapter Content
           ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
         {/* =========================================================================
             LEFT COLUMN: CHAPTER DIRECTORY (12 CHAPTERS)
             ========================================================================= */}
-        <aside className="lg:col-span-4 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden">
+        <aside className="lg:col-span-4 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] overflow-hidden w-full min-w-0">
           {/* Directory Header */}
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#0B1120] flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider font-mono">
@@ -606,7 +606,7 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
             ========================================================================= */}
         <main
           key={activeChapter.id}
-          className="lg:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] space-y-6 animate-chapter-switch"
+          className="lg:col-span-8 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xs dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] space-y-6 animate-chapter-switch w-full min-w-0"
         >
           {/* Chapter Metadata Header Tag & Read Time */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -629,7 +629,7 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
 
           {/* Chapter Big Heading */}
           <div className="mb-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight break-words">
               {parseInt(activeChapter.number, 10)}. {activeChapter.title}
             </h2>
           </div>
@@ -881,12 +881,12 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
           )}
 
           {/* 6. BOTTOM ACTIONS & COMPLETION CHECKMARK */}
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 id="btn-mark-chapter-read"
                 onClick={handleMarkAsRead}
-                className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
+                className={`w-full sm:w-auto justify-center px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
                   isCurrentChapterCompleted
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
                     : 'bg-primary-gradient hover:brightness-110 text-white shadow-xs shadow-primary-gradient'
@@ -898,12 +898,12 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
             </div>
 
             {/* Previous & Next Chapter Navigation Links */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
               {prevChapter && (
                 <button
                   id="btn-prev-chapter"
                   onClick={() => handleSelectChapter(prevChapter.id)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-blue-950/40 hover:bg-slate-200 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 sm:flex-none justify-center px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-blue-950/40 hover:bg-slate-200 dark:hover:bg-blue-900/50 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Previous</span>
@@ -913,10 +913,10 @@ export const LearnHashingSection: React.FC<LearnHashingSectionProps> = ({
                 <button
                   id="btn-next-chapter"
                   onClick={() => handleSelectChapter(nextChapter.id)}
-                  className="px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-[#2563EB] dark:text-blue-300 border border-blue-200 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 sm:flex-none justify-center px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-[#2563EB] dark:text-blue-300 border border-blue-200 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <span>Next: {nextChapter.shortTitle}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span className="truncate">Next: {nextChapter.shortTitle}</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </button>
               )}
             </div>

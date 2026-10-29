@@ -44,17 +44,17 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* =========================================================================
           SECTION 01: HERO SECTION & DOUBLY LINKED LIST DIAGRAM BESIDE TITLE
           ========================================================================= */}
-      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-6 sm:p-8 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] transition-all">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-4 sm:p-6 lg:p-8 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] transition-all min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-8 items-center">
           {/* Left Column: Title & Curriculum Description */}
-          <div className="lg:col-span-5 flex flex-col gap-2.5">
+          <div className="lg:col-span-5 flex flex-col gap-2.5 min-w-0">
             <div className="flex items-center">
-              <span className="text-[11px] sm:text-xs font-mono font-bold tracking-wider text-[#2563EB] dark:text-blue-400 uppercase">
+              <span className="text-[11px] sm:text-xs font-mono font-bold tracking-wider text-[#2563EB] dark:text-blue-400 uppercase break-words">
                 THEORY CURRICULUM • MODULE 01 • CHAPTER 01
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] dark:text-white tracking-tight leading-[1.18]">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#0F172A] dark:text-white tracking-tight leading-[1.18] break-words">
               Doubly Linked List &amp; Pointer Mastery
             </h1>
 
@@ -73,87 +73,89 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Right Column: DLL Diagram Beside Title with Simple Theme Color Background, Blue Only, No Outline Box, Zero Horizontal Scroll */}
-          <div className="lg:col-span-7 w-full">
-            <div className="w-full bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl p-4 sm:p-5">
+          <div className="lg:col-span-7 w-full min-w-0">
+            <div className="w-full bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl p-3 sm:p-5 overflow-hidden">
               {/* Diagram Node Chain */}
-              <div className="w-full flex items-center justify-between gap-1 sm:gap-2 pt-4 pb-2">
-                {/* Left Sentinel NULL */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <div className="px-2 py-1 bg-white dark:bg-[#111827] text-blue-600 dark:text-blue-400 rounded-lg text-[10px] sm:text-xs font-mono font-extrabold shadow-2xs border border-blue-100 dark:border-blue-900/40">
-                    NULL
+              <div className="w-full overflow-x-auto overflow-y-visible no-scrollbar pb-2 pt-4 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="min-w-[340px] flex items-center justify-between gap-1 sm:gap-2">
+                  {/* Left Sentinel NULL */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <div className="px-2 py-1 bg-white dark:bg-[#111827] text-blue-600 dark:text-blue-400 rounded-lg text-[10px] sm:text-xs font-mono font-extrabold shadow-2xs border border-blue-100 dark:border-blue-900/40">
+                      NULL
+                    </div>
+                    <span className="text-xs font-mono font-bold text-blue-400 dark:text-blue-500">←</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-blue-400 dark:text-blue-500">←</span>
-                </div>
 
-                {/* Node 1 (Head: 0x100) */}
-                <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
-                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none">
-                    <span className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow-xs">
-                      HEAD
-                    </span>
+                  {/* Node 1 (Head: 0x100) */}
+                  <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none">
+                      <span className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow-xs">
+                        HEAD
+                      </span>
+                    </div>
+                    <div className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
+                      0x100
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
+                      <div className="p-1 text-slate-400">∅</div>
+                      <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">10</div>
+                      <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x240</div>
+                    </div>
                   </div>
-                  <div className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
-                    0x100
-                  </div>
-                  <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
-                    <div className="p-1 text-slate-400">∅</div>
-                    <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">10</div>
-                    <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x240</div>
-                  </div>
-                </div>
 
-                {/* Bi-directional arrows */}
-                <div className="flex flex-col items-center justify-center font-mono font-bold text-[10px] text-[#2563EB] dark:text-blue-400 shrink-0 select-none">
-                  <span>─►</span>
-                  <span className="mt-0.5">◄─</span>
-                </div>
+                  {/* Bi-directional arrows */}
+                  <div className="flex flex-col items-center justify-center font-mono font-bold text-[10px] text-[#2563EB] dark:text-blue-400 shrink-0 select-none">
+                    <span>─►</span>
+                    <span className="mt-0.5">◄─</span>
+                  </div>
 
-                {/* Node 2 (0x240) */}
-                <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
-                  <div className="bg-blue-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
-                    0x240
+                  {/* Node 2 (0x240) */}
+                  <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
+                    <div className="bg-blue-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
+                      0x240
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
+                      <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x100</div>
+                      <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">25</div>
+                      <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x380</div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
-                    <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x100</div>
-                    <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">25</div>
-                    <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x380</div>
-                  </div>
-                </div>
 
-                {/* Bi-directional arrows */}
-                <div className="flex flex-col items-center justify-center font-mono font-bold text-[10px] text-[#2563EB] dark:text-blue-400 shrink-0 select-none">
-                  <span>─►</span>
-                  <span className="mt-0.5">◄─</span>
-                </div>
+                  {/* Bi-directional arrows */}
+                  <div className="flex flex-col items-center justify-center font-mono font-bold text-[10px] text-[#2563EB] dark:text-blue-400 shrink-0 select-none">
+                    <span>─►</span>
+                    <span className="mt-0.5">◄─</span>
+                  </div>
 
-                {/* Node 3 (Tail: 0x380) */}
-                <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
-                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none">
-                    <span className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow-xs">
-                      TAIL
-                    </span>
+                  {/* Node 3 (Tail: 0x380) */}
+                  <div className="relative flex-1 min-w-[68px] max-w-[125px] bg-white dark:bg-[#111827] rounded-xl shadow-sm border border-blue-200/80 dark:border-blue-800/60">
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none">
+                      <span className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow-xs">
+                        TAIL
+                      </span>
+                    </div>
+                    <div className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
+                      0x380
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
+                      <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x240</div>
+                      <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">42</div>
+                      <div className="p-1 text-slate-400">∅</div>
+                    </div>
                   </div>
-                  <div className="bg-[#2563EB] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 text-center rounded-t-[11px]">
-                    0x380
-                  </div>
-                  <div className="grid grid-cols-3 divide-x divide-blue-50 dark:divide-slate-800 text-center font-mono text-[9px]">
-                    <div className="p-1 text-[#2563EB] dark:text-blue-400 font-bold">0x240</div>
-                    <div className="p-1 font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm">42</div>
-                    <div className="p-1 text-slate-400">∅</div>
-                  </div>
-                </div>
 
-                {/* Right Sentinel NULL */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-mono font-bold text-blue-400 dark:text-blue-500">→</span>
-                  <div className="px-2 py-1 bg-white dark:bg-[#111827] text-blue-600 dark:text-blue-400 rounded-lg text-[10px] sm:text-xs font-mono font-extrabold shadow-2xs border border-blue-100 dark:border-blue-900/40">
-                    NULL
+                  {/* Right Sentinel NULL */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-xs font-mono font-bold text-blue-400 dark:text-blue-500">→</span>
+                    <div className="px-2 py-1 bg-white dark:bg-[#111827] text-blue-600 dark:text-blue-400 rounded-lg text-[10px] sm:text-xs font-mono font-extrabold shadow-2xs border border-blue-100 dark:border-blue-900/40">
+                      NULL
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Invariant Note (Strictly Blue Theme) */}
-              <div className="text-center text-[11px] font-mono text-blue-700 dark:text-blue-300 pt-2 font-semibold">
+              <div className="text-center text-[10px] sm:text-[11px] font-mono text-blue-700 dark:text-blue-300 pt-2 font-semibold break-words">
                 Bi-directional Invariant: head.prev = NULL ⇄ tail.next = NULL
               </div>
             </div>
@@ -163,13 +165,13 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* =========================================================================
             SECTION 02: THREE CONCEPT CARDS
             ========================================================================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-slate-100 dark:border-slate-800">
           {/* Card 1: Core Idea */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0">
               <Target className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-[#0F172A] dark:text-white">Core Idea</h2>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                 Nodes hold 2 pointers: prev to predecessor and next to successor.
@@ -178,11 +180,11 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Card 2: Key Formula */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0 font-serif font-bold text-xl">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0 font-serif font-bold text-xl">
               <span>⇄</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-[#0F172A] dark:text-white">Boundary Invariant</h2>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                 <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">head.prev = null</span> <br />
@@ -192,11 +194,11 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Card 3: Main Challenge */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4.5 flex items-start gap-3.5 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500/40 transition-all">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-300 shrink-0">
               <LinkIcon className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-[#0F172A] dark:text-white">Main Challenge</h2>
               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                 Rewire 4 pointers seamlessly without losing references or leaking memory.
@@ -209,7 +211,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* =========================================================================
           SECTION 03: 1. THE MAIN IDEA
           ========================================================================= */}
-      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-6 sm:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-4 sm:p-6 lg:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] min-w-0">
         {/* Section Header */}
         <div className="flex items-center gap-2.5 mb-6">
           <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-400">
@@ -220,9 +222,9 @@ export const HomePage: React.FC<HomePageProps> = ({
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-8 items-center">
           {/* Left Column: Question & Explanation */}
-          <div className="lg:col-span-4 flex flex-col gap-2">
+          <div className="lg:col-span-4 flex flex-col gap-2 min-w-0">
             <h3 className="text-base sm:text-lg font-bold text-[#2563EB] dark:text-blue-300 leading-snug">
               Why navigate in two directions?
             </h3>
@@ -232,7 +234,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Right Column: Horizontal Flow (Data -> Prev* -> Next* -> Node Linked) */}
-          <div className="lg:col-span-8 bg-[#F8FAFC] dark:bg-[#0B1120] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6">
+          <div className="lg:col-span-8 bg-[#F8FAFC] dark:bg-[#0B1120] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-6 min-w-0">
             <div className="grid grid-cols-2 gap-x-4 gap-y-6 items-start sm:flex sm:flex-nowrap sm:items-center sm:justify-between sm:gap-2">
               {/* Step 1: Payload Data */}
               <div className="flex flex-col items-center text-center w-full sm:w-auto sm:flex-1 sm:min-w-[85px]">
@@ -290,9 +292,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* =========================================================================
           SECTION 04: 2. CONCEPT ROADMAP
           ========================================================================= */}
-      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-6 sm:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-4 sm:p-6 lg:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] min-w-0">
         {/* Section Header */}
-        <div className="flex items-center gap-2.5 mb-8">
+        <div className="flex items-center gap-2.5 mb-6 sm:mb-8">
           <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-400">
             <BookOpen className="w-4 h-4" />
           </div>
@@ -420,7 +422,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* =========================================================================
           SECTION 05: 3. WHY THIS TOPIC MATTERS
           ========================================================================= */}
-      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-6 sm:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+      <section className="reveal-on-scroll bg-white dark:bg-[#111827] p-4 sm:p-6 lg:p-9 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] min-w-0">
         {/* Section Header */}
         <div className="flex items-center gap-2.5 mb-6">
           <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] dark:text-blue-400">
@@ -432,9 +434,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
 
         {/* 3 Value Cards Matching Exact References */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
           {/* Card 1: Fast O(1) End Operations */}
-          <div className="bg-blue-50/30 dark:bg-[#0B1120] border border-blue-100 dark:border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs">
+          <div className="bg-blue-50/30 dark:bg-[#0B1120] border border-blue-100 dark:border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs min-w-0">
             <div className="w-11 h-11 rounded-full bg-primary-gradient text-white flex items-center justify-center shadow-xs">
               <Zap className="w-5 h-5 fill-white text-white" />
             </div>
@@ -447,7 +449,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Card 2: Bi-directional Flexibility */}
-          <div className="bg-[#F0FDF4] dark:bg-[#0B1120] border border-[#DCFCE7] dark:border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs">
+          <div className="bg-[#F0FDF4] dark:bg-[#0B1120] border border-[#DCFCE7] dark:border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs min-w-0">
             <div className="w-11 h-11 rounded-full bg-primary-gradient text-white flex items-center justify-center shadow-xs">
               <Folder className="w-5 h-5 fill-white text-white" />
             </div>
@@ -460,7 +462,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Card 3: Real-World Use */}
-          <div className="bg-blue-50/40 dark:bg-[#0B1120] border border-blue-100 dark:border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs">
+          <div className="bg-blue-50/40 dark:bg-[#0B1120] border border-blue-100 dark:border-slate-800 rounded-2xl p-4 sm:p-6 flex flex-col justify-between gap-4 shadow-2xs min-w-0">
             <div className="w-11 h-11 rounded-full bg-primary-gradient text-white flex items-center justify-center shadow-xs">
               <Globe className="w-5 h-5 text-white" />
             </div>
@@ -477,12 +479,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* =========================================================================
           SECTION 06: 4. READY TO START?
           ========================================================================= */}
-      <section className="reveal-on-scroll bg-gradient-to-r from-blue-50/70 via-slate-50 to-blue-50/40 dark:from-[#111827] dark:via-[#17223A] dark:to-[#111827] border border-blue-100 dark:border-slate-800 p-6 sm:p-8 rounded-2xl shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+      <section className="reveal-on-scroll bg-gradient-to-r from-blue-50/70 via-slate-50 to-blue-50/40 dark:from-[#111827] dark:via-[#17223A] dark:to-[#111827] border border-blue-100 dark:border-slate-800 p-4 sm:p-6 lg:p-8 rounded-2xl shadow-xs dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] min-w-0">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5 sm:gap-6">
           {/* Left Side: Educational Visual & Supporting Text */}
-          <div className="flex items-center gap-5 sm:gap-6">
+          <div className="flex flex-col xs:flex-row items-start xs:items-center gap-4 sm:gap-6 min-w-0">
             {/* 3D Launch Rocket Image (Picture 1) */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl overflow-hidden border border-blue-200/80 dark:border-blue-800/50 shadow-md shadow-blue-950/20 flex items-center justify-center group bg-[#0B1120]">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 shrink-0 rounded-2xl overflow-hidden border border-blue-200/80 dark:border-blue-800/50 shadow-md shadow-blue-950/20 flex items-center justify-center group bg-[#0B1120]">
               <img
                 src="/rocket-launch.svg"
                 alt="Rocket Launch"
@@ -492,8 +494,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
 
             {/* Title & Description */}
-            <div className="flex flex-col gap-1">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F172A] dark:text-white">
+            <div className="flex flex-col gap-1 min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-[#0F172A] dark:text-white break-words">
                 4. Ready to Start?
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-lg leading-relaxed">
@@ -507,7 +509,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <button
               id="btn-home-start-learning"
               onClick={handleStartLearning}
-              className="w-full sm:w-auto px-6 py-3.5 bg-primary-gradient text-white font-bold text-sm sm:text-base rounded-xl shadow-md shadow-primary-gradient transition-all flex items-center justify-center gap-2 cursor-pointer group hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full sm:w-auto px-5 sm:px-6 py-3 sm:py-3.5 bg-primary-gradient text-white font-bold text-sm sm:text-base rounded-xl shadow-md shadow-primary-gradient transition-all flex items-center justify-center gap-2 cursor-pointer group hover:scale-[1.02] active:scale-[0.98]"
             >
               <span>Start Learning</span>
               <ArrowRight className="w-5 h-5 text-white transition-transform group-hover:translate-x-1" />
