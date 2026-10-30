@@ -641,7 +641,11 @@ router.get('/me', async (req, res) => {
 
     const student = await Student.findById(decoded.id).select('-password');
     if (!student) {
-      return res.status(404).json({ error: 'Student account not found.' });
+      return res.status(401).json({
+        error: 'Student account not found or has been deleted.',
+        sessionRevoked: true,
+        authenticated: false,
+      });
     }
 
     if (!decoded.sessionId || decoded.sessionId !== student.activeSessionId) {

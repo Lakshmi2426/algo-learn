@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
+const Question = require('../models/Question');
+const { verifyAuth } = require('../middleware/auth');
 
 const TOPIC_IDS = [
   'stack', 'hashing', 'linear-search', 'binary-search', 'sorting', 'sll', 'dll',
@@ -176,5 +179,89 @@ const handleProgressUpdate = async (req, res) => {
 
 router.put('/:regdNo/progress', handleProgressUpdate);
 router.post('/:regdNo/progress', handleProgressUpdate);
+
+// -------------------------------------------------------------
+// DELETE /api/students/:id - Permanently delete student and all associated records
+// Protected: Administrator access only
+// -------------------------------------------------------------
+router.delete('/:id', verifyAuth, async (req, res) => {
+  try {
+    // 1. Strict Server-Side Admin Authorization Check
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Access denied: Administrator privileges required to delete student accounts.',
+      });
+    }
+
+    const targetId = (req.params.id || '').trim();
+    if (!targetId) {
+      return res.status(400).json({ error: 'Student identifier is required.' });
+    }
+
+    // 2. Prevent accidental deletion of the currently authenticated administrator
+    if (req.user.id && req.user.id === targetId) {
+      return res.status(400).json({
+        error: 'Action prohibited: Cannot delete the currently authenticated administrator account.',
+      });
+    }
+
+    // 3. Locate target student by MongoDB ObjectId or Registration Number
+    let targetStudent = null;
+    if (mongoose.Types.ObjectId.isValid(targetId)) {
+      targetStudent = await Student.findById(targetId);
+    }
+    if (!targetStudent) {
+      const cleanRegdNo = targetId.toUpperCase();
+      targetStudent = await Student.findOne({
+        $or: [
+          { regdNo: cleanRegdNo },
+          { regdNo: new RegExp('^' + cleanRegdNo + '$', 'i') },
+        ],
+      });
+    }
+
+    if (!targetStudent) {
+      return res.status(404).json({ error: 'Student account not found in database.' });
+    }
+
+    // 4. Prevent accidental deletion of any administrator accounts
+    if (targetStudent.role === 'admin') {
+      return res.status(400).json({
+        error: 'Action prohibited: Administrator accounts cannot be deleted through student management.',
+      });
+    }
+
+    const studentIdStr = targetStudent._id.toString();
+    const studentRegdNo = targetStudent.regdNo;
+    const studentName = targetStudent.name;
+
+    // 5. Cascade delete all related records in Question collection
+    await Question.deleteMany({
+      $or: [
+        { studentId: studentIdStr },
+        { studentId: studentRegdNo },
+      ],
+    });
+
+    // 6. Permanently delete the Student account document from MongoDB
+    await Student.findByIdAndDelete(targetStudent._id);
+
+    return res.json({
+      success: true,
+      message: `Student ${studentName} (${studentRegdNo}) and all associated records have been permanently deleted.`,
+      deletedStudent: {
+        id: studentIdStr,
+        regdNo: studentRegdNo,
+        name: studentName,
+      },
+    });
+  } catch (error) {
+    console.error('Error permanently deleting student account:', error);
+    return res.status(500).json({
+      error: 'Failed to permanently delete student and associated records from database.',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+    });
+  }
+});
 
 module.exports = router;

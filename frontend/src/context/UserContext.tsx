@@ -46,6 +46,7 @@ interface UserContextType {
   authModalMode: 'login' | 'signup' | 'admin';
   setAuthModalMode: (mode: 'login' | 'signup' | 'admin') => void;
   triggerConfetti: () => void;
+  deleteStudent: (studentId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const initialBadges: AchievementBadge[] = [
@@ -352,8 +353,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then(async (res) => {
           if (!res.ok) {
             const data = await res.json().catch(() => null);
-            // Only logout if the backend authentication provider explicitly reports session revocation or expiration
-            if (res.status === 401 && (data?.sessionRevoked === true || data?.expired === true)) {
+            // Only logout if the backend authentication provider explicitly reports session revocation or expiration, or account was deleted
+            if (
+              (res.status === 401 && (data?.sessionRevoked === true || data?.expired === true)) ||
+              res.status === 404 ||
+              data?.authenticated === false
+            ) {
               logout({ skipServerCall: true, redirectToSignIn: true });
             }
             return null;
@@ -1217,6 +1222,76 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteStudent = async (studentId: string): Promise<{ success: boolean; message?: string }> => {
+    if (!studentId || !studentId.trim()) {
+      return { success: false, message: 'Student ID is required.' };
+    }
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('algolearn_token') : null;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(apiUrl(`/api/students/${encodeURIComponent(studentId.trim())}`), {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        return {
+          success: false,
+          message: data?.error || 'Failed to permanently delete student account.',
+        };
+      }
+
+      const deletedRegd = data.deletedStudent?.regdNo?.toUpperCase();
+      const deletedId = data.deletedStudent?.id || studentId;
+
+      // Immediately filter student out of registeredStudents list
+      setRegisteredStudents((prev) => {
+        const next = prev.filter(
+          (s) => s.id !== deletedId && (!deletedRegd || s.regdNo?.toUpperCase() !== deletedRegd)
+        );
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('algolearn_registered_students', JSON.stringify(next));
+          } catch { }
+        }
+        return next;
+      });
+
+      // Clear any cached localStorage keys for that student
+      if (typeof window !== 'undefined' && deletedRegd) {
+        const sKey = deletedRegd.toLowerCase();
+        try {
+          localStorage.removeItem(`algolearn_student_progress_${sKey}`);
+          CANONICAL_MODULE_IDS.forEach((modId) => {
+            localStorage.removeItem(`algolearn_topic_progress_${sKey}_${modId}`);
+            localStorage.removeItem(`algolearn_topic_completion_${sKey}_${modId}`);
+          });
+        } catch { }
+      }
+
+      return {
+        success: true,
+        message: data.message || 'Student account and all associated records permanently deleted.',
+      };
+    } catch (err: any) {
+      console.error('deleteStudent error:', err);
+      return {
+        success: false,
+        message: 'Network error connecting to student management service.',
+      };
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -1239,6 +1314,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authModalMode,
         setAuthModalMode,
         triggerConfetti,
+        deleteStudent,
       }}
     >
       {children}

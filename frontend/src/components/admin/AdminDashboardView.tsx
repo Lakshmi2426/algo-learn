@@ -25,6 +25,9 @@ import {
   LogOut,
   User as UserIcon,
   MessageSquare,
+  Trash2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { useUser, isRealStudent } from '../../context/UserContext';
 import { useTeachers } from '../../context/TeachersContext';
@@ -49,7 +52,7 @@ interface AdminDashboardViewProps {
 }
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiveTab }) => {
-  const { studentsList, user, role, isAuthenticated, setShowAuthModal, setAuthModalMode } = useUser();
+  const { studentsList, user, role, isAuthenticated, setShowAuthModal, setAuthModalMode, deleteStudent } = useUser();
   const { teachers } = useTeachers();
   const { questions } = useQuestions();
   const [adminSection, setAdminSection] = useState<'curriculum' | 'questions' | 'teachers'>('curriculum');
@@ -61,7 +64,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUser[]>([]);
 
-  React.useEffect(() => {
+  // Permanent Delete Modal States
+  const [studentToDelete, setStudentToDelete] = useState<LeaderboardUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fetchLeaderboard = React.useCallback(() => {
     fetch(apiUrl('/api/leaderboard'))
       .then((res) => {
         if (!res.ok) throw new Error('API not available');
@@ -74,6 +83,67 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
       })
       .catch(() => {});
   }, []);
+
+  React.useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  const handleConfirmDelete = async () => {
+    if (!studentToDelete || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const targetIdentifier = studentToDelete.id || studentToDelete.regdNo;
+      const result = await deleteStudent(targetIdentifier);
+
+      if (!result.success) {
+        setDeleteError(result.message || 'Failed to permanently delete student.');
+        setIsDeleting(false);
+        return;
+      }
+
+      const deletedName = studentToDelete.name;
+      const deletedRegd = studentToDelete.regdNo;
+      const deletedId = studentToDelete.id;
+
+      // Immediately purge from local leaderboard state
+      setLeaderboardUsers((prev) =>
+        prev.filter(
+          (u) =>
+            u.id !== deletedId &&
+            (!deletedRegd || (u.regdNo && u.regdNo.toUpperCase() !== deletedRegd.toUpperCase()))
+        )
+      );
+
+      // Close student drawer if currently viewing this student
+      if (
+        selectedStudent &&
+        (selectedStudent.id === deletedId || selectedStudent.regdNo === deletedRegd)
+      ) {
+        setSelectedStudent(null);
+      }
+
+      // Close modal & reset deleting state
+      setStudentToDelete(null);
+      setIsDeleting(false);
+
+      // Display success banner
+      setActionNotice({
+        type: 'success',
+        text: result.message || `Student ${deletedName} (${deletedRegd}) and all associated records have been permanently deleted.`,
+      });
+      setTimeout(() => {
+        setActionNotice(null);
+      }, 6000);
+
+      // Refresh server leaderboard to ensure accurate live sync
+      fetchLeaderboard();
+    } catch (err: any) {
+      setDeleteError(err?.message || 'An unexpected error occurred during deletion.');
+      setIsDeleting(false);
+    }
+  };
 
   const authoritativeLeaderboard = useMemo(() => {
     return buildAuthoritativeLeaderboard({
@@ -358,6 +428,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
           </div>
         </div>
 
+        {/* SUCCESS / ERROR ACTION BANNER */}
+        {actionNotice && (
+          <div
+            className={`p-4 rounded-2xl flex items-center justify-between text-xs sm:text-sm font-semibold transition-all ${
+              actionNotice.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-900/60 shadow-sm'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200/90 dark:border-rose-900/60 shadow-sm'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{actionNotice.text}</span>
+            </div>
+            <button
+              onClick={() => setActionNotice(null)}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+              aria-label="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* STUDENT PROGRESS TABLE */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-blue-200/85 dark:border-slate-800 shadow-[0_8px_30px_-4px_rgba(37,99,235,0.08)] dark:shadow-none overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -406,12 +499,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
+                  <th className="py-4 px-6 text-center font-bold">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
                 {filteredStudents.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
+                    <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 font-mono text-xs">
                       No students on the leaderboard yet.
                     </td>
                   </tr>
@@ -491,6 +585,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                           />
                         </div>
                       </div>
+                    </td>
+
+                    {/* ACTIONS: Delete Button */}
+                    <td className="py-4 px-6 text-center whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStudentToDelete(std);
+                          setDeleteError(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200/80 dark:border-rose-900/50 transition-all shadow-2xs hover:shadow active:scale-95 cursor-pointer"
+                        title={`Permanently delete ${std.name}`}
+                        aria-label={`Delete student ${std.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Delete</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -640,12 +752,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
 
                 {/* Modal Footer */}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-                  {exportNotice && (
-                    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                      {exportNotice}
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentToDelete(selectedStudent);
+                      setDeleteError(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 text-xs font-bold transition-all shadow-2xs hover:shadow active:scale-95 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Student</span>
+                  </button>
+
                   <div className="flex items-center gap-2 ml-auto">
+                    {exportNotice && (
+                      <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold mr-2">
+                        {exportNotice}
+                      </span>
+                    )}
                     <button
                       onClick={() => setSelectedStudent(null)}
                       className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
@@ -662,6 +786,138 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ setActiv
                       Export Progress Report
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* PERMANENT DELETE CONFIRMATION DIALOG MODAL */}
+        <AnimatePresence>
+          {studentToDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/75 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-rose-200/80 dark:border-rose-900/60 shadow-2xl p-6 sm:p-7 space-y-5 text-left"
+                role="dialog"
+                aria-labelledby="delete-dialog-title"
+                aria-modal="true"
+              >
+                {/* Modal Header */}
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200/80 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 id="delete-dialog-title" className="text-lg font-bold text-slate-900 dark:text-white">
+                      Permanently Delete Student?
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                      Warning: This action is permanent and cannot be undone.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      if (!isDeleting) {
+                        setStudentToDelete(null);
+                        setDeleteError(null);
+                      }
+                    }}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                    aria-label="Close dialog"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Selected Student Details Card */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Student Name</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[200px]">
+                      {studentToDelete.name}
+                    </span>
+                  </div>
+                  {studentToDelete.regdNo && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Registration No.</span>
+                      <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                        {studentToDelete.regdNo}
+                      </span>
+                    </div>
+                  )}
+                  {studentToDelete.branch && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Branch</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {studentToDelete.branch}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Leaderboard Points</span>
+                    <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      {(studentToDelete.xp || 0).toLocaleString()} XP
+                    </span>
+                  </div>
+                </div>
+
+                {/* Warning Card */}
+                <div className="p-3.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 text-xs text-rose-800 dark:text-rose-300 space-y-1.5">
+                  <div className="font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
+                    <span>The following will be permanently removed from the database:</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-700/90 dark:text-rose-300/90 pl-1">
+                    <li>Authentication account & login credentials (cannot log in)</li>
+                    <li>Student profile, registration details, and rank</li>
+                    <li>Total XP and topic-wise scores across all 18 modules</li>
+                    <li>Module learning progress, quiz answers, and activity records</li>
+                    <li>All submitted questions and teacher message threads</li>
+                  </ul>
+                </div>
+
+                {/* Error Banner */}
+                {deleteError && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 text-xs text-red-600 dark:text-red-400 font-medium">
+                    {deleteError}
+                  </div>
+                )}
+
+                {/* Dialog Actions */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setStudentToDelete(null);
+                      setDeleteError(null);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={handleConfirmDelete}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                        <span>Deleting Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4 shrink-0" />
+                        <span>Confirm Delete</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </motion.div>
             </div>
